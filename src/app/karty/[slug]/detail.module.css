@@ -18,7 +18,6 @@
 
 /* Se skutečným obrázkem bez barevného rámečku: celá karta, nic se neořezává (viz CardTile v design systému). */
 .artPhoto { padding: 0; align-items: center; justify-content: center; }
-.artPhoto img { border-radius: var(--radius-lg); }
 
 .info { display: flex; flex-direction: column; gap: var(--space-3); }
 
