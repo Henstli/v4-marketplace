@@ -4,7 +4,7 @@ import styles from './catalog.module.css';
 // Ukáže se hned po kliknutí na filtr nebo stránku katalogu, než server pošle výsledky.
 export default function CatalogLoading() {
   return (
-    <div className={`container ${styles.layout}`} role="status" aria-label="Načítání">
+    <div className={`container ${styles.layout} tz-loading`} role="status" aria-label="Načítání">
       <aside className={styles.filters} aria-hidden="true">
         <Skeleton height={44} radius="var(--radius-md)" />
         {[0, 1, 2, 3].map((i) => (

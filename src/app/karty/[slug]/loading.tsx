@@ -4,7 +4,7 @@ import styles from './detail.module.css';
 // Detail karty během načítání: stejné rozvržení jako stránka, ať se po načtení nic neposune.
 export default function CardDetailLoading() {
   return (
-    <div className="container" role="status" aria-label="Načítání">
+    <div className="container tz-loading" role="status" aria-label="Načítání">
       <div className={styles.crumbs}>
         <Skeleton width={220} height={14} />
       </div>

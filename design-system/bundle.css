@@ -44,3 +44,5 @@
 .tz-tile-skel .tz-tile-art{padding:0}
 @keyframes tz-skel-pulse{0%,100%{opacity:1}50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.tz-skel{animation:none}}
+.tz-loading{animation:tz-loading-in .15s ease-out .4s both}
+@keyframes tz-loading-in{from{opacity:0}to{opacity:1}}
