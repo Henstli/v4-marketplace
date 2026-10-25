@@ -37,7 +37,10 @@ export function SignupForm({ next }: { next: string }) {
       <PasswordField autoComplete="new-password" hint="Aspoň 8 znaků. Nejbezpečnější je delší fráze nebo heslo ze správce hesel." />
       <label className="t-small" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
         <input type="checkbox" name="terms" required />
-        <span>Souhlasím s obchodními podmínkami a se zpracováním osobních údajů.</span>
+        <span>
+          Souhlasím s obchodními podmínkami a beru na vědomí{' '}
+          <Link href="/ochrana-osobnich-udaju" target="_blank">zásady ochrany osobních údajů</Link>.
+        </span>
       </label>
       {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
       <Button type="submit" size="lg" disabled={pending}>{pending ? 'Zakládám účet…' : 'Vytvořit účet'}</Button>
