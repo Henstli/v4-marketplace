@@ -41,8 +41,15 @@ Správci jsou v tabulce `admins`. Skrytá karta (`cards.hidden`) se nikde nezobr
 
 Vyhledávání a filtry katalogu běží v SQL funkci `search_cards` (fulltext s předponami, bez diakritiky).
 
-Aby fungoval přihlašovací odkaz, musí být adresa webu v Supabase v Authentication > URL Configuration
-(Site URL a Redirect URLs, např. `http://localhost:3000/**`).
+Účty: registrace e-mailem a heslem s ověřením e-mailu (`/registrace`), přihlášení (`/prihlaseni`),
+obnova hesla (`/zapomenute-heslo` → `/nove-heslo`), přihlášení přes Google a dvoufázové ověření
+ověřovací aplikací (zapíná se v `/ucet`, druhý krok je `/prihlaseni/overeni`). Kdo má dvoufázové
+ověření zapnuté a zadal jen heslo, toho proxy pošle na druhý krok a databáze mu nedovolí nic měnit
+(`public.mfa_ok()`).
+
+Aby fungovaly odkazy z e-mailů a návrat z Googlu, musí být adresa webu v Supabase v Authentication > URL Configuration
+(Site URL a Redirect URLs, např. `http://localhost:3000/**`). Tlačítko Google se ukáže samo,
+jakmile je Google zapnutý v Authentication > Sign In / Providers.
 
 ## Co je hotové
 
