@@ -2,10 +2,13 @@ import Link from 'next/link';
 import { SearchField, ButtonLink } from '@/components/trezor';
 import { GAMES } from '@/lib/games';
 import { CartLink } from '@/components/cart/CartLink';
+import { getCurrentUser } from '@/lib/auth';
+import { signOut } from '@/app/prihlaseni/actions';
 import { Logo } from './Logo';
 import styles from './site.module.css';
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const user = await getCurrentUser();
   return (
     <header className={styles.header}>
       <div className={`container ${styles.headerRow}`}>
@@ -16,7 +19,13 @@ export function SiteHeader() {
         <nav className={styles.actions} aria-label="Účet">
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
           <CartLink />
-          <ButtonLink href="/prihlaseni">Přihlásit</ButtonLink>
+          {user ? (
+            <form action={signOut}>
+              <button type="submit" className="tz-btn tz-btn-ghost tz-btn-md" title={user.email}>Odhlásit</button>
+            </form>
+          ) : (
+            <ButtonLink href="/prihlaseni">Přihlásit</ButtonLink>
+          )}
         </nav>
       </div>
       <nav className={`container ${styles.games}`} aria-label="Kategorie">
