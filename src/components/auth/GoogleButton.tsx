@@ -17,7 +17,8 @@ export function GoogleButton({ next, label = 'Pokračovat přes Google' }: { nex
       </form>
       {/* U Googlu se účet založí rovnou, souhlas proto uvádíme tady (u e-mailu je to zaškrtávací políčko). */}
       <p className="t-small muted">
-        Pokračováním přes Google souhlasíte s obchodními podmínkami a berete na vědomí{' '}
+        Pokračováním přes Google souhlasíte s{' '}
+        <Link href="/obchodni-podminky" target="_blank">obchodními podmínkami</Link> a berete na vědomí{' '}
         <Link href="/ochrana-osobnich-udaju" target="_blank">zásady ochrany osobních údajů</Link>.
       </p>
       <div className={`t-small ${styles.divider}`}>nebo e-mailem</div>

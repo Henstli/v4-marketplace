@@ -39,7 +39,8 @@ export function SignupForm({ next }: { next: string }) {
       <label className="t-small" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
         <input type="checkbox" name="terms" required />
         <span>
-          Souhlasím s obchodními podmínkami a beru na vědomí{' '}
+          Souhlasím s{' '}
+          <Link href="/obchodni-podminky" target="_blank">obchodními podmínkami</Link> a beru na vědomí{' '}
           <Link href="/ochrana-osobnich-udaju" target="_blank">zásady ochrany osobních údajů</Link>.
         </span>
       </label>

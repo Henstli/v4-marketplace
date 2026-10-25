@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { OperatorDetails } from '@/components/site/OperatorDetails';
 
 export const metadata: Metadata = { title: 'Ochrana osobních údajů' };
 
@@ -12,8 +14,7 @@ export default function PrivacyPage() {
 
         <h2 className="t-heading-m">Kdo údaje zpracovává</h2>
         <p>
-          Správcem osobních údajů je provozovatel webu V4cards (identifikační údaje doplníme před ostrým spuštěním). S
-          dotazy k osobním údajům se obracejte přes stránku Účet nebo na e-mail <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a>.
+          Správcem osobních údajů je provozovatel webu V4cards: <OperatorDetails />. S dotazy k osobním údajům se obracejte přes stránku Účet nebo na e-mail <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a>.
         </p>
 
         <h2 className="t-heading-m">Jaké údaje a proč</h2>
@@ -25,7 +26,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Profil prodejce:</strong> jméno nebo název obchodu, typ prodejce a země. Zobrazují se u vašich
-            nabídek. Účel: provoz marketplace (plnění smlouvy).
+            nabídek. Účel: provoz marketplace (plnění smlouvy podle{' '}
+            <Link href="/obchodni-podminky">obchodních podmínek</Link>).
           </li>
           <li>
             <strong>Nabídky, objednávky a hodnocení:</strong> co prodáváte a kupujete, ceny a stav objednávek. Účel:
