@@ -71,13 +71,19 @@ export function MfaSettings({ enabled }: { enabled: boolean }) {
   return (
     <form action={verifyAction} className={styles.form}>
       <input type="hidden" name="factorId" value={step.enroll.factorId} />
-      <p>1. V ověřovací aplikaci přidejte účet naskenováním QR kódu.</p>
+      <p>1. Nainstalujte si do telefonu ověřovací aplikaci, pokud ji ještě nemáte. Stačí kterákoli z těchto (všechny jsou zdarma):</p>
+      <ul className="t-small" style={{ margin: 0, paddingLeft: 'var(--space-6)' }}>
+        <li>Google Authenticator (<a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noreferrer">iPhone</a>, <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noreferrer">Android</a>)</li>
+        <li>Microsoft Authenticator (<a href="https://apps.apple.com/app/microsoft-authenticator/id983156458" target="_blank" rel="noreferrer">iPhone</a>, <a href="https://play.google.com/store/apps/details?id=com.azure.authenticator" target="_blank" rel="noreferrer">Android</a>)</li>
+        <li>nebo správce hesel s kódy (1Password, Bitwarden, Hesla v iPhonu)</li>
+      </ul>
+      <p>2. V aplikaci zvolte Přidat účet a naskenujte QR kód.</p>
       <img src={step.enroll.qr} alt="QR kód pro ověřovací aplikaci" className={styles.qr} />
       <p className="t-small muted">
-        Nejde naskenovat? Zadejte do aplikace klíč ručně: <span className={styles.secret}>{step.enroll.secret}</span>
+        Zakládáte to přímo v telefonu, nebo nejde naskenovat? Zadejte v aplikaci klíč ručně: <span className={styles.secret}>{step.enroll.secret}</span>
       </p>
       <label className={styles.field}>
-        <span className="t-label muted">2. OPIŠTE KÓD Z APLIKACE</span>
+        <span className="t-label muted">3. OPIŠTE KÓD Z APLIKACE</span>
         <input
           name="code"
           required
