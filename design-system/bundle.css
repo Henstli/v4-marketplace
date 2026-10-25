@@ -63,3 +63,8 @@
 .tz-suggest-empty{padding:var(--space-3) var(--space-2);font-size:14px;color:var(--ink-muted)}
 @media (max-width:640px){.tz-suggest{max-height:60vh}.tz-suggest-item{min-height:60px}}
 @media (hover:none){.tz-suggest-all .tz-kbd{display:none}}
+
+.tz-thumb{flex:none;display:block;width:40px;aspect-ratio:63/88;border-radius:4px;overflow:hidden;background:var(--surface-sunken)}
+.tz-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.tz-thumb-sm{width:32px}
+.tz-thumb-lg{width:64px;border-radius:var(--radius-sm)}
