@@ -10,3 +10,7 @@ export { SearchSuggest, type SearchSuggestItem, type SearchSuggestGroup } from '
 export { CardTile } from './CardTile';
 export { CardThumb } from './CardThumb';
 export { Skeleton, SkeletonTile } from './Skeleton';
+export { Steps } from './Steps';
+export { FileDrop } from './FileDrop';
+export { Status } from './Status';
+export { BulkBar } from './BulkBar';
