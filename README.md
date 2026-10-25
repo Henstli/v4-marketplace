@@ -23,5 +23,6 @@ Web běží na http://localhost:3000. Bez proměnných ze `.env.example` použí
 - Homepage s kartami, které nejvíc rostou, a kategoriemi
 - Katalog `/karty` s vyhledáváním, filtry (hra, stav, jazyk, prodejce) a řazením v URL
 - Detail karty s grafem ceny a tabulkou nabídek
+- Košík rozdělený podle prodejců (uložený v prohlížeči), platba zatím vypnutá
 
-Připravujeme: účty, vystavení karet, košík a objednávky, hodnocení.
+Připravujeme: účty, vystavení karet, objednávky a platby, hodnocení.

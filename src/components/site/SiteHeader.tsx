@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { SearchField, ButtonLink } from '@/components/trezor';
 import { GAMES } from '@/lib/games';
+import { CartLink } from '@/components/cart/CartLink';
 import { Logo } from './Logo';
 import styles from './site.module.css';
 
@@ -14,7 +15,7 @@ export function SiteHeader() {
         </form>
         <nav className={styles.actions} aria-label="Účet">
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
-          <ButtonLink href="/kosik" variant="secondary">Košík</ButtonLink>
+          <CartLink />
           <ButtonLink href="/prihlaseni">Přihlásit</ButtonLink>
         </nav>
       </div>

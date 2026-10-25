@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Button, Price, Trend } from '@/components/trezor';
 import { PriceChart } from '@/components/PriceChart';
-import { getCardBySlug, getOffers } from '@/lib/catalog';
+import { AddToCartButton } from '@/components/cart/AddToCartButton';
+import { getCardBySlug, getOffers, type Offer } from '@/lib/catalog';
+import type { CardSummary } from '@/lib/types';
 import { getGame } from '@/lib/games';
 import { formatNumber } from '@/lib/format';
 import { CONDITION_NAMES, LANGUAGE_NAMES } from '@/lib/types';
@@ -58,7 +60,9 @@ export default async function CardDetailPage({ params }: Props) {
               <div><dt className="t-small muted">Průměr 30 dní</dt><dd className="t-price">{formatNumber(avg)}&nbsp;Kč</dd></div>
             </dl>
             <div className={styles.buyActions}>
-              <Button size="lg" disabled={!offers.length} title="Košík připravujeme">Přidat nejlevnější do košíku</Button>
+              {offers.length ? (
+                <AddToCartButton item={cartItem(card, offers[0])} label="Přidat nejlevnější do košíku" variant="primary" size="lg" />
+              ) : null}
               <Button size="lg" variant="secondary" title="Hlídání ceny připravujeme">Hlídat cenu</Button>
             </div>
           </div>
@@ -111,7 +115,7 @@ export default async function CardDetailPage({ params }: Props) {
                     <td className={`${styles.num} ${styles.wide} t-price`}>{o.quantity}</td>
                     <td className={styles.num}><Price amount={o.price} /></td>
                     <td className={styles.num}>
-                      <Button variant="secondary" title="Košík připravujeme">Do košíku</Button>
+                      <AddToCartButton item={cartItem(card, o)} />
                     </td>
                   </tr>
                 ))}
@@ -126,4 +130,19 @@ export default async function CardDetailPage({ params }: Props) {
       </section>
     </div>
   );
+}
+
+function cartItem(card: CardSummary, o: Offer) {
+  return {
+    listingId: o.id,
+    cardSlug: card.slug,
+    cardName: card.name,
+    setLabel: `${card.setCode} ${card.number}`,
+    sellerId: o.seller.id,
+    sellerName: o.seller.name,
+    condition: o.condition + (o.graded ? ` · ${o.graded}` : ''),
+    language: LANGUAGE_NAMES[o.language],
+    price: o.price,
+    maxQuantity: o.quantity,
+  };
 }
