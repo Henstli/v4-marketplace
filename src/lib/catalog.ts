@@ -31,6 +31,19 @@ export interface CatalogPage {
   total: number;
 }
 
+/** Návrh karty v našeptávači vyhledávání */
+export interface Suggestion {
+  slug: string;
+  name: string;
+  number: string;
+  setName: string;
+  game: GameId;
+  image?: string;
+  minPrice: number | null;
+}
+
+export const SUGGEST_LIMIT = 6;
+
 export interface Offer extends Listing {
   seller: Seller;
 }
@@ -98,6 +111,31 @@ async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
   if (error) throw new Error(`Katalog se nepodařilo načíst: ${error.message}`);
   const rows = (data ?? []) as SearchRow[];
   return { cards: rows.map(fromRow), total: rows[0]?.total_count ?? 0 };
+}
+
+interface SuggestRow {
+  slug: string;
+  name: string;
+  number: string;
+  image_url: string | null;
+  game_id: GameId;
+  set_name: string;
+  min_price: number | null;
+}
+
+async function dbSuggest(q: string, game?: GameId): Promise<Suggestion[]> {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase.rpc('suggest_cards', { p_q: q, p_game: game ?? null, p_limit: SUGGEST_LIMIT });
+  if (error) throw new Error(`Návrhy se nepodařilo načíst: ${error.message}`);
+  return ((data ?? []) as SuggestRow[]).map((r) => ({
+    slug: r.slug,
+    name: r.name,
+    number: r.number,
+    setName: r.set_name,
+    game: r.game_id,
+    image: r.image_url ?? undefined,
+    minPrice: r.min_price,
+  }));
 }
 
 async function dbOffers(cardId: string): Promise<Offer[]> {
@@ -224,6 +262,21 @@ function mockSearch(query: CatalogQuery): CatalogPage {
 
 export async function searchCards(query: CatalogQuery): Promise<CatalogPage> {
   return isSupabaseConfigured() ? dbSearch(query) : mockSearch(query);
+}
+
+// Našeptávač: pár nejpodobnějších karet k rozepsanému dotazu (od 2 znaků, toleruje překlepy).
+export async function suggestCards(q: string, game?: GameId): Promise<Suggestion[]> {
+  if (normalize(q.trim()).length < 2) return [];
+  if (isSupabaseConfigured()) return dbSuggest(q, game);
+  return mockSearch({ q, game, pageSize: SUGGEST_LIMIT }).cards.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    number: c.number,
+    setName: c.setName,
+    game: c.game,
+    image: c.image,
+    minPrice: c.minPrice,
+  }));
 }
 
 // Úvodní stránka je pro všechny stejná, stačí ji z databáze načíst jednou za minutu.

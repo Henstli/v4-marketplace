@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChipLink, SearchField } from '@/components/trezor';
+import { ChipLink } from '@/components/trezor';
+import { SearchBox } from '@/components/search/SearchBox';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
 import { formatNumber } from '@/lib/format';
@@ -76,12 +77,17 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   return (
     <div className={`container ${styles.layout}`}>
       <aside className={styles.filters} aria-label="Filtry">
-        <form action="/karty" className={styles.filterSearch}>
-          {Object.entries(params).map(([k, v]) =>
-            k !== 'q' && k !== 'strana' && one(v) ? <input key={k} type="hidden" name={k} value={one(v)} /> : null,
+        <SearchBox
+          key={query.q ?? ''}
+          className={styles.filterSearch}
+          defaultValue={query.q}
+          placeholder="Hledat v katalogu"
+          label="Hledat v katalogu"
+          game={query.game}
+          keep={Object.fromEntries(
+            Object.entries(params).flatMap(([k, v]) => (k !== 'q' && k !== 'strana' && one(v) ? [[k, one(v)!]] : [])),
           )}
-          <SearchField name="q" defaultValue={query.q} placeholder="Hledat v katalogu" label="Hledat v katalogu" />
-        </form>
+        />
 
         <FilterGroup title="HRA">
           <ChipLink href={href(params, 'hra', undefined)} selected={!query.game}>Vše</ChipLink>

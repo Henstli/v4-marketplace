@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { SearchField, ButtonLink } from '@/components/trezor';
+import { ButtonLink } from '@/components/trezor';
+import { SearchBox } from '@/components/search/SearchBox';
 import { GAMES } from '@/lib/games';
 import { CartLink } from '@/components/cart/CartLink';
 import { getSignedInUser } from '@/lib/auth';
@@ -13,9 +14,7 @@ export async function SiteHeader() {
     <header className={styles.header}>
       <div className={`container ${styles.headerRow}`}>
         <Logo />
-        <form action="/karty" role="search" className={styles.search}>
-          <SearchField name="q" placeholder="Karta, sada nebo hráč" shortcut="/" label="Hledat karty" />
-        </form>
+        <SearchBox className={styles.search} placeholder="Karta, sada nebo hráč" label="Hledat karty" shortcut />
         <nav className={styles.actions} aria-label="Účet">
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
           <CartLink />
