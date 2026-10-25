@@ -35,6 +35,10 @@ Bere všechny sady Pokémon (kromě digitální TCG Pocket) a všechny papírov�
 nastavení je na začátku funkce.
 Stav importu: `select * from catalog_sources order by imported_at desc;`
 
+Sportovní karty veřejný katalog nemají. Prodejce kartu navrhne na `/prodat/nova-karta` (údaje a fotka do úložiště
+`card-submissions`), správce ji schválí na `/sprava/karty` (funkce `review_card_submission`) a karta se objeví v katalogu.
+Správci jsou v tabulce `admins`. Skrytá karta (`cards.hidden`) se nikde nezobrazuje.
+
 Vyhledávání a filtry katalogu běží v SQL funkci `search_cards` (fulltext s předponami, bez diakritiky).
 
 Aby fungoval přihlašovací odkaz, musí být adresa webu v Supabase v Authentication > URL Configuration

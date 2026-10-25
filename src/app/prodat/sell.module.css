@@ -23,6 +23,21 @@
 
 .input:focus { outline: none; border-color: var(--accent); }
 
+.file { color: var(--ink-muted); font: var(--t-small-size) var(--font-sans); }
+.file::file-selector-button {
+  margin-right: var(--space-3);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.suggest { margin-top: var(--space-4); }
+
 .submit { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
 
 .error, .ok { border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }

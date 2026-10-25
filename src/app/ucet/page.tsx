@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
@@ -19,6 +20,10 @@ export default async function AccountPage() {
       <div>
         <h1 className="t-heading-l">Účet</h1>
         <p className="muted">Přihlášeni jako {user.email}</p>
+        <p className="t-small">
+          <Link href="/prodat/nova-karta">Moje návrhy karet</Link>
+          {user.isAdmin ? <> · <Link href="/sprava/karty">Schvalování karet</Link></> : null}
+        </p>
       </div>
       <section className="panel">
         <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Profil prodejce</h2>
