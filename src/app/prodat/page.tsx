@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
-import { Button, ButtonLink, Price, SearchField } from '@/components/trezor';
+import { Button, ButtonLink, Price } from '@/components/trezor';
+import { SearchBox } from '@/components/search/SearchBox';
 import { getCurrentUser } from '@/lib/auth';
 import { getCardBySlug, searchCards } from '@/lib/catalog';
 import { getGame } from '@/lib/games';
@@ -63,9 +64,16 @@ export default async function SellPage({ searchParams }: Props) {
           </>
         ) : (
           <>
-            <form action="/prodat" className={styles.search}>
-              <SearchField name="hledat" defaultValue={q} placeholder="Název karty, sada nebo číslo" label="Najít kartu v katalogu" />
-            </form>
+            <SearchBox
+              key={q ?? ''}
+              className={styles.search}
+              action="/prodat"
+              param="hledat"
+              cardHref="/prodat?karta="
+              defaultValue={q}
+              placeholder="Název karty, sada nebo číslo"
+              label="Najít kartu v katalogu"
+            />
             {found ? (
               found.cards.length ? (
                 <div className={styles.list}>
