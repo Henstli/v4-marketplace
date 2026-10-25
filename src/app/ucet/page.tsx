@@ -44,9 +44,9 @@ export default async function AccountPage({ searchParams }: Props) {
         </p>
         <p className="t-small muted">
           Tarif: {PLANS[toPlan(plan)].name}.{' '}
-          {PLANS[toPlan(plan)].importRows
-            ? <><Link href="/prodat/import">Hromadně nahrajete</Link> až {PLANS[toPlan(plan)].importRows} řádků najednou.</>
-            : 'Hromadné nahrávání nabídek bez omezení.'}
+          {PLANS[toPlan(plan)].bulkImport
+            ? <><Link href="/prodat/import">Hromadné nahrávání</Link> nabídek bez omezení.</>
+            : 'Hromadné nahrávání nabídek je součástí tarifu Pro.'}
         </p>
       </div>
       <section className="panel">

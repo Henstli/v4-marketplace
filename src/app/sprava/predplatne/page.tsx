@@ -33,8 +33,8 @@ export default async function SubscriptionsPage({ searchParams }: Props) {
         <h1 className="t-heading-l">Předplatné prodejců</h1>
         <p className="muted">
           Tři tarify: {Object.values(PLANS).map((p) => p.name).join(', ')}. Zatím bez placení, tarif přiděluje správce.
-          Výhody tarifů se nastavují v kódu webu (src/lib/plans.ts). Hromadné nahrávání najednou:{' '}
-          {Object.values(PLANS).map((p) => `${p.name} ${p.importRows ? `${p.importRows} řádků` : 'bez limitu'}`).join(', ')}. <Link href="/sprava/karty">Schvalování karet</Link>
+          Výhody tarifů se nastavují v kódu webu (src/lib/plans.ts). Hromadné nahrávání nabídek mají:{' '}
+          {Object.values(PLANS).filter((p) => p.bulkImport).map((p) => p.name).join(', ')}. <Link href="/sprava/karty">Schvalování karet</Link>
         </p>
       </div>
       {chyba ? <p className={styles.error} role="alert">{chyba}</p> : null}

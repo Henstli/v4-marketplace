@@ -24,6 +24,14 @@ export interface MatchResult {
   candidates: CardLite[];
 }
 
+const NO_PLAN = 'Hromadné nahrávání je součástí tarifu Pro.';
+
+// Tarif hlídá server; bez funkce v databázi (neaplikovaná migrace) hromadné nahrávání nejde.
+async function canBulkImport(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
+  const { data: plan } = await supabase.rpc('current_plan');
+  return PLANS[toPlan(plan)].bulkImport;
+}
+
 /** Najednou se páruje nejvýš tolik řádků (prohlížeč posílá soubor po částech). */
 const MATCH_CHUNK = 200;
 
@@ -31,6 +39,7 @@ export async function matchImportRows(rows: MatchInput[]): Promise<{ results?: M
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: 'Přihlášení vypršelo. Přihlaste se prosím znovu.' };
+  if (!(await canBulkImport(supabase))) return { error: NO_PLAN };
   if (!Array.isArray(rows) || rows.length > MATCH_CHUNK) return { error: 'Příliš mnoho řádků najednou.' };
   const clean = rows.map((r) => ({
     idx: Number(r.idx),
@@ -73,16 +82,7 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: 'Přihlášení vypršelo. Přihlaste se prosím znovu.' };
   if (!Array.isArray(items) || !items.length) return { error: 'Není co vystavit.' };
-
-  // Limit tarifu hlídá server; bez funkce v databázi (neaplikovaná migrace) platí limit zdarma.
-  const free = PLANS.free.importRows ?? Infinity;
-  if (items.length > free) {
-    const { data: plan } = await supabase.rpc('current_plan');
-    const limit = PLANS[toPlan(plan)].importRows;
-    if (limit != null && items.length > limit) {
-      return { error: `S vaším tarifem jde najednou vystavit nejvýš ${limit} řádků.` };
-    }
-  }
+  if (!(await canBulkImport(supabase))) return { error: NO_PLAN };
 
   const rows = [];
   for (const it of items) {

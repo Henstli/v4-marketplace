@@ -25,7 +25,7 @@ interface Match {
 
 type Filter = 'all' | 'fix' | 'ready';
 
-export function ImportWizard({ limit }: { limit: number | null }) {
+export function ImportWizard() {
   const [step, setStep] = useState(0);
   const [fileName, setFileName] = useState('');
   const [table, setTable] = useState<Table | null>(null);
@@ -33,7 +33,6 @@ export function ImportWizard({ limit }: { limit: number | null }) {
   const [readError, setReadError] = useState('');
   const [mapping, setMapping] = useState<Mapping>({});
   const [settings, setSettings] = useState<ImportSettings>({ game: '', currency: 'CZK', rate: 25, condition: 'NM', language: 'en' });
-  const [batch, setBatch] = useState(0);
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [matches, setMatches] = useState<Record<number, Match>>({});
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
@@ -44,10 +43,6 @@ export function ImportWizard({ limit }: { limit: number | null }) {
   const [result, setResult] = useState<{ created: number; left: ImportRow[] } | null>(null);
   const [saving, startSaving] = useTransition();
 
-  const batchSize = limit ?? Infinity;
-  const batches = table && limit ? Math.ceil(table.rows.length / limit) : 1;
-  const batchFrom = limit ? batch * limit : 0;
-  const batchTo = table ? Math.min(table.rows.length, limit ? batchFrom + batchSize : table.rows.length) : 0;
 
   async function onFile(file: File) {
     setReadError('');
@@ -59,7 +54,6 @@ export function ImportWizard({ limit }: { limit: number | null }) {
       setCardmarket(cm);
       setMapping(guessMapping(t.header));
       setSettings((s) => ({ ...s, currency: cm ? 'EUR' : s.currency }));
-      setBatch(0);
       setStep(1);
     } catch (e) {
       setTable(null);
@@ -72,7 +66,7 @@ export function ImportWizard({ limit }: { limit: number | null }) {
   async function runMatching() {
     if (!table) return;
     setError('');
-    const built = buildRows(table, mapping, settings, batchFrom, batchTo);
+    const built = buildRows(table, mapping, settings);
     setRows(built);
     setSkipped(new Set());
     setFilter('all');
@@ -218,11 +212,6 @@ export function ImportWizard({ limit }: { limit: number | null }) {
               </p>
             </div>
           </div>
-          <p className="t-small muted">
-            {limit
-              ? `S vaším tarifem vystavíte najednou až ${limit} řádků, větší soubor nahrajete po částech. Tarif Pro je bez omezení.`
-              : 'Váš tarif nemá omezení: nahrajete soubor libovolné velikosti.'}
-          </p>
         </section>
       ) : null}
 
@@ -309,22 +298,6 @@ export function ImportWizard({ limit }: { limit: number | null }) {
               </tbody>
             </table>
           </div>
-
-          {limit && table.rows.length > limit ? (
-            <div className={styles.notice}>
-              <p>
-                Soubor má {formatNumber(table.rows.length)} řádků. S vaším tarifem vystavíte najednou {limit}, zbytek nahrajete v dalších dávkách.
-              </p>
-              <label className={styles.inline}>
-                <span className="t-small muted">Nahrát řádky</span>
-                <select className={styles.input} value={batch} onChange={(e) => setBatch(Number(e.target.value))}>
-                  {Array.from({ length: batches }, (_, i) => (
-                    <option key={i} value={i}>{i * limit + 1}–{Math.min(table.rows.length, (i + 1) * limit)}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : null}
 
           {!canMatch ? <p className={styles.error} role="alert">Přiřaďte aspoň sloupec s názvem karty, nebo sadu a číslo karty.</p> : null}
           {mapping.price == null ? <p className="t-small muted">Sloupec s cenou není přiřazený, ceny pak vyplníte v dalším kroku ručně.</p> : null}
@@ -485,23 +458,12 @@ export function ImportWizard({ limit }: { limit: number | null }) {
           <div className={styles.actions}>
             <ButtonLink href="/prodat#moje-nabidky" variant="secondary">Moje nabídky</ButtonLink>
             <div className={styles.saveBox}>
-              {limit && table && batch < batches - 1 ? (
-                <Button onClick={() => { setBatch(batch + 1); setStep(1); }}>
-                  Nahrát řádky {(batch + 1) * limit + 1}–{Math.min(table.rows.length, (batch + 2) * limit)}
-                </Button>
-              ) : null}
-              <Button variant={limit && table && batch < batches - 1 ? 'ghost' : 'primary'} onClick={reset}>Nahrát další soubor</Button>
+              <Button onClick={reset}>Nahrát další soubor</Button>
             </div>
           </div>
         </section>
       ) : null}
 
-      {limit && step < 3 ? (
-        <p className="t-small muted">
-          Potřebujete nahrát celý sklad najednou? To umí tarif Pro, o přidělení nám napište na{' '}
-          <Link href="mailto:podpora@v4cards.com">podpora@v4cards.com</Link>.
-        </p>
-      ) : null}
     </div>
   );
 }

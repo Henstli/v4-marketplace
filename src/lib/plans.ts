@@ -5,15 +5,15 @@ export type Plan = 'free' | 'plus' | 'pro';
 export interface PlanInfo {
   id: Plan;
   name: string;
-  /** Kolik řádků jde najednou hromadně nahrát; null = bez limitu */
-  importRows: number | null;
+  /** Hromadné nahrávání nabídek ze souboru (bez limitu řádků) */
+  bulkImport: boolean;
 }
 
 export const PLANS: Record<Plan, PlanInfo> = {
-  free: { id: 'free', name: 'Zdarma', importRows: 100 },
-  plus: { id: 'plus', name: 'Plus', importRows: 100 },
-  // Hromadné nahrávání celého skladu je výhoda tarifu Pro.
-  pro: { id: 'pro', name: 'Pro', importRows: null },
+  free: { id: 'free', name: 'Zdarma', bulkImport: false },
+  plus: { id: 'plus', name: 'Plus', bulkImport: false },
+  // Šimon 25. 10.: hromadné nahrávání má jen Pro, a to neomezeně.
+  pro: { id: 'pro', name: 'Pro', bulkImport: true },
 };
 
 export const PAID_PLANS: Plan[] = ['plus', 'pro'];
