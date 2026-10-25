@@ -1,18 +1,21 @@
 import Link from 'next/link';
-import { ChipLink, Price, SellerBadge, ShopHeader, ShopSection, shopStyle } from '@/components/trezor';
+import { Achievements, ButtonLink, CardTag, ChipLink, Price, SellerBadge, ShopDivider, ShopHeader, ShopSection, ShopTicker, shopStyle } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame } from '@/lib/games';
 import { PLANS } from '@/lib/plans';
-import { blockInfo, safeColor, shopHref, type ShopBlock, type ShopCollection } from '@/lib/shop-config';
-import { getCardsByIds, getGameCounts, getShopListings, mediaUrl, type ShopListing, type ShopProfile } from '@/lib/shop';
+import { blockInfo, safeColor, shopHref, visibleTabs, type ShopBlock, type ShopCollection, type ShopDesign } from '@/lib/shop-config';
+import { getCardsByIds, getGameCounts, getShopListings, getShopReviews, mediaUrl, type ShopListing, type ShopProfile } from '@/lib/shop';
+import { Countdown, HoloEffect, MapEmbed, PreviewBridge, SiteHeaderHeight, VideoEmbed } from './ShopClient';
 import { CONDITION_NAMES, LANGUAGE_NAMES, type Condition, type Language } from '@/lib/types';
 import type { GameId } from '@/lib/games';
 import styles from './shop.module.css';
 
 export interface StockQuery {
+  /** Pohled: 'nabidka' (celá nabídka) nebo 'onas'; bez něj Přehled */
+  zalozka?: string;
   q?: string;
   hra?: string;
   kolekce?: string;
@@ -52,23 +55,36 @@ function cartItem(l: ShopListing, p: ShopProfile) {
   };
 }
 
-function Art({ image, game, name }: { image?: string; game: GameId; name: string }) {
+function Art({ image, game, name, holo, tag }: { image?: string; game: GameId; name: string; holo?: boolean; tag?: React.ReactNode }) {
   return image ? (
-    <div className="tz-tile-art tz-tile-art-photo">
+    <div className={`tz-tile-art tz-tile-art-photo ${holo ? 'tz-holo' : ''}`} style={{ position: 'relative' }}>
+      {tag}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={image} alt={name} loading="lazy" className="tz-tile-img" />
     </div>
   ) : (
-    <div className="tz-tile-art" style={{ background: `var(--game-${game}-art, var(--surface-sunken))` }}>
+    <div className={`tz-tile-art ${holo ? 'tz-holo' : ''}`} style={{ position: 'relative', background: `var(--game-${game}-art, var(--surface-sunken))` }}>
+      {tag}
       <div className="tz-tile-frame">{getGame(game)?.label}</div>
     </div>
   );
 }
 
-function ListingTile({ l }: { l: ShopListing }) {
+const WEEK = 7 * 24 * 3600 * 1000;
+
+/** Štítek nabídky: vlastní štítek obchodu, jinak automaticky Poslední kus nebo Novinka. */
+function listingTag(l: ShopListing, d: ShopDesign) {
+  if (d.customTag && d.customTagIds.includes(l.id)) return <CardTag kind="custom">{d.customTag}</CardTag>;
+  if (!d.tagsAuto) return null;
+  if (l.quantity === 1) return <CardTag kind="last">Poslední kus</CardTag>;
+  if (Date.now() - new Date(l.createdAt).getTime() < WEEK) return <CardTag kind="new">Novinka</CardTag>;
+  return null;
+}
+
+function ListingTile({ l, d }: { l: ShopListing; d: ShopDesign }) {
   return (
     <Link className="tz-tile" href={`/karty/${l.card.slug}`}>
-      <Art image={l.card.image} game={l.card.game} name={l.card.name} />
+      <Art image={l.card.image} game={l.card.game} name={l.card.name} holo={d.holo} tag={listingTag(l, d)} />
       <div>
         <div className="tz-tile-name">{l.card.name}</div>
         <div className="tz-tile-set">{l.card.setCode} {l.card.number}</div>
@@ -81,10 +97,10 @@ function ListingTile({ l }: { l: ShopListing }) {
   );
 }
 
-function Listings({ items, variant }: { items: ShopListing[]; variant: string }) {
+function Listings({ items, variant, d }: { items: ShopListing[]; variant: string; d: ShopDesign }) {
   return (
     <div className={variant === 'strip' ? styles.strip : styles.grid}>
-      {items.map((l) => <ListingTile key={l.id} l={l} />)}
+      {items.map((l) => <ListingTile key={l.id} l={l} d={d} />)}
     </div>
   );
 }
@@ -95,6 +111,7 @@ function blockTitle(b: ShopBlock): string {
 
 async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: string }) {
   const sid = p.seller.id;
+  const d = p.config.design;
   switch (b.type) {
     case 'notice': {
       const n = b.data.notice;
@@ -130,7 +147,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
       if (!l) return null;
       return (
         <section aria-label={blockTitle(b)} className={`${styles.spot} ${b.variant === 'right' ? styles.spotRight : ''}`}>
-          <div className={styles.spotArt} style={l.card.image ? undefined : { background: `var(--game-${l.card.game}-art, var(--surface-sunken))` }}>
+          <div className={`${styles.spotArt} ${d.holo ? 'tz-holo' : ''}`} style={l.card.image ? undefined : { background: `var(--game-${l.card.game}-art, var(--surface-sunken))` }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {l.card.image ? <img src={l.card.image} alt={l.card.name} /> : <span className="tz-tile-frame">{getGame(l.card.game)?.label}</span>}
           </div>
@@ -151,28 +168,32 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
     case 'featured': {
       const items = await getShopListings(sid, { ids: b.data.featured?.listingIds ?? [] });
       if (!items.length) return null;
-      return <ShopSection title={blockTitle(b)} note="Vybírá prodejce"><Listings items={items} variant={b.variant} /></ShopSection>;
+      return <ShopSection title={blockTitle(b)} note="Vybírá prodejce"><Listings items={items} variant={b.variant} d={d} /></ShopSection>;
     }
     case 'newest': {
       const items = await getShopListings(sid, { order: 'new', limit: 12 });
       if (!items.length) return null;
-      return <ShopSection title={blockTitle(b)} note="Poslední přidané nabídky"><Listings items={items} variant={b.variant} /></ShopSection>;
+      return <ShopSection title={blockTitle(b)} note="Poslední přidané nabídky"><Listings items={items} variant={b.variant} d={d} /></ShopSection>;
     }
     case 'cheap': {
       const max = b.data.cheap?.maxPrice ?? 100;
       const items = await getShopListings(sid, { order: 'cheap', maxPrice: max, limit: 12 });
       if (!items.length) return null;
-      return <ShopSection title={blockTitle(b)} note={`Do ${formatNumber(max)} Kč`}><Listings items={items} variant={b.variant} /></ShopSection>;
+      return <ShopSection title={blockTitle(b)} note={`Do ${formatNumber(max)} Kč`}><Listings items={items} variant={b.variant} d={d} /></ShopSection>;
     }
     case 'games': {
       const counts = await getGameCounts(sid);
-      const ordered = GAMES.map((g) => ({ g, n: counts.find((c) => c.game === g.id)?.cards ?? 0 })).filter((x) => x.n > 0);
+      const picked = b.data.games?.games ?? [];
+      const ordered = GAMES
+        .filter((g) => !picked.length || picked.includes(g.id))
+        .map((g) => ({ g, n: counts.find((c) => c.game === g.id)?.cards ?? 0 }))
+        .filter((x) => x.n > 0);
       if (!ordered.length) return null;
       return (
         <ShopSection title={blockTitle(b)}>
           <div className={styles.tiles}>
             {ordered.map(({ g, n }) => (
-              <Link key={g.id} href={`${base}?hra=${g.id}#nabidka`} className={styles.tile}>
+              <Link key={g.id} href={`${base}?zalozka=nabidka&hra=${g.id}`} className={styles.tile}>
                 <span className={styles.tileTitle}><span className={styles.dot} style={{ background: g.dot }} aria-hidden="true" />{g.name}</span>
                 <span className="t-price-l">{formatNumber(n)}</span>
                 <span className="t-small muted">{plural(n, ['karta', 'karty', 'karet'])}</span>
@@ -188,7 +209,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
         <ShopSection title={blockTitle(b)}>
           <div className={styles.tiles}>
             {p.config.collections.map((c) => (
-              <Link key={c.id} href={`${base}?kolekce=${c.id}#nabidka`} className={styles.tile}>
+              <Link key={c.id} href={`${base}?kolekce=${c.id}`} className={styles.tile}>
                 <span className={styles.tileTitle}>{c.name}</span>
                 <span className="t-small muted">{collectionLabel(c)}</span>
               </Link>
@@ -259,7 +280,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
               const c = cards.get(x.cardId)!;
               return (
                 <Link key={x.cardId} className="tz-tile" href={`/karty/${c.slug}`}>
-                  <Art image={c.image} game={c.game} name={c.name} />
+                  <Art image={c.image} game={c.game} name={c.name} holo={d.holo} />
                   <div>
                     <div className="tz-tile-name">{c.name}</div>
                     <div className="tz-tile-set">{c.setCode} {c.number}</div>
@@ -276,6 +297,79 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
           </div>
         </ShopSection>
       );
+    }
+    case 'window': {
+      const ids = b.data.window?.listingIds ?? [];
+      const count = b.variant === '5' ? 5 : 3;
+      const items = (await getShopListings(sid, { ids })).slice(0, count);
+      if (items.length < 3) return null;
+      return (
+        <section aria-label={blockTitle(b)} className="tz-shop-window" data-count={items.length >= 5 ? 5 : 3}>
+          {items.slice(0, items.length >= 5 ? 5 : 3).map((l) => (
+            <Link key={l.id} href={`/karty/${l.card.slug}`} className={`tz-shop-window-card ${d.holo ? 'tz-holo' : ''}`} title={`${l.card.name} · ${formatNumber(l.price)} Kč`}>
+              {l.card.image
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={l.card.image} alt={l.card.name} />
+                : <span className="tz-shop-window-art" style={{ background: `var(--game-${l.card.game}-art, var(--surface-sunken))` }} />}
+            </Link>
+          ))}
+        </section>
+      );
+    }
+    case 'countdown': {
+      const c = b.data.countdown;
+      if (!c?.at) return null;
+      return (
+        <ShopSection title={c.title || blockTitle(b)}>
+          <Countdown at={c.at} />
+        </ShopSection>
+      );
+    }
+    case 'reviews': {
+      const items = await getShopReviews(sid, b.variant === '6' ? 6 : 3);
+      if (!items.length) return null;
+      return (
+        <ShopSection title={blockTitle(b)} note="Z dokončených objednávek">
+          <div className={styles.tiles}>
+            {items.map((r, i) => (
+              <figure key={i} className="tz-review" style={{ margin: 0 }}>
+                <span className="tz-review-stars" aria-label={`${r.rating} z 5`}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                <blockquote style={{ margin: 0 }}>„{r.comment}“</blockquote>
+                <figcaption className="t-small muted">Ověřený nákup · {new Date(r.date).toLocaleDateString('cs-CZ')}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </ShopSection>
+      );
+    }
+    case 'team': {
+      const people = b.data.team ?? [];
+      if (!people.length) return null;
+      return (
+        <ShopSection title={blockTitle(b)}>
+          <div className="tz-team">
+            {people.map((m, i) => (
+              <div key={i} className="tz-team-person">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {m.photo ? <img className="tz-team-photo" src={mediaUrl(m.photo)!} alt="" /> : <span className="tz-team-photo" aria-hidden="true" />}
+                <strong>{m.name}</strong>
+                {m.role ? <span className="t-small muted">{m.role}</span> : null}
+                {m.note ? <span className="t-small">{m.note}</span> : null}
+              </div>
+            ))}
+          </div>
+        </ShopSection>
+      );
+    }
+    case 'video': {
+      const id = b.data.video?.youtube;
+      if (!id) return null;
+      return <ShopSection title={blockTitle(b)}><VideoEmbed id={id} title={blockTitle(b)} /></ShopSection>;
+    }
+    case 'map': {
+      const address = p.config.store.address;
+      if (!address) return null;
+      return <ShopSection title={blockTitle(b)}><MapEmbed address={address} /></ShopSection>;
     }
     case 'wanted': {
       const items = b.data.wanted ?? [];
@@ -315,43 +409,62 @@ export function collectionLabel(c: ShopCollection): string {
   ].filter(Boolean).join(' · ') || 'Celý sklad';
 }
 
-async function Stock({ p, base, query }: { p: ShopProfile; base: string; query: StockQuery }) {
-  const collection = p.config.collections.find((c) => c.id === query.kolekce);
-  const q = (query.q ?? collection?.q ?? '').slice(0, 60) || undefined;
-  const game = (GAMES.find((g) => g.id === query.hra)?.id ?? (collection?.game || undefined)) as GameId | undefined;
+/** Celá nabídka nebo kolekce s hledáním; na Přehledu jen náhled prvních karet. */
+async function Stock({ p, base, query, preview }: { p: ShopProfile; base: string; query: StockQuery; preview?: boolean }) {
+  const collection = preview ? undefined : p.config.collections.find((c) => c.id === query.kolekce);
+  const q = preview ? undefined : (query.q ?? collection?.q ?? '').slice(0, 60) || undefined;
+  const game = preview ? undefined : (GAMES.find((g) => g.id === query.hra)?.id ?? (collection?.game || undefined)) as GameId | undefined;
   const n = Number(query.strana);
-  const page = Number.isInteger(n) && n > 1 ? n : 1;
+  const page = !preview && Number.isInteger(n) && n > 1 ? n : 1;
   const { cards, total } = await searchCards({
     sellerId: p.seller.id, q, game, page,
+    pageSize: preview ? 12 : PAGE_SIZE,
     condition: (collection?.condition || undefined) as Condition | undefined,
     language: (collection?.language || undefined) as Language | undefined,
   });
+
+  if (preview) {
+    if (!cards.length) return null;
+    return (
+      <ShopSection title="Z nabídky" note={plural(total, ['karta', 'karty', 'karet'])}>
+        <div className="card-grid">{cards.map((c) => <CardSummaryTile key={c.id} card={c} />)}</div>
+        {total > cards.length ? (
+          <div className={styles.pager}>
+            <ButtonLink href={`${base}?zalozka=nabidka`} variant="secondary">Zobrazit celou nabídku</ButtonLink>
+          </div>
+        ) : null}
+      </ShopSection>
+    );
+  }
+
   const pages = Math.ceil(total / PAGE_SIZE);
+  const view = collection ? { kolekce: collection.id } : { zalozka: 'nabidka' };
   const href = (params: Record<string, string | undefined>) => {
     const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
-    const s = sp.toString();
-    return `${base}${s ? `?${s}` : ''}#nabidka`;
+    for (const [k, v] of Object.entries({ ...view, ...params })) if (v) sp.set(k, v);
+    return `${base}?${sp.toString()}`;
   };
-  const keep = { q: query.q, hra: query.hra, kolekce: query.kolekce };
+  const keep = { q: query.q, hra: query.hra };
   const counts = await getGameCounts(p.seller.id);
 
   return (
     <ShopSection id="nabidka" title={collection ? collection.name : 'Celá nabídka'} note={plural(total, ['karta', 'karty', 'karet'])}>
-      <form action={`${base}#nabidka`} className={styles.stockBar} role="search">
-        {query.kolekce ? <input type="hidden" name="kolekce" value={query.kolekce} /> : null}
+      <form action={base} className={styles.stockBar} role="search">
+        {collection ? <input type="hidden" name="kolekce" value={collection.id} /> : <input type="hidden" name="zalozka" value="nabidka" />}
         {query.hra ? <input type="hidden" name="hra" value={query.hra} /> : null}
         <div className={styles.stockSearch}>
           <input type="search" name="q" defaultValue={query.q ?? ''} placeholder={`Hledat v nabídce prodejce ${p.seller.name}`} aria-label="Hledat v nabídce prodejce" />
           <button type="submit" className="tz-btn tz-btn-secondary tz-btn-md">Hledat</button>
         </div>
       </form>
-      <div className={styles.stockBar}>
-        <ChipLink href={href({ q: query.q, kolekce: query.kolekce })} selected={!query.hra}>Vše</ChipLink>
-        {GAMES.filter((g) => counts.some((c) => c.game === g.id)).map((g) => (
-          <ChipLink key={g.id} href={href({ ...keep, hra: g.id })} selected={query.hra === g.id} dot={g.dot}>{g.name}</ChipLink>
-        ))}
-      </div>
+      {!collection?.game ? (
+        <div className={styles.stockBar}>
+          <ChipLink href={href({ q: query.q })} selected={!query.hra}>Vše</ChipLink>
+          {GAMES.filter((g) => counts.some((c) => c.game === g.id)).map((g) => (
+            <ChipLink key={g.id} href={href({ ...keep, hra: g.id })} selected={query.hra === g.id} dot={g.dot}>{g.name}</ChipLink>
+          ))}
+        </div>
+      ) : null}
       {cards.length ? (
         <>
           <div className="card-grid">{cards.map((c) => <CardSummaryTile key={c.id} card={c} />)}</div>
@@ -370,11 +483,6 @@ async function Stock({ p, base, query }: { p: ShopProfile; base: string; query: 
   );
 }
 
-function hasSidebar(p: ShopProfile): boolean {
-  const c = p.config;
-  return !!(c.about || c.store.address || c.store.hours.length || Object.values(c.contact).some(Boolean));
-}
-
 function contactHref(kind: string, v: string): string | null {
   if (kind === 'email') return `mailto:${v}`;
   if (kind === 'phone') return `tel:${v.replace(/\s/g, '')}`;
@@ -384,11 +492,12 @@ function contactHref(kind: string, v: string): string | null {
 
 const CONTACT_LABELS: Record<string, string> = { web: 'Web', instagram: 'Instagram', facebook: 'Facebook', discord: 'Discord', email: 'E-mail', phone: 'Telefon' };
 
-function Sidebar({ p }: { p: ShopProfile }) {
+function Sidebar({ p, wide }: { p: ShopProfile; wide?: boolean }) {
   const c = p.config;
   const contacts = Object.entries(c.contact).filter(([, v]) => v);
+  if (!c.about && !c.store.address && !c.store.hours.length && !contacts.length) return null;
   return (
-    <aside className={styles.aside} id="onas">
+    <aside className={wide ? styles.aboutView : styles.aside}>
       {c.about ? (
         <section className={styles.panel}>
           <h2 className="t-heading-m" style={{ fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never }}>O nás</h2>
@@ -425,53 +534,120 @@ function Sidebar({ p }: { p: ShopProfile }) {
   );
 }
 
-/** Celá vlastní stránka obchodu nebo sběratele (tarify Plus a Pro). */
-export async function ShopPageView({ p, query, preview }: { p: ShopProfile; query: StockQuery; preview?: boolean }) {
+/** Bloky přehledu: mřížka, ve které mohou bloky Pro stát vedle sebe, s oddělovači mezi celými řádky. */
+function Blocks({ p, base, edit }: { p: ShopProfile; base: string; edit?: boolean }) {
+  const d = p.config.design;
+  const blocks = p.config.blocks;
+  return (
+    <div className="tz-shop-blocks">
+      {blocks.flatMap((b, i) => {
+        const prev = blocks[i - 1];
+        const out = [];
+        if (d.divider !== 'none' && prev && prev.width === 'full' && b.width === 'full') {
+          out.push(<ShopDivider key={`d-${b.id}`} style={d.divider} />);
+        }
+        out.push(
+          <div key={b.id} data-w={b.width !== 'full' ? b.width : undefined} data-edit={edit ? `block:${b.id}` : undefined} className={edit ? styles.editable : undefined}>
+            <Block b={b} p={p} base={base} />
+          </div>,
+        );
+        return out;
+      })}
+    </div>
+  );
+}
+
+/**
+ * Celá vlastní stránka obchodu nebo sběratele (tarify Plus a Pro).
+ * preview = majitel si prohlíží svou stránku, edit = náhled uvnitř editoru (klik na část otevře její nastavení).
+ */
+export async function ShopPageView({ p, query, preview, edit, baseOverride }: { p: ShopProfile; query: StockQuery; preview?: boolean; edit?: boolean; baseOverride?: string }) {
   const c = p.config;
-  const base = shopHref(p.seller.kind, c.slug);
+  const d = c.design;
+  const base = baseOverride ?? shopHref(p.seller.kind, c.slug);
   const { total } = await searchCards({ sellerId: p.seller.id, pageSize: 1 });
-  const fontUrl = FONT_URLS[c.design.font];
-  const tabs = [
-    { label: 'Přehled', href: base, current: !query.kolekce && !query.hra && !query.q },
-    { label: 'Celá nabídka', href: `${base}#nabidka` },
-    ...c.collections.map((col) => ({ label: col.name, href: `${base}?kolekce=${col.id}#nabidka`, current: query.kolekce === col.id })),
-    ...(hasSidebar(p) ? [{ label: 'O nás', href: `${base}#onas` }] : []),
+  const fontUrl = FONT_URLS[d.font];
+  const tabs = visibleTabs(c);
+  const collection = c.collections.find((col) => col.id === query.kolekce);
+  const view = collection ? 'collection'
+    : query.zalozka === 'onas' ? 'about'
+    : query.zalozka === 'nabidka' || query.q || query.hra ? 'stock'
+    : 'overview';
+  const sep = base.includes('?') ? '&' : '?';
+  const tabLinks = [
+    { label: 'Přehled', href: base, current: view === 'overview' },
+    ...tabs.map((t) => ({
+      label: t.label,
+      href: t.id === 'nabidka' ? `${base}${sep}zalozka=nabidka` : t.id === 'onas' ? `${base}${sep}zalozka=onas` : `${base}${sep}kolekce=${t.id.slice(2)}`,
+      current: t.id === 'nabidka' ? view === 'stock' : t.id === 'onas' ? view === 'about' : view === 'collection' && t.id === `c:${collection?.id}`,
+    })),
   ];
+  const sticky = d.stickyTabs && tabLinks.length > 1;
+  const sidebar = d.sidebar !== 'none' ? <Sidebar p={p} /> : null;
+  const style = { ...shopStyle(safeColor(d.color)), ...(d.color2 ? { '--shop-2': `var(--shop-${safeColor(d.color2)})` } : {}) } as React.CSSProperties;
 
   return (
     <div
       className={`tz-shop tz-shop-bg ${styles.wrap}`}
-      data-font={c.design.font}
-      data-corners={c.design.corners}
-      data-theme={c.design.mode === 'light' ? 'light' : undefined}
-      style={shopStyle(safeColor(c.design.color))}
+      data-font={d.font}
+      data-corners={d.corners}
+      data-bg={d.background !== 'none' ? d.background : undefined}
+      data-icon={d.icon !== 'bar' ? d.icon : undefined}
+      data-theme={d.mode === 'light' ? 'light' : undefined}
+      style={style}
     >
       {fontUrl ? <link rel="stylesheet" href={fontUrl} precedence="default" /> : null}
+      {d.holo ? <HoloEffect /> : null}
+      {sticky ? <SiteHeaderHeight /> : null}
+      {edit ? <PreviewBridge /> : null}
       <div className={`container ${styles.page}`}>
-        {preview ? (
+        {preview && !edit ? (
           <div className={styles.notice} role="status">
             <span>Náhled: stránka {c.published ? 'je zveřejněná' : 'zatím není zveřejněná, vidíte ji jen vy'}. Tarif {PLANS[p.plan].name}.</span>
             <Link href="/ucet/stranka">Upravit stránku</Link>
           </div>
         ) : null}
-        <ShopHeader
-          layout={c.design.layout}
-          name={p.seller.name}
-          logo={mediaUrl(c.logoPath)}
-          bannerImage={c.design.banner === 'photo' ? mediaUrl(c.bannerPath) : null}
-          bannerStyle={c.design.banner === 'solid' ? 'solid' : 'pattern'}
-          meta={sellerMeta(p, total)}
-          tagline={c.tagline || undefined}
-          badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
-          tabs={tabs}
-        />
-        <div className={styles.columns}>
-          <div className={styles.main}>
-            {c.blocks.map((b) => <Block key={b.id} b={b} p={p} base={base} />)}
-            <Stock p={p} base={base} query={query} />
+        {d.ticker.length ? (
+          <div data-edit={edit ? 'header' : undefined} className={edit ? styles.editable : undefined}>
+            <ShopTicker items={d.ticker} />
           </div>
-          {hasSidebar(p) ? <Sidebar p={p} /> : null}
+        ) : null}
+        <div data-edit={edit ? 'header' : undefined} className={edit ? styles.editable : undefined}>
+          <ShopHeader
+            layout={d.layout}
+            name={p.seller.name}
+            logo={mediaUrl(c.logoPath)}
+            bannerImage={d.banner === 'photo' ? mediaUrl(c.bannerPath) : null}
+            bannerStyle={d.banner === 'photo' ? 'pattern' : d.banner}
+            bannerLive={d.liveBanner}
+            season={d.season}
+            meta={sellerMeta(p, total)}
+            tagline={c.tagline || undefined}
+            badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
+            extra={p.achievements.length ? <Achievements items={p.achievements} /> : undefined}
+            tabs={sticky ? undefined : tabLinks}
+          />
         </div>
+        {sticky ? (
+          <nav className="tz-shop-tabs tz-shop-tabs-sticky" aria-label="Části stránky">
+            {tabLinks.map((t) => <a key={t.href + t.label} href={t.href} aria-current={t.current ? 'page' : undefined}>{t.label}</a>)}
+          </nav>
+        ) : null}
+        {view === 'overview' ? (
+          <div className={styles.columns} data-sidebar={d.sidebar}>
+            <div className={styles.main}>
+              {c.blocks.length ? <Blocks p={p} base={base} edit={edit} /> : null}
+              <div data-edit={edit ? 'tabs' : undefined}>
+                <Stock p={p} base={base} query={query} preview />
+              </div>
+            </div>
+            {sidebar ? <div data-edit={edit ? 'about' : undefined} className={`${styles.asideWrap} ${edit ? styles.editable : ''}`}>{sidebar}</div> : null}
+          </div>
+        ) : view === 'about' ? (
+          <Sidebar p={p} wide />
+        ) : (
+          <Stock p={p} base={base} query={query} />
+        )}
       </div>
     </div>
   );

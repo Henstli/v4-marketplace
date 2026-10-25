@@ -19,6 +19,8 @@
 .main { flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-12); }
 .aside { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 
+.aboutView { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); align-items: start; }
+
 .panel {
   padding: var(--space-6);
   background: var(--surface);
@@ -102,3 +104,14 @@
   .spotName { font-size: 30px; line-height: 36px; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 }
+
+/* Postranní panel vlevo, vpravo nebo vůbec (na mobilu vždy pod obsahem). */
+.asideWrap { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; }
+.asideWrap > .aside { flex: none; }
+@media (min-width: 960px) {
+  .columns[data-sidebar="left"] > .asideWrap { order: -1; }
+}
+
+/* Náhled v editoru: části, na které jde kliknout a upravit je. */
+.editable { position: relative; cursor: pointer; border-radius: var(--radius-lg); }
+.editable:hover { outline: 2px dashed var(--shop); outline-offset: 6px; }

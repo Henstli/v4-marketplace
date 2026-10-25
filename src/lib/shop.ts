@@ -84,8 +84,15 @@ export async function getSellerBrands(ids: string[]): Promise<Map<string, { logo
   return out;
 }
 
+export interface Achievement {
+  icon: string;
+  label: string;
+}
+
 export interface ShopProfile {
   seller: Seller;
+  /** Odznaky úspěchů, sbírají se samy */
+  achievements: Achievement[];
   plan: Plan;
   verified: boolean;
   badge: boolean;
@@ -96,13 +103,34 @@ export interface ShopProfile {
   exists: boolean;
 }
 
+/** Odznaky úspěchů z hodnocení a doby na V4cards (nedají se koupit ani nastavit). */
+export function achievementsFor(seller: Seller, since: string | null): Achievement[] {
+  const out: Achievement[] = [];
+  const steps = [1000, 500, 100, 50, 10];
+  const step = steps.find((n) => seller.sales >= n);
+  if (step) out.push({ icon: '🏆', label: `${step.toLocaleString('cs-CZ')}+ hodnocených prodejů` });
+  if (seller.rating === 100 && seller.sales >= 10) out.push({ icon: '💯', label: '100 % kladných' });
+  else if ((seller.rating ?? 0) >= 98 && seller.sales >= 20) out.push({ icon: '⭐', label: 'Skvělé hodnocení' });
+  if (since) {
+    const years = Math.floor((Date.now() - new Date(since).getTime()) / (365.25 * 24 * 3600 * 1000));
+    if (years >= 1) out.push({ icon: '🎂', label: `${years} ${years === 1 ? 'rok' : years < 5 ? 'roky' : 'let'} na V4cards` });
+  }
+  return out;
+}
+
+async function getSellerSince(id: string): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { data } = await createPublicClient().from('profiles').select('created_at').eq('id', id).maybeSingle();
+  return (data?.created_at as string | undefined) ?? null;
+}
+
 async function loadProfile(seller: Seller, row: PageRow | null): Promise<ShopProfile> {
-  const [plans, verified] = await Promise.all([getSellerPlans([seller.id]), getVerified([seller.id])]);
+  const [plans, verified, since] = await Promise.all([getSellerPlans([seller.id]), getVerified([seller.id]), getSellerSince(seller.id)]);
   const plan = plans.get(seller.id) ?? 'free';
   const saved = row ? configFromRow(row, seller.kind) : defaultConfig(seller.kind);
   const isVerified = verified.has(seller.id);
   return {
-    seller, plan, verified: isVerified,
+    seller, plan, verified: isVerified, achievements: achievementsFor(seller, since),
     badge: hasVerifiedBadge(plan, isVerified, seller.rating, seller.sales),
     saved, config: effectiveConfig(saved, plan), exists: !!row,
   };
@@ -133,13 +161,14 @@ export interface ShopListing {
   language: Language;
   quantity: number;
   graded: string | null;
+  createdAt: string;
   card: { id: string; slug: string; name: string; number: string; image?: string; game: GameId; setCode: string; setName: string };
 }
 
 const LISTING_COLUMNS = 'id, price_czk, condition, language, quantity, graded, created_at, cards(id, slug, name, number, image_url, card_sets(game_id, code, name))';
 
 type ListingRow = {
-  id: string; price_czk: number; condition: string; language: string; quantity: number; graded: string | null;
+  id: string; price_czk: number; condition: string; language: string; quantity: number; graded: string | null; created_at: string;
   cards: unknown;
 };
 
@@ -147,7 +176,7 @@ function fromListingRow(l: ListingRow): ShopListing {
   const c = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as { id: string; slug: string; name: string; number: string; image_url: string | null; card_sets: unknown };
   const s = (Array.isArray(c.card_sets) ? c.card_sets[0] : c.card_sets) as { game_id: GameId; code: string; name: string } | null;
   return {
-    id: l.id, price: l.price_czk, condition: l.condition as Condition, language: l.language as Language, quantity: l.quantity, graded: l.graded,
+    id: l.id, price: l.price_czk, condition: l.condition as Condition, language: l.language as Language, quantity: l.quantity, graded: l.graded, createdAt: l.created_at,
     card: { id: c.id, slug: c.slug, name: c.name, number: c.number, image: c.image_url ?? undefined, game: s?.game_id ?? 'pokemon', setCode: s?.code ?? '', setName: s?.name ?? '' },
   };
 }
@@ -254,4 +283,26 @@ export function sortOffers<T extends { price: number; condition: Condition; sell
       || Number(brands.get(b.o.seller.id)?.plan === 'pro') - Number(brands.get(a.o.seller.id)?.plan === 'pro')
       || a.i - b.i)
     .map((x) => x.o);
+}
+
+export interface ShopReview {
+  rating: number;
+  comment: string;
+  date: string;
+}
+
+/** Kladná hodnocení s komentářem pro blok Recenze (bez jmen kupujících). */
+export async function getShopReviews(sellerId: string, limit: number): Promise<ShopReview[]> {
+  if (!isSupabaseConfigured()) return [];
+  const { data } = await createPublicClient()
+    .from('reviews')
+    .select('rating, comment, created_at')
+    .eq('seller_id', sellerId)
+    .gte('rating', 4)
+    .not('comment', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return (data ?? [])
+    .filter((r) => (r.comment as string | null)?.trim())
+    .map((r) => ({ rating: r.rating as number, comment: (r.comment as string).trim().slice(0, 400), date: r.created_at as string }));
 }
