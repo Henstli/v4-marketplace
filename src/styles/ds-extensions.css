@@ -18,3 +18,6 @@ a.tz-chip { text-decoration: none; }
 
 /* Skutečný obrázek karty v dlaždici. */
 .tz-tile-img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
+
+/* Dlaždice karty bez nabídky (katalog obsahuje i karty, které zatím nikdo neprodává). */
+.tz-tile-empty { font-size: var(--t-small-size); line-height: var(--t-small-lh); color: var(--ink-muted); }

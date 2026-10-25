@@ -11,7 +11,8 @@ export interface CardTileProps {
   color?: string;
   /** Skutečný obrázek karty místo zástupné plochy */
   image?: string;
-  price: number;
+  /** Nejnižší cena; null = karta je v katalogu, ale nikdo ji neprodává */
+  price: number | null;
   trend?: number;
   href?: string;
 }
@@ -22,7 +23,7 @@ export function CardTile({ name, set, game, color, image, price, trend, href = '
       <div className="tz-tile-art" style={{ background: color || 'var(--surface-sunken)' }}>
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="tz-tile-img" />
+          <img src={image} alt="" loading="lazy" className="tz-tile-img" />
         ) : (
           <div className="tz-tile-frame">{game || ''}</div>
         )}
@@ -32,8 +33,8 @@ export function CardTile({ name, set, game, color, image, price, trend, href = '
         {set ? <div className="tz-tile-set">{set}</div> : null}
       </div>
       <div className="tz-tile-row">
-        <Price amount={price} prefix="od" />
-        {trend != null ? <Trend value={trend} /> : null}
+        {price != null ? <Price amount={price} prefix="od" /> : <span className="tz-tile-empty">Bez nabídky</span>}
+        {price != null && trend != null ? <Trend value={trend} /> : null}
       </div>
     </Link>
   );

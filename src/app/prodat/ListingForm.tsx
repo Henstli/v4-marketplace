@@ -6,12 +6,7 @@ import { CONDITION_NAMES, CONDITIONS, LANGUAGE_NAMES, type Language } from '@/li
 import { createListing, type ListingState } from './actions';
 import styles from './sell.module.css';
 
-export interface CardOption {
-  id: string;
-  label: string;
-}
-
-export function ListingForm({ cards, preselect }: { cards: CardOption[]; preselect?: string }) {
+export function ListingForm({ cardId }: { cardId: string }) {
   const [state, action, pending] = useActionState<ListingState, FormData>(createListing, {});
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -20,13 +15,7 @@ export function ListingForm({ cards, preselect }: { cards: CardOption[]; presele
 
   return (
     <form ref={formRef} action={action} className={styles.form}>
-      <label className={`${styles.field} ${styles.wide}`}>
-        <span className="t-label muted">KARTA</span>
-        <select name="card" required defaultValue={preselect ?? ''} className={styles.input}>
-          <option value="" disabled>Vyberte kartu z katalogu</option>
-          {cards.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-        </select>
-      </label>
+      <input type="hidden" name="card" value={cardId} />
       <label className={styles.field}>
         <span className="t-label muted">STAV</span>
         <select name="condition" required defaultValue="NM" className={styles.input}>

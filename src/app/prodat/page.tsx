@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
-import { Button, Price } from '@/components/trezor';
+import { Button, ButtonLink, Price, SearchField } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
-import { getAllCards } from '@/lib/catalog';
+import { getCardBySlug, searchCards } from '@/lib/catalog';
 import { getGame } from '@/lib/games';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -15,7 +15,7 @@ import styles from './sell.module.css';
 
 export const metadata: Metadata = { title: 'Prodat karty' };
 
-type Props = { searchParams: Promise<{ karta?: string }> };
+type Props = { searchParams: Promise<{ karta?: string; hledat?: string }> };
 
 export default async function SellPage({ searchParams }: Props) {
   if (!isSupabaseConfigured()) {
@@ -24,17 +24,17 @@ export default async function SellPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/prodat');
 
-  const { karta } = await searchParams;
-  const cards = await getAllCards();
-  const bySlug = new Map(cards.map((c) => [c.id, c]));
-  const options = cards
-    .map((c) => ({ id: c.id, label: `${c.name} · ${c.setName} ${c.number} · ${getGame(c.game)?.name ?? ''}` }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'cs'));
+  const { karta, hledat } = await searchParams;
+  const q = hledat?.trim();
+  const [selected, found] = await Promise.all([
+    karta ? getCardBySlug(karta) : null,
+    q ? searchCards({ q, pageSize: 12 }) : null,
+  ]);
 
   const supabase = await createClient();
   const { data: mine } = await supabase
     .from('listings')
-    .select('id, card_id, price_czk, condition, language, quantity')
+    .select('id, price_czk, condition, language, quantity, cards(slug, name)')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -47,7 +47,48 @@ export default async function SellPage({ searchParams }: Props) {
 
       <section className="panel">
         <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Nová nabídka</h2>
-        <ListingForm cards={options} preselect={cards.find((c) => c.slug === karta)?.id} />
+        {selected ? (
+          <>
+            <div className={styles.picked}>
+              <div>
+                <p className="t-label muted">KARTA</p>
+                <Link href={`/karty/${selected.slug}`} className={styles.rowName}>{selected.name}</Link>
+                <div className="t-small muted">
+                  {selected.setName} · <span className="code">{selected.setCode} {selected.number}</span> · {getGame(selected.game)?.name}
+                </div>
+              </div>
+              <ButtonLink href="/prodat" variant="ghost">Změnit kartu</ButtonLink>
+            </div>
+            <ListingForm cardId={selected.id} />
+          </>
+        ) : (
+          <>
+            <form action="/prodat" className={styles.search}>
+              <SearchField name="hledat" defaultValue={q} placeholder="Název karty, sada nebo číslo" label="Najít kartu v katalogu" />
+            </form>
+            {found ? (
+              found.cards.length ? (
+                <div className={styles.list}>
+                  {found.cards.map((c) => (
+                    <Link key={c.id} href={`/prodat?karta=${c.slug}`} className={styles.result}>
+                      <span className={styles.rowName}>{c.name}</span>
+                      <span className="t-small muted">
+                        {c.setName} · <span className="code">{c.setCode} {c.number}</span> · {getGame(c.game)?.name}
+                      </span>
+                    </Link>
+                  ))}
+                  {found.total > found.cards.length ? (
+                    <p className="t-small muted">Zobrazeno {found.cards.length} z {found.total}. Upřesněte hledání, třeba přidejte sadu nebo číslo karty.</p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="muted">Kartu jsme v katalogu nenašli. Zkuste jiný název nebo číslo.</p>
+              )
+            ) : (
+              <p className="t-small muted">Napište název karty a vyberte ji z výsledků.</p>
+            )}
+          </>
+        )}
       </section>
 
       <section className="panel">
@@ -55,7 +96,7 @@ export default async function SellPage({ searchParams }: Props) {
         {mine?.length ? (
           <div className={styles.list}>
             {mine.map((l) => {
-              const card = bySlug.get(l.card_id);
+              const card = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as { slug: string; name: string } | null;
               return (
                 <div key={l.id} className={styles.row}>
                   <div>

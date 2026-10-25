@@ -25,18 +25,29 @@ Projekt Supabase `Henstli's Project` v organizaci „V4 market“ (region eu-wes
 Schéma je v `supabase/migrations/`, ukázková data v `supabase/seed.sql`
 (vygenerované z `src/lib/mock-data.ts` skriptem `scripts/seed-sql.mts`). Prodejci v ukázkových datech jsou demo účty.
 
+### Katalog karet
+
+Karty Pokémon a Magic se stahují z veřejných databází [TCGdex](https://tcgdex.dev) a [Scryfall](https://scryfall.com)
+edge funkcí `supabase/functions/import-catalog`. Volá ji plánovač pg_cron (migrace `catalog_schedule`):
+každé 3 minuty naimportuje jednu sadu z tabulky `catalog_sources` (nejdřív nové, pak starší než 7 dní)
+a v pondělí ve 3:00 doplní nově vydané sady. Funkce ověřuje heslo `import_secret` uložené ve Vaultu.
+Které sady se berou, je nastavené na začátku funkce (Pokémon: éra Scarlet & Violet, Magic: od roku 2023).
+Stav importu: `select * from catalog_sources order by imported_at desc;`
+
+Vyhledávání a filtry katalogu běží v SQL funkci `search_cards` (fulltext s předponami, bez diakritiky).
+
 Aby fungoval přihlašovací odkaz, musí být adresa webu v Supabase v Authentication > URL Configuration
 (Site URL a Redirect URLs, např. `http://localhost:3000/**`).
 
 ## Co je hotové
 
 - Homepage s kartami, které nejvíc rostou, a kategoriemi
-- Katalog `/karty` s vyhledáváním, filtry (hra, stav, jazyk, prodejce) a řazením v URL
+- Katalog `/karty` s tisíci skutečných karet Pokémon a Magic (s obrázky), vyhledáváním, filtry (hra, stav, jazyk, prodejce), řazením a stránkováním v URL
 - Detail karty s grafem ceny a tabulkou nabídek
 - Košík rozdělený podle prodejců (uložený v prohlížeči), platba zatím vypnutá
 
 - Přihlášení e-mailovým odkazem, profil prodejce (`/ucet`)
-- Vystavení karty k prodeji a správa vlastních nabídek (`/prodat`)
+- Vystavení karty k prodeji (vyhledání karty v katalogu) a správa vlastních nabídek (`/prodat`)
 
 - Testovací objednávka z košíku (jedna objednávka na prodejce, bez platby), stavy zaplaceno → odesláno → doručeno
   a hodnocení prodejce po doručení (`/objednavky`)
