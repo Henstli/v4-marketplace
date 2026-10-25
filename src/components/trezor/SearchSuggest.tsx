@@ -5,7 +5,13 @@ import { cx } from './cx';
 
 export interface SearchSuggestItem {
   href: string;
+  /** card = karta s obrázkem a cenou (výchozí), set = sada, seller = prodejce nebo obchod (ikona místo obrázku) */
+  kind?: 'card' | 'set' | 'seller';
   name: string;
+  /** Druhý řádek místo „sada · číslo“, např. "Pokémon · OBF · 2023" nebo "Obchod · CZ" */
+  meta?: string;
+  /** Krátký text vpravo u sady nebo prodejce, např. "12 nabídek" */
+  tag?: string;
   /** Název sady */
   set?: string;
   /** Číslo karty v sadě */
@@ -19,13 +25,19 @@ export interface SearchSuggestItem {
   price?: number | null;
 }
 
+export interface SearchSuggestGroup {
+  title: string;
+  items: SearchSuggestItem[];
+}
+
 export interface SearchSuggestProps {
   /** id seznamu, na které odkazuje aria-controls pole; řádky mají id `${id}-${index}` */
   id: string;
   /** Text v poli: zvýrazní se v názvech a použije v posledním řádku */
   query: string;
-  items: SearchSuggestItem[];
-  /** Řádek vybraný klávesnicí (poslední řádek „Všechny výsledky“ má index items.length) */
+  /** Skupiny s nadpisy (Karty, Sady, Prodejci); prázdné se nezobrazí, jediná skupina karet je bez nadpisu */
+  groups: SearchSuggestGroup[];
+  /** Řádek vybraný klávesnicí: index přes všechny skupiny za sebou, poslední řádek „Všechny výsledky“ má index počtu návrhů */
   activeIndex?: number;
   /** Odkaz na celý katalog s dotazem; bez něj se poslední řádek nezobrazí */
   allHref?: string;
@@ -57,55 +69,103 @@ function highlight(name: string, query: string): ReactNode {
   );
 }
 
+// Ikony skupin: sada (stoh karet) a prodejce (obchod).
+const ICONS = {
+  set: (
+    <>
+      <rect x={7} y={3} width={12} height={16} rx={2} />
+      <path d="M5 6v13a2 2 0 0 0 2 2h9" />
+    </>
+  ),
+  seller: (
+    <>
+      <path d="M4 9l1.5-5h13L20 9" />
+      <path d="M4 9h16v2a3 3 0 0 1-5.33 1.9A3 3 0 0 1 12 14a3 3 0 0 1-2.67-1.1A3 3 0 0 1 4 11z" />
+      <path d="M5 13v7h14v-7" />
+    </>
+  ),
+};
+
 // Řádky jsou jen pro myš a dotyk; klávesnice zůstává v poli a vybírá přes aria-activedescendant.
 const keepFocus = (e: MouseEvent) => e.preventDefault();
 
-export function SearchSuggest({ id, query, items, activeIndex = -1, allHref, onSelect, emptyText, label = 'Návrhy karet', className }: SearchSuggestProps) {
-  return (
-    <ul id={id} role="listbox" aria-label={label} className={cx('tz-suggest', className)}>
-      {items.map((it, i) => (
-        <li key={it.href} role="presentation">
+export function SearchSuggest({ id, query, groups, activeIndex = -1, allHref, onSelect, emptyText, label = 'Návrhy', className }: SearchSuggestProps) {
+  const shown = groups.filter((g) => g.items.length);
+  const titled = shown.length > 1 || shown.some((g) => g.items[0].kind && g.items[0].kind !== 'card');
+  let n = 0;
+  const rows: ReactNode[] = [];
+  shown.forEach((g) => {
+    if (titled) {
+      rows.push(
+        <li key={`g-${g.title}`} role="presentation" className="tz-suggest-group" aria-hidden="true">
+          {g.title.toUpperCase()}
+        </li>,
+      );
+    }
+    for (const it of g.items) {
+      const i = n++;
+      const card = !it.kind || it.kind === 'card';
+      rows.push(
+        <li key={`${it.kind ?? 'card'}-${it.href}`} role="presentation">
           <Link
             id={`${id}-${i}`}
             role="option"
             href={it.href}
             tabIndex={-1}
-            className="tz-suggest-item"
+            className={cx('tz-suggest-item', card ? null : 'tz-suggest-item-compact')}
             aria-selected={i === activeIndex}
             onMouseDown={keepFocus}
             onClick={onSelect ? (e) => onSelect(it.href, e) : undefined}
           >
-            <span className="tz-suggest-art" style={it.image ? undefined : { background: it.color || 'var(--surface-sunken)' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {it.image ? <img src={it.image} alt="" loading="lazy" decoding="async" /> : null}
-            </span>
+            {card ? (
+              <span className="tz-suggest-art" style={it.image ? undefined : { background: it.color || 'var(--surface-sunken)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {it.image ? <img src={it.image} alt="" loading="lazy" decoding="async" /> : null}
+              </span>
+            ) : (
+              <span className="tz-suggest-icon" aria-hidden="true">
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                  {ICONS[it.kind as 'set' | 'seller']}
+                </svg>
+              </span>
+            )}
             <span className="tz-suggest-text">
               <span className="tz-suggest-name" style={{ display: 'block' }}>{highlight(it.name, query)}</span>
               <span className="tz-suggest-meta">
                 {it.dot ? <span className="tz-chip-dot" style={{ background: it.dot }} aria-hidden="true" /> : null}
-                {[it.set, it.number].filter(Boolean).join(' · ')}
+                {it.meta ?? [it.set, it.number].filter(Boolean).join(' · ')}
               </span>
             </span>
-            <span className="tz-suggest-price">
-              {it.price != null ? <Price amount={it.price} prefix="od" /> : <span className="tz-suggest-none">Bez nabídky</span>}
-            </span>
+            {card ? (
+              <span className="tz-suggest-price">
+                {it.price != null ? <Price amount={it.price} prefix="od" /> : <span className="tz-suggest-none">Bez nabídky</span>}
+              </span>
+            ) : it.tag ? (
+              <span className="tz-suggest-tag">{it.tag}</span>
+            ) : null}
           </Link>
-        </li>
-      ))}
-      {items.length === 0 ? (
+        </li>,
+      );
+    }
+  });
+
+  return (
+    <ul id={id} role="listbox" aria-label={label} className={cx('tz-suggest', className)}>
+      {rows}
+      {n === 0 ? (
         <li role="presentation" className="tz-suggest-empty">
-          {emptyText ?? 'Žádná karta neodpovídá. Zkuste jiný název nebo číslo karty.'}
+          {emptyText ?? 'Nic neodpovídá. Zkuste jiný název karty, sady nebo prodejce.'}
         </li>
       ) : null}
       {allHref ? (
         <li role="presentation">
           <Link
-            id={`${id}-${items.length}`}
+            id={`${id}-${n}`}
             role="option"
             href={allHref}
             tabIndex={-1}
             className="tz-suggest-item tz-suggest-all"
-            aria-selected={activeIndex === items.length}
+            aria-selected={activeIndex === n}
             onMouseDown={keepFocus}
             onClick={onSelect ? (e) => onSelect(allHref, e) : undefined}
           >

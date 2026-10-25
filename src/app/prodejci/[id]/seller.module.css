@@ -1,0 +1,10 @@
+.page { display: flex; flex-direction: column; gap: var(--space-8); padding-top: var(--space-8); }
+
+.head { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}

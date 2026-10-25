@@ -6,7 +6,7 @@ export { Price } from './Price';
 export { Chip, ChipLink } from './Chip';
 export { Sparkline } from './Sparkline';
 export { SearchField } from './SearchField';
-export { SearchSuggest, type SearchSuggestItem } from './SearchSuggest';
+export { SearchSuggest, type SearchSuggestItem, type SearchSuggestGroup } from './SearchSuggest';
 export { CardTile } from './CardTile';
 export { CardThumb } from './CardThumb';
 export { Skeleton, SkeletonTile } from './Skeleton';

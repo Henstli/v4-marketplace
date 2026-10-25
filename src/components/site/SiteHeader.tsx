@@ -14,7 +14,7 @@ export async function SiteHeader() {
     <header className={styles.header}>
       <div className={`container ${styles.headerRow}`}>
         <Logo />
-        <SearchBox className={styles.search} placeholder="Karta, sada nebo hráč" label="Hledat karty" shortcut />
+        <SearchBox className={styles.search} placeholder="Karta, sada, hráč nebo prodejce" label="Hledat karty, sady a prodejce" shortcut groups />
         <nav className={styles.actions} aria-label="Účet">
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
           <CartLink />

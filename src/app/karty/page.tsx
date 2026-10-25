@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ChipLink } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
-import { PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
-import { formatNumber } from '@/lib/format';
+import { findSetsAndSellers, getSet, PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
+import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame, type GameId } from '@/lib/games';
 import { CONDITIONS, LANGUAGE_NAMES, type Condition, type Language, type SellerKind } from '@/lib/types';
 import styles from './catalog.module.css';
@@ -53,7 +53,8 @@ function href(params: Params, key: string, value: string | undefined): string {
   for (const [k, v] of Object.entries(params)) {
     const val = one(v);
     // Změna filtru vrací na první stránku.
-    if (val && k !== key && k !== 'strana') next.set(k, val);
+    // Sada patří k jedné hře, změna hry ji zruší.
+    if (val && k !== key && k !== 'strana' && !(key === 'hra' && k === 'sada')) next.set(k, val);
   }
   if (value) next.set(key, value);
   const s = next.toString();
@@ -63,7 +64,13 @@ function href(params: Params, key: string, value: string | undefined): string {
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const query = parse(params);
-  const { cards, total } = await searchCards(query);
+  const setCode = one(params.sada);
+  const set = setCode ? await getSet(query.game, setCode) : null;
+  const [{ cards, total }, related] = await Promise.all([
+    searchCards({ ...query, setId: set?.id }),
+    // K hledanému textu nabídneme i sady a prodejce („Obsidian Flames“, jméno obchodu).
+    query.q && !set && (query.page ?? 1) === 1 ? findSetsAndSellers(query.q, query.game) : null,
+  ]);
   const page = query.page ?? 1;
   const pages = Math.ceil(total / PAGE_SIZE);
   const pageHref = (n: number) => {
@@ -84,6 +91,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           placeholder="Hledat v katalogu"
           label="Hledat v katalogu"
           game={query.game}
+          groups
           keep={Object.fromEntries(
             Object.entries(params).flatMap(([k, v]) => (k !== 'q' && k !== 'strana' && one(v) ? [[k, one(v)!]] : [])),
           )}
@@ -97,6 +105,13 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
             </ChipLink>
           ))}
         </FilterGroup>
+
+        {set ? (
+          <FilterGroup title="SADA">
+            <ChipLink href={href(params, 'sada', undefined)}>Všechny sady</ChipLink>
+            <ChipLink href={href(params, 'sada', set.code)} selected dot={getGame(set.game)?.dot}>{set.name}</ChipLink>
+          </FilterGroup>
+        ) : null}
 
         <FilterGroup title="STAV">
           <ChipLink href={href(params, 'stav', undefined)} selected={!query.condition}>Vše</ChipLink>
@@ -123,8 +138,13 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       <section className={styles.results}>
         <div className="section-head">
           <div>
-            <h1 className="t-heading-l">{query.q ? `Výsledky pro „${query.q}“` : game ? game.name : 'Všechny karty'}</h1>
-            <p className="t-small muted">{resultCount(total)}{pages > 1 ? ` · strana ${page} z ${formatNumber(pages)}` : ''}</p>
+            <h1 className="t-heading-l">
+              {query.q ? `Výsledky pro „${query.q}“` : set ? set.name : game ? game.name : 'Všechny karty'}
+            </h1>
+            <p className="t-small muted">
+              {set ? `${[getGame(set.game)?.name, set.code, set.year].filter(Boolean).join(' · ')} · ` : ''}
+              {resultCount(total)}{pages > 1 ? ` · strana ${page} z ${formatNumber(pages)}` : ''}
+            </p>
           </div>
           <nav className={styles.sort} aria-label="Řazení">
             {SORTS.map((s) => (
@@ -134,6 +154,31 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
             ))}
           </nav>
         </div>
+
+        {related && (related.sets.length || related.sellers.length) ? (
+          <div className={styles.related}>
+            {related.sets.length ? (
+              <div className={styles.relatedRow}>
+                <span className="t-label muted">SADY</span>
+                {related.sets.map((s) => (
+                  <ChipLink key={s.id} href={`/karty?${new URLSearchParams({ hra: s.game, sada: s.code })}`} dot={getGame(s.game)?.dot}>
+                    {s.name} · {plural(s.cards, ['karta', 'karty', 'karet'])}
+                  </ChipLink>
+                ))}
+              </div>
+            ) : null}
+            {related.sellers.length ? (
+              <div className={styles.relatedRow}>
+                <span className="t-label muted">PRODEJCI</span>
+                {related.sellers.map((s) => (
+                  <ChipLink key={s.id} href={`/prodejci/${s.id}`}>
+                    {s.name} · {plural(s.offers, ['nabídka', 'nabídky', 'nabídek'])}
+                  </ChipLink>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {cards.length ? (
           <>
@@ -151,7 +196,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         ) : (
           <div className="panel">
             <h2 className="t-heading-m">Nic jsme nenašli</h2>
-            <p className="muted">Zkuste jiný název karty nebo zrušte některý z filtrů.</p>
+            <p className="muted">Zkuste jiný název karty, sady nebo prodejce, případně zrušte některý z filtrů.</p>
             {query.game === 'sport' ? (
               <p className="muted">
                 Sportovní karty do katalogu přidávají prodejci. Máte kartu, která tu chybí? <Link href="/prodat/nova-karta">Navrhněte ji</Link>.
