@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { ChipLink, SearchField } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
-import { searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
+import { PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
+import { formatNumber } from '@/lib/format';
 import { GAMES, getGame, type GameId } from '@/lib/games';
 import { CONDITIONS, LANGUAGE_NAMES, type Condition, type Language, type SellerKind } from '@/lib/types';
 import styles from './catalog.module.css';
@@ -33,6 +34,7 @@ function parse(params: Params): CatalogQuery {
   const language = one(params.jazyk);
   const seller = one(params.prodejce);
   const sort = one(params.razeni);
+  const page = Number(one(params.strana));
   return {
     q: one(params.q),
     game: game && getGame(game) ? (game as GameId) : undefined,
@@ -40,6 +42,7 @@ function parse(params: Params): CatalogQuery {
     language: language && language in LANGUAGE_NAMES ? (language as Language) : undefined,
     sellerKind: SELLER_KINDS.find((k) => k.param === seller)?.id,
     sort: (Object.keys(SORT_PARAM) as SortKey[]).find((k) => SORT_PARAM[k] && SORT_PARAM[k] === sort) ?? 'relevance',
+    page: Number.isInteger(page) && page > 1 ? page : 1,
   };
 }
 
@@ -47,7 +50,8 @@ function href(params: Params, key: string, value: string | undefined): string {
   const next = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     const val = one(v);
-    if (val && k !== key) next.set(k, val);
+    // Změna filtru vrací na první stránku.
+    if (val && k !== key && k !== 'strana') next.set(k, val);
   }
   if (value) next.set(key, value);
   const s = next.toString();
@@ -57,7 +61,14 @@ function href(params: Params, key: string, value: string | undefined): string {
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const query = parse(params);
-  const cards = await searchCards(query);
+  const { cards, total } = await searchCards(query);
+  const page = query.page ?? 1;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const pageHref = (n: number) => {
+    const base = href(params, 'razeni', one(params.razeni));
+    if (n <= 1) return base;
+    return `${base}${base.includes('?') ? '&' : '?'}strana=${n}`;
+  };
   const game = query.game ? getGame(query.game) : undefined;
   const sellerParam = SELLER_KINDS.find((k) => k.id === query.sellerKind)?.param;
 
@@ -66,7 +77,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       <aside className={styles.filters} aria-label="Filtry">
         <form action="/karty" className={styles.filterSearch}>
           {Object.entries(params).map(([k, v]) =>
-            k !== 'q' && one(v) ? <input key={k} type="hidden" name={k} value={one(v)} /> : null,
+            k !== 'q' && k !== 'strana' && one(v) ? <input key={k} type="hidden" name={k} value={one(v)} /> : null,
           )}
           <SearchField name="q" defaultValue={query.q} placeholder="Hledat v katalogu" label="Hledat v katalogu" />
         </form>
@@ -106,7 +117,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         <div className="section-head">
           <div>
             <h1 className="t-heading-l">{query.q ? `Výsledky pro „${query.q}“` : game ? game.name : 'Všechny karty'}</h1>
-            <p className="t-small muted">{resultCount(cards.length)}</p>
+            <p className="t-small muted">{resultCount(total)}{pages > 1 ? ` · strana ${page} z ${formatNumber(pages)}` : ''}</p>
           </div>
           <nav className={styles.sort} aria-label="Řazení">
             {SORTS.map((s) => (
@@ -118,9 +129,18 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         </div>
 
         {cards.length ? (
-          <div className="card-grid">
-            {cards.map((card) => <CardSummaryTile key={card.id} card={card} />)}
-          </div>
+          <>
+            <div className="card-grid">
+              {cards.map((card) => <CardSummaryTile key={card.id} card={card} />)}
+            </div>
+            {pages > 1 ? (
+              <nav className={styles.pager} aria-label="Stránky">
+                {page > 1 ? <ChipLink href={pageHref(page - 1)}>← Předchozí</ChipLink> : null}
+                <span className="t-small muted">Strana {page} z {formatNumber(pages)}</span>
+                {page < pages ? <ChipLink href={pageHref(page + 1)}>Další →</ChipLink> : null}
+              </nav>
+            ) : null}
+          </>
         ) : (
           <div className="panel">
             <h2 className="t-heading-m">Nic jsme nenašli</h2>
@@ -135,7 +155,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
 function resultCount(n: number): string {
   if (n === 1) return '1 karta';
   if (n >= 2 && n <= 4) return `${n} karty`;
-  return `${n} karet`;
+  return `${formatNumber(n)} karet`;
 }
 
 function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {

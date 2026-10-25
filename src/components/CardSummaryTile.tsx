@@ -12,7 +12,7 @@ export function CardSummaryTile({ card }: { card: CardSummary }) {
       game={game?.label}
       color={`var(--game-${card.game}-art, var(--surface-sunken))`}
       image={card.image}
-      price={card.minPrice ?? 0}
+      price={card.minPrice}
       trend={card.trend}
     />
   );

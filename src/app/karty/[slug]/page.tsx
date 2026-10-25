@@ -39,7 +39,12 @@ export default async function CardDetailPage({ params }: Props) {
 
       <div className={styles.top}>
         <div className={styles.art} style={{ background: `var(--game-${card.game}-art, var(--surface-sunken))` }}>
-          <div className="tz-tile-frame">{game?.label}</div>
+          {card.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={card.image} alt={`${card.name}, ${card.setName} ${card.number}`} className="tz-tile-img" />
+          ) : (
+            <div className="tz-tile-frame">{game?.label}</div>
+          )}
         </div>
 
         <div className={styles.info}>
