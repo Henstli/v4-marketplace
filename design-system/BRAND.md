@@ -52,6 +52,8 @@ Obrysové ikony, tah 1,8–2 px, zakončení kulaté, velikost 18–20 px, barva
 
 Zatím provizorní, finální podoba se vybere později. Do té doby se používá monogram „V4“ a vedle něj nápis „V4cards“ v `display` 700. Monogram: čtverec 36 px, `radius-md`, plocha `accent`, text `on-accent` v `display` 700.
 
+**Ikona v záložce prohlížeče (favicon)** je samotný monogram „V4“: čtverec v `accent` (tmavý motiv, #7cf2c8) se zaoblením 22 % strany, text `on-accent` v `display` 700 na 52 % výšky. Velikosti 16, 32 a 48 px (favicon.ico), 512 px (icon.png) a 180 px bez zaoblení pro iPhone (apple-icon.png, rohy zaoblí systém).
+
 ## Přístupnost
 
 - Text splňuje kontrast 4.5:1 v obou motivech, okraje ovládacích prvků 3:1.
