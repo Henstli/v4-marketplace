@@ -21,13 +21,14 @@ const STATUS: Record<string, string> = {
 
 interface OrderRow {
   id: string;
-  buyer_id: string;
-  seller_id: string;
+  // Prázdné, když druhá strana smazala účet.
+  buyer_id: string | null;
+  seller_id: string | null;
   status: string;
   total_czk: number;
   shipping_czk: number;
   created_at: string;
-  order_items: Array<{ quantity: number; price_czk: number; listings: { condition: string; cards: { name: string; slug: string } | null } | null }>;
+  order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string } | null }>;
 }
 
 type Props = { searchParams: Promise<{ nova?: string }> };
@@ -42,7 +43,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const [{ data: orders }, { data: profiles }, { data: reviews }] = await Promise.all([
     supabase
       .from('orders')
-      .select('id, buyer_id, seller_id, status, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, listings(condition, cards(name, slug)))')
+      .select('id, buyer_id, seller_id, status, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, condition, cards(name, slug))')
       .order('created_at', { ascending: false })
       .returns<OrderRow[]>(),
     supabase.from('profiles').select('id, display_name'),
@@ -61,7 +62,7 @@ export default async function OrdersPage({ searchParams }: Props) {
       <section className={styles.section}>
         <h2 className="t-heading-m">Nákupy</h2>
         {bought.length ? bought.map((o) => (
-          <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${names.get(o.seller_id) ?? '—'}`}>
+          <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`}>
             {o.status === 'shipped' ? (
               <form action={setOrderStatus}>
                 <input type="hidden" name="id" value={o.id} />
@@ -69,7 +70,7 @@ export default async function OrdersPage({ searchParams }: Props) {
                 <Button type="submit">Potvrdit převzetí</Button>
               </form>
             ) : null}
-            {o.status === 'delivered' && !reviewed.has(o.id) ? (
+            {o.status === 'delivered' && o.seller_id && !reviewed.has(o.id) ? (
               <form action={addReview} className={styles.review}>
                 <input type="hidden" name="orderId" value={o.id} />
                 <input type="hidden" name="sellerId" value={o.seller_id} />
@@ -94,7 +95,7 @@ export default async function OrdersPage({ searchParams }: Props) {
       <section className={styles.section}>
         <h2 className="t-heading-m">Prodeje</h2>
         {sold.length ? sold.map((o) => (
-          <OrderCard key={o.id} order={o} counterpart={`Kupující: ${names.get(o.buyer_id) ?? '—'}`}>
+          <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`}>
             {o.status === 'paid' ? (
               <form action={setOrderStatus}>
                 <input type="hidden" name="id" value={o.id} />
@@ -122,8 +123,8 @@ function OrderCard({ order, counterpart, children }: { order: OrderRow; counterp
       <ul className={styles.items}>
         {order.order_items.map((i, n) => (
           <li key={n}>
-            {i.listings?.cards ? <Link href={`/karty/${i.listings.cards.slug}`}>{i.listings.cards.name}</Link> : 'Karta'}
-            {i.listings ? <> <span className="code">{i.listings.condition}</span></> : null}
+            {i.cards ? <Link href={`/karty/${i.cards.slug}`}>{i.cards.name}</Link> : 'Karta'}
+            {i.condition ? <> <span className="code">{i.condition}</span></> : null}
             <span className="muted"> · {i.quantity}&nbsp;ks</span>
             <Price amount={i.price_czk * i.quantity} />
           </li>
