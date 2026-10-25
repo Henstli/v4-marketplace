@@ -7,12 +7,14 @@ export function SiteFooter() {
     <footer className={styles.footer}>
       <div className={`container ${styles.footerRow}`}>
         <Logo />
-        <p className="t-small muted">
-          Marketplace sběratelských karet pro Česko a Slovensko. Peníze držíme v úschově do doručení.
-        </p>
-        <p className="t-small muted">
-          <Link href="/obchodni-podminky">Obchodní podmínky</Link> · <Link href="/ochrana-osobnich-udaju">Ochrana osobních údajů</Link> · <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a> · Beta verze
-        </p>
+        <div className={styles.footerText}>
+          <p className="t-small muted">
+            <Link href="/obchodni-podminky">Obchodní podmínky</Link> · <Link href="/ochrana-osobnich-udaju">Ochrana osobních údajů</Link> · <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a> · Beta verze
+          </p>
+          <p className="t-small muted">
+            Marketplace sběratelských karet pro Česko a Slovensko. Peníze držíme v úschově do doručení.
+          </p>
+        </div>
       </div>
     </footer>
   );

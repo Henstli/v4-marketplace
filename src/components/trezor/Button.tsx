@@ -2,11 +2,11 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 import Link from 'next/link';
 import { cx } from './cx';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** primary = hlavní akce (jedna na obrazovku), secondary = vedlejší, ghost = navigace */
+  /** primary = hlavní akce (jedna na obrazovku), secondary = vedlejší, ghost = navigace, danger = ukončení nebo smazání (Odhlásit) */
   variant?: Variant;
   /** md = 44 px, lg = 52 px */
   size?: Size;

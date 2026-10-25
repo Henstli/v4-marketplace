@@ -11,15 +11,15 @@ export interface Game {
   live: boolean;
 }
 
-// Pořadí podle priorit obchodního plánu: hokej první.
+// Pořadí zleva doprava všude na webu (lišta v hlavičce, filtr v katalogu, kategorie na úvodní stránce).
 export const GAMES: Game[] = [
-  { id: 'sport', name: 'Hokej a sport', label: 'HOKEJ', dot: 'var(--game-sport)', live: true },
   { id: 'pokemon', name: 'Pokémon', label: 'POKÉMON', dot: 'var(--game-pokemon)', live: true },
   { id: 'magic', name: 'Magic: The Gathering', label: 'MAGIC', dot: 'var(--game-magic)', live: true },
-  { id: 'onepiece', name: 'One Piece', label: 'ONE PIECE', dot: 'var(--game-onepiece)', live: false },
-  { id: 'lorcana', name: 'Lorcana', label: 'LORCANA', dot: 'var(--game-lorcana)', live: false },
   { id: 'riftbound', name: 'Riftbound', label: 'RIFTBOUND', dot: 'var(--game-riftbound)', live: false },
+  { id: 'lorcana', name: 'Lorcana', label: 'LORCANA', dot: 'var(--game-lorcana)', live: false },
+  { id: 'onepiece', name: 'One Piece', label: 'ONE PIECE', dot: 'var(--game-onepiece)', live: false },
   { id: 'cyberpunk', name: 'Cyberpunk', label: 'CYBERPUNK', dot: 'var(--game-cyberpunk)', live: false },
+  { id: 'sport', name: 'Sport', label: 'SPORT', dot: 'var(--game-sport)', live: true },
 ];
 
 export function getGame(id: string): Game | undefined {

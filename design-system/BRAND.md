@@ -1,6 +1,6 @@
 # V4cards Trezor
 
-Design systém pro marketplace sběratelských karet pro Česko a Slovensko (později Maďarsko a Polsko). Kategorie: Magic: The Gathering, Pokémon, Riftbound, Lorcana, One Piece, Sport (hlavně hokej) a Cyberpunk.
+Design systém pro marketplace sběratelských karet pro Česko a Slovensko (později Maďarsko a Polsko). Kategorie v tomto pořadí (zleva doprava všude na webu): Pokémon, Magic: The Gathering, Riftbound, Lorcana, One Piece, Cyberpunk, Sport (hlavně hokej). Kategorie bez katalogu mají u názvu štítek „Brzy“ a nejsou odkazem.
 
 Směr „Trezor“: tmavé prostředí, ve kterém karty svítí jako ve vitríně, a ceny s grafy působí přesně jako na burze. Má budit důvěru u vážných sběratelů i obchodů a ukázat hlavní odlišení od konkurence: přehled o ceně a nástroje, které šetří čas.
 
@@ -21,6 +21,8 @@ Směr „Trezor“: tmavé prostředí, ve kterém karty svítí jako ve vitrín
 
 **Plochy.** Panely jsou `surface` s okrajem 1 px `line`, bez stínů. Hierarchii dělá světlost plochy a okraj, ne stín ani přechod.
 
+**Barva `danger`.** Červená jen pro akce, které něco ukončí nebo smažou (Odhlásit, Smazat účet), a to jen jako text tlačítka. Pro pokles ceny dál platí oranžová `down`.
+
 **Typografie.** Tři role:
 - `display` (Space Grotesk) pro nadpisy a názvy karet,
 - `sans` (Inter) pro text a ovládání,
@@ -34,6 +36,13 @@ Písma se načítají z Google Fonts:
 **Grafy.** Čára 2,5 px v `up` (nebo `down` při poklesu), pod ní plocha téže barvy s průhledností 8 %, mřížka v `line`. Průměrná prodejní cena přerušovaně v `ink-muted`. Osy a popisky v `mono`, 11–12 px, `ink-muted`.
 
 **Obrázky karet.** Vždy v poměru 63 : 88. Dokud není obrázek, zástupná plocha v barvě kategorie se zaobleným rámečkem.
+
+## Hlavička a patička
+
+- Hlavička: řádek s logem, vyhledáváním a tlačítky má nahoře odsazení `space-6` (24 px), aby nebyl nalepený na okraj okna. Pod ním po `space-4` (16 px) lišta kategorií a pod ní opět `space-4`.
+- Tlačítka v hlavičce jsou `ghost` bez okraje, jen Odhlásit je `danger`. Nepřihlášenému se ukáže `primary` Přihlásit.
+- Lišta kategorií: tečka `game-*` + název, v pořadí z úvodu. Kategorie bez katalogu jsou `ink-muted` se štítkem „Brzy“.
+- Patička: nahoře logo, pod ním jeden řádek se dvěma texty na stejné výšce: vlevo odkazy (Obchodní podmínky · Ochrana osobních údajů · podpora · Beta verze), vpravo popis služby. Oba `small`, `ink-muted`. Na mobilu pod sebou.
 
 ## Ikony
 
