@@ -101,6 +101,39 @@ async function discoverPokemon(): Promise<Array<{ id: string; name: string }>> {
   return sets;
 }
 
+// Záložní obrázky z pokemontcg.io: TCGdex nemá obrázky třeba u Trainer Gallery, Shiny Vault nebo promo karet.
+// Sadu hledáme podle názvu, jinak podle id TCGdex bez teček (svp, sve).
+let ptcgSets: Map<string, string> | null = null;
+const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const numberKey = (s: string) => s.toUpperCase().replace(/^([A-Z]*)0+(?=\d)/, '$1');
+
+async function ptcgImages(setId: string, setName: string): Promise<Map<string, string>> {
+  const images = new Map<string, string>();
+  if (!ptcgSets) {
+    try {
+      const { data } = await getJson<{ data: Array<{ id: string; name: string }> }>(
+        'https://api.pokemontcg.io/v2/sets?select=id,name&pageSize=250',
+      );
+      ptcgSets = new Map(data.map((s) => [nameKey(s.name), s.id]));
+    } catch {
+      // Seznam sad občas spadne, pak zkusíme aspoň id z TCGdex.
+    }
+  }
+  try {
+    const ptcgId = ptcgSets?.get(nameKey(setName)) ?? setId.replace(/\./g, '');
+    for (let page = 1; ; page++) {
+      const res = await getJson<{ data: Array<{ number: string; images?: { large?: string } }>; totalCount: number }>(
+        `https://api.pokemontcg.io/v2/cards?q=set.id:${encodeURIComponent(ptcgId)}&select=number,images&pageSize=250&page=${page}`,
+      );
+      for (const c of res.data) if (c.images?.large) images.set(numberKey(c.number), c.images.large);
+      if (page * 250 >= res.totalCount) break;
+    }
+  } catch {
+    // Záložní zdroj je jen doplněk; bez něj karta zůstane se zástupnou plochou.
+  }
+  return images;
+}
+
 async function fetchPokemonSet(id: string): Promise<ImportedSet> {
   const set = await getJson<TcgdexSet>(`https://api.tcgdex.net/v2/en/sets/${id}`);
   const code = (set.abbreviation?.official || set.id).toUpperCase();
@@ -111,6 +144,7 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
       return null;
     }
   });
+  const fallback = set.cards.some((c) => !c.image) ? await ptcgImages(set.id, set.name) : new Map<string, string>();
   return {
     code,
     name: set.name,
@@ -122,7 +156,7 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
         name: c.name,
         number,
         rarity: rarities[i],
-        image_url: c.image ? `${c.image}/high.webp` : null,
+        image_url: c.image ? `${c.image}/high.webp` : fallback.get(numberKey(c.localId)) ?? null,
         external_id: `tcgdex:${c.id}`,
       };
     }),

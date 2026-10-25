@@ -49,13 +49,8 @@ const c = (
   priceHistory: history(Number(id.slice(1)) * 7919, base, drift),
 });
 
+// Sportovní karty nemají veřejný katalog, přidávají se přes schválené návrhy prodejců.
 export const CARDS: Card[] = [
-  c('c1', 'sport', 'Connor McDavid', 'Upper Deck Series 1 2015-16', 'UD15', '201', 'Young Guns', 38900, 0.05),
-  c('c2', 'sport', 'David Pastrňák', 'Upper Deck Series 2 2014-15', 'UD14', '462', 'Young Guns', 6400, 0.08),
-  c('c3', 'sport', 'Juraj Slafkovský', 'Upper Deck Series 1 2022-23', 'UD22', '201', 'Young Guns', 2900, -0.06),
-  c('c4', 'sport', 'Martin Nečas', 'Upper Deck Series 2 2018-19', 'UD18', '459', 'Young Guns', 1450, 0.03),
-  c('c5', 'sport', 'Jaromír Jágr', 'Upper Deck Series 1 2007-08', 'UD07', '62', 'Base', 240, 0.01),
-  c('c6', 'sport', 'Dominik Hašek', 'SP Authentic 2001-02', 'SPA01', '45', 'Base', 380, -0.02),
   c('c7', 'pokemon', 'Charizard ex', 'Obsidian Flames', 'OBF', '223/197', 'Special Illustration Rare', 1290, 0.042),
   c('c8', 'pokemon', 'Umbreon VMAX', 'Evolving Skies', 'EVS', '215/203', 'Secret Rare', 14900, 0.07),
   c('c9', 'pokemon', 'Mew ex', 'Scarlet & Violet 151', 'MEW', '205/165', 'Hyper Rare', 690, -0.03),
@@ -79,17 +74,6 @@ const l = (cardId: string, sellerId: string, price: number, condition: Listing['
 });
 
 export const LISTINGS: Listing[] = [
-  l('c1', 's1', 37900, 'NM', 'en'),
-  l('c1', 's5', 36500, 'EX', 'en'),
-  l('c1', 's2', 89000, 'MT', 'en', 1, 'PSA 9'),
-  l('c2', 's5', 5900, 'NM', 'en'),
-  l('c2', 's1', 6290, 'NM', 'en', 2),
-  l('c3', 's3', 2590, 'NM', 'en', 3),
-  l('c3', 's6', 2450, 'EX', 'en'),
-  l('c4', 's1', 1390, 'NM', 'en', 2),
-  l('c5', 's5', 190, 'EX', 'en', 4),
-  l('c5', 's4', 220, 'NM', 'en'),
-  l('c6', 's5', 350, 'NM', 'en'),
   l('c7', 's2', 1290, 'NM', 'en', 5),
   l('c7', 's3', 1340, 'NM', 'cs', 2),
   l('c7', 's4', 1190, 'EX', 'en'),

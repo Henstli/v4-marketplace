@@ -87,6 +87,9 @@ export default async function SellPage({ searchParams }: Props) {
             ) : (
               <p className="t-small muted">Napište název karty a vyberte ji z výsledků.</p>
             )}
+            <p className={`t-small muted ${styles.suggest}`}>
+              Hokejovou nebo jinou sportovní kartu v katalogu nenajdete? <Link href="/prodat/nova-karta">Navrhněte ji</Link> a my ji po schválení přidáme.
+            </p>
           </>
         )}
       </section>

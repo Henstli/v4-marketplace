@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ChipLink, SearchField } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
@@ -145,6 +146,11 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           <div className="panel">
             <h2 className="t-heading-m">Nic jsme nenašli</h2>
             <p className="muted">Zkuste jiný název karty nebo zrušte některý z filtrů.</p>
+            {query.game === 'sport' ? (
+              <p className="muted">
+                Sportovní karty do katalogu přidávají prodejci. Máte kartu, která tu chybí? <Link href="/prodat/nova-karta">Navrhněte ji</Link>.
+              </p>
+            ) : null}
           </div>
         )}
       </section>
