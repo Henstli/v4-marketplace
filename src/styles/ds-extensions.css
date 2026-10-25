@@ -1,0 +1,20 @@
+/*
+ * Doplňky, které v design systému V4market Trezor zatím chybí.
+ * Vše staví jen na jeho tokenech. Až je Šimon schválí, přesunou se do design systému
+ * (tokens.json / bundle.css) a odsud se smažou.
+ */
+
+:root {
+  /* Tmavší odstíny kategorií pro zástupnou plochu karty (bílý popisek musí mít kontrast).
+     Pokémon a hokej jsou z README komponenty CardTile, Magic je doplněný. */
+  --game-sport-art: #1f4fa3;
+  --game-pokemon-art: #7a5e00;
+  --game-magic-art: #6e4a2e;
+}
+
+/* Čip jako odkaz (filtry v URL): stejný vybraný stav jako .tz-chip[aria-pressed="true"]. */
+a.tz-chip { text-decoration: none; }
+.tz-chip-selected { border-color: var(--accent); background: var(--up-tint); color: var(--up); }
+
+/* Skutečný obrázek karty v dlaždici. */
+.tz-tile-img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
