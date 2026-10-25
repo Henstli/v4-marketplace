@@ -23,6 +23,7 @@ interface CartContextValue {
   add: (item: Omit<CartItem, 'quantity'>) => void;
   setQuantity: (listingId: string, quantity: number) => void;
   remove: (listingId: string) => void;
+  clear: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -62,6 +63,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setQuantity: (listingId, quantity) =>
         persist(items.map((i) => (i.listingId === listingId ? { ...i, quantity: Math.max(1, Math.min(quantity, i.maxQuantity)) } : i))),
       remove: (listingId) => persist(items.filter((i) => i.listingId !== listingId)),
+      clear: () => persist([]),
     }),
     [items, persist],
   );

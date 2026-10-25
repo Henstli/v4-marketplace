@@ -1,15 +1,30 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 import { Button, ButtonLink, Price } from '@/components/trezor';
+import { placeOrder } from '@/app/kosik/actions';
 import { useCart, type CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
 // Odhad dopravy za jednu zásilku od prodejce (Zásilkovna), dokud nebude výběr dopravy.
 const SHIPPING_PER_SELLER = 89;
 
-export function CartView() {
-  const { items, setQuantity, remove } = useCart();
+export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) {
+  const { items, setQuantity, remove, clear } = useCart();
+  const router = useRouter();
+  const [error, setError] = useState<string>();
+  const [pending, startTransition] = useTransition();
+
+  const submit = () =>
+    startTransition(async () => {
+      setError(undefined);
+      const result = await placeOrder(items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })));
+      if (result.error) return setError(result.error);
+      clear();
+      router.push('/objednavky?nova=1');
+    });
 
   if (!items.length) {
     return (
@@ -79,8 +94,17 @@ export function CartView() {
           <div><dt>Doprava ({bySeller.size}×)</dt><dd><Price amount={shipping} /></dd></div>
           <div className={styles.total}><dt>Celkem</dt><dd><Price amount={subtotal + shipping} size="lg" /></dd></div>
         </dl>
-        <Button size="lg" disabled title="Platby připravujeme">Pokračovat k platbě</Button>
-        <p className="t-small muted">Peníze držíme v úschově, prodejce je dostane až po doručení. Platby spustíme v další verzi.</p>
+        {checkout === 'ready' ? (
+          <Button size="lg" onClick={submit} disabled={pending}>{pending ? 'Odesílám…' : 'Odeslat testovací objednávku'}</Button>
+        ) : checkout === 'login' ? (
+          <ButtonLink href="/prihlaseni?dalsi=/kosik" size="lg">Přihlásit se a objednat</ButtonLink>
+        ) : (
+          <Button size="lg" disabled title="Objednávky zapneme po připojení databáze">Pokračovat k platbě</Button>
+        )}
+        {error ? <p className={styles.error} role="alert">{error}</p> : null}
+        <p className="t-small muted">
+          Peníze držíme v úschově, prodejce je dostane až po doručení. V betě se zatím nic neplatí, objednávka je jen testovací.
+        </p>
       </aside>
     </div>
   );
