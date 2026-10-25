@@ -20,9 +20,12 @@ export async function SiteHeader() {
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
           <CartLink />
           {user ? (
+            <>
+            <ButtonLink href="/ucet" variant="ghost">Účet</ButtonLink>
             <form action={signOut}>
               <button type="submit" className="tz-btn tz-btn-ghost tz-btn-md" title={user.email}>Odhlásit</button>
             </form>
+            </>
           ) : (
             <ButtonLink href="/prihlaseni">Přihlásit</ButtonLink>
           )}

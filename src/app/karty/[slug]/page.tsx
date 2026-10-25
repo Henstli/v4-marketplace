@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Button, Price, Trend } from '@/components/trezor';
+import { ButtonLink, Price, Trend } from '@/components/trezor';
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { getCardBySlug, getOffers, type Offer } from '@/lib/catalog';
@@ -23,7 +23,9 @@ export default async function CardDetailPage({ params }: Props) {
   if (!card) notFound();
   const offers = await getOffers(card.id);
   const game = getGame(card.game);
-  const avg = Math.round(card.priceHistory.reduce((a, b) => a + b, 0) / card.priceHistory.length);
+  const avg = card.priceHistory.length
+    ? Math.round(card.priceHistory.reduce((a, b) => a + b, 0) / card.priceHistory.length)
+    : null;
 
   return (
     <div className="container">
@@ -57,13 +59,13 @@ export default async function CardDetailPage({ params }: Props) {
             </div>
             <dl className={styles.facts}>
               <div><dt className="t-small muted">Nabídek</dt><dd className="t-price">{offers.length}</dd></div>
-              <div><dt className="t-small muted">Průměr 30 dní</dt><dd className="t-price">{formatNumber(avg)}&nbsp;Kč</dd></div>
+              <div><dt className="t-small muted">Průměr 30 dní</dt><dd className="t-price">{avg != null ? <>{formatNumber(avg)}&nbsp;Kč</> : 'Bez prodejů'}</dd></div>
             </dl>
             <div className={styles.buyActions}>
               {offers.length ? (
                 <AddToCartButton item={cartItem(card, offers[0])} label="Přidat nejlevnější do košíku" variant="primary" size="lg" />
               ) : null}
-              <Button size="lg" variant="secondary" title="Hlídání ceny připravujeme">Hlídat cenu</Button>
+              <ButtonLink href={`/prodat?karta=${card.slug}`} size="lg" variant="secondary">Prodat tuto kartu</ButtonLink>
             </div>
           </div>
         </div>
@@ -76,7 +78,7 @@ export default async function CardDetailPage({ params }: Props) {
         </div>
         <PriceChart
           values={card.priceHistory}
-          label={`Cena za 30 dní se změnila o ${formatNumber(card.trend, 1)} %, průměr ${formatNumber(avg)} Kč`}
+          label={`Cena za 30 dní se změnila o ${formatNumber(card.trend, 1)} %, průměr ${formatNumber(avg ?? 0)} Kč`}
         />
       </section>
 
@@ -104,7 +106,8 @@ export default async function CardDetailPage({ params }: Props) {
                     <td>
                       <div className={styles.seller}>{o.seller.name}</div>
                       <div className="t-small muted">
-                        {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} · {formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} prodejů
+                        {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} ·{' '}
+                        {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
                       </div>
                     </td>
                     <td>
