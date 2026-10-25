@@ -62,8 +62,9 @@ jakmile je Google zapnutý v Authentication > Sign In / Providers.
 - Vystavení karty k prodeji (vyhledání karty v katalogu) a správa vlastních nabídek (`/prodat`)
 - Hromadné nahrávání nabídek z CSV nebo Excelu (`/prodat/import`): mapování sloupců, export skladu z Cardmarketu
   (ceny v EUR, playsety), párování s katalogem v SQL funkci `match_import_rows`, kontrola a oprava řádků.
-  Bez předplatného 100 řádků najednou. Hromadné úpravy cen a počtů v Moje nabídky, export skladu (`/prodat/export`).
-- Předplatné prodejců zatím jen jako příznak (tabulka `subscriptions`), přiděluje ho správce na `/sprava/predplatne`
+  Zdarma 100 řádků najednou, placené tarify bez limitu. Hromadné úpravy cen a počtů v Moje nabídky, export skladu (`/prodat/export`).
+- Tarify předplatného: zdarma a dva placené (tabulka `subscriptions`, funkce `current_plan()`), zatím bez placení,
+  přiděluje je správce na `/sprava/predplatne`. Názvy a výhody tarifů jsou v `src/lib/plans.ts`
 
 - Testovací objednávka z košíku (jedna objednávka na prodejce, bez platby), stavy zaplaceno → odesláno → doručeno
   a hodnocení prodejce po doručení (`/objednavky`)

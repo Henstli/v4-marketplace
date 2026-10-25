@@ -6,7 +6,7 @@ import { Button, ButtonLink, CardThumb, FileDrop, Status, Steps } from '@/compon
 import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame, type GameId } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
-import { FIELDS, FREE_ROW_LIMIT, guessMapping, isCardmarketExport, QUANTITY_MAX, type Mapping } from '@/lib/import/columns';
+import { FIELDS, guessMapping, isCardmarketExport, QUANTITY_MAX, type Mapping } from '@/lib/import/columns';
 import { readTable, ReadError, type Table } from '@/lib/import/read-file';
 import { buildRows, csvLine, rowProblems, type CardLite, type ImportRow, type ImportSettings } from '@/lib/import/rows';
 import { CONDITION_NAMES, CONDITIONS, LANGUAGE_NAMES, type Condition, type Language } from '@/lib/types';
@@ -220,8 +220,8 @@ export function ImportWizard({ limit }: { limit: number | null }) {
           </div>
           <p className="t-small muted">
             {limit
-              ? `Zdarma vystavíte najednou až ${limit} řádků, větší soubor nahrajete po částech. S předplatným bez omezení.`
-              : 'Máte předplatné: nahrajete soubor libovolné velikosti.'}
+              ? `S vaším tarifem vystavíte najednou až ${limit} řádků, větší soubor nahrajete po částech. Placené tarify jsou bez omezení.`
+              : 'Váš tarif nemá omezení: nahrajete soubor libovolné velikosti.'}
           </p>
         </section>
       ) : null}
@@ -313,7 +313,7 @@ export function ImportWizard({ limit }: { limit: number | null }) {
           {limit && table.rows.length > limit ? (
             <div className={styles.notice}>
               <p>
-                Soubor má {formatNumber(table.rows.length)} řádků. Bez předplatného vystavíte najednou {limit}, zbytek nahrajete v dalších dávkách.
+                Soubor má {formatNumber(table.rows.length)} řádků. S vaším tarifem vystavíte najednou {limit}, zbytek nahrajete v dalších dávkách.
               </p>
               <label className={styles.inline}>
                 <span className="t-small muted">Nahrát řádky</span>
@@ -498,7 +498,7 @@ export function ImportWizard({ limit }: { limit: number | null }) {
 
       {limit && step < 3 ? (
         <p className="t-small muted">
-          Potřebujete nahrávat víc než {FREE_ROW_LIMIT} řádků najednou? Předplatné pro obchody chystáme, napište nám na{' '}
+          Potřebujete nahrávat víc než {limit} řádků najednou? Předplatné pro obchody chystáme, napište nám na{' '}
           <Link href="mailto:podpora@v4cards.com">podpora@v4cards.com</Link>.
         </p>
       ) : null}

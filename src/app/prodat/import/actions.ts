@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { searchCards } from '@/lib/catalog';
 import { getGame, type GameId } from '@/lib/games';
-import { FREE_ROW_LIMIT, QUANTITY_MAX } from '@/lib/import/columns';
+import { QUANTITY_MAX } from '@/lib/import/columns';
+import { PLANS, toPlan } from '@/lib/plans';
 import type { CardLite } from '@/lib/import/rows';
 import { createClient } from '@/lib/supabase/server';
 import { CONDITIONS, LANGUAGE_NAMES } from '@/lib/types';
@@ -73,11 +74,13 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
   if (!auth.user) return { error: 'Přihlášení vypršelo. Přihlaste se prosím znovu.' };
   if (!Array.isArray(items) || !items.length) return { error: 'Není co vystavit.' };
 
-  // Limit zdarma hlídá server; bez funkce v databázi (neaplikovaná migrace) platí limit.
-  if (items.length > FREE_ROW_LIMIT) {
-    const { data: subscribed } = await supabase.rpc('has_subscription');
-    if (subscribed !== true) {
-      return { error: `Bez předplatného jde najednou vystavit nejvýš ${FREE_ROW_LIMIT} řádků.` };
+  // Limit tarifu hlídá server; bez funkce v databázi (neaplikovaná migrace) platí limit zdarma.
+  const free = PLANS.free.importRows ?? Infinity;
+  if (items.length > free) {
+    const { data: plan } = await supabase.rpc('current_plan');
+    const limit = PLANS[toPlan(plan)].importRows;
+    if (limit != null && items.length > limit) {
+      return { error: `S vaším tarifem jde najednou vystavit nejvýš ${limit} řádků.` };
     }
   }
 

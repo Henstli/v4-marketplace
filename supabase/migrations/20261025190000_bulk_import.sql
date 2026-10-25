@@ -1,10 +1,12 @@
--- Hromadné nahrávání nabídek (CSV, Excel, export z Cardmarketu), hromadné úpravy a předplatné prodejců.
+-- Hromadné nahrávání nabídek (CSV, Excel, export z Cardmarketu), hromadné úpravy a tarify předplatného.
 -- Nic se nemaže ani nepřepisuje, jen přibývá tabulka a funkce.
 
--- Předplatné: zatím jen příznak, který přiděluje správce. Placení přijde s platbami (fáze D).
--- Bez předplatného jde najednou nahrát 100 řádků, s ním bez limitu.
+-- Předplatné: tři tarify, zdarma (bez řádku v tabulce) a dva placené (tier1, tier2).
+-- Zatím ho přiděluje správce, placení přijde s platbami (fáze D). Výhody tarifů (limity, úpravy stránky)
+-- určuje web podle current_plan(), takže jdou měnit bez migrace. Názvy tarifů jsou jen v kódu webu.
 create table public.subscriptions (
   user_id uuid primary key references public.profiles(id) on delete cascade,
+  plan text not null check (plan in ('tier1', 'tier2')),
   granted_at timestamptz not null default now(),
   granted_by uuid references auth.users(id) on delete set null,
   note text check (char_length(note) <= 200)
@@ -14,15 +16,16 @@ create policy "vlastní předplatné a správce" on public.subscriptions for sel
   using (user_id = auth.uid() or public.is_admin());
 grant select on public.subscriptions to authenticated;
 
-create or replace function public.has_subscription() returns boolean
+-- Tarif přihlášeného uživatele: free, tier1 nebo tier2.
+create or replace function public.current_plan() returns text
 language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from public.subscriptions where user_id = auth.uid());
+  select coalesce((select plan from public.subscriptions where user_id = auth.uid()), 'free');
 $$;
-revoke execute on function public.has_subscription() from public, anon;
-grant execute on function public.has_subscription() to authenticated;
+revoke execute on function public.current_plan() from public, anon;
+grant execute on function public.current_plan() to authenticated;
 
--- Správce přidělí nebo odebere předplatné podle e-mailu. Vrací jméno prodejce.
-create or replace function public.admin_set_subscription(p_email text, p_active boolean, p_note text default null)
+-- Správce nastaví tarif podle e-mailu (free = odebrat předplatné). Vrací jméno prodejce.
+create or replace function public.admin_set_plan(p_email text, p_plan text, p_note text default null)
 returns text
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -31,29 +34,32 @@ begin
   if not public.is_admin() or not public.mfa_ok() then
     raise exception 'Předplatné přiděluje jen správce';
   end if;
+  if p_plan not in ('free', 'tier1', 'tier2') then raise exception 'Neznámý tarif'; end if;
   select id into uid from auth.users where lower(email) = lower(trim(p_email));
   if uid is null then raise exception 'Uživatel s tímto e-mailem neexistuje'; end if;
-  if p_active then
-    insert into public.subscriptions (user_id, granted_by, note)
-      values (uid, auth.uid(), nullif(trim(p_note), ''))
-      on conflict (user_id) do update set note = excluded.note;
-  else
+  if p_plan = 'free' then
     delete from public.subscriptions where user_id = uid;
+  else
+    insert into public.subscriptions (user_id, plan, granted_by, note)
+      values (uid, p_plan, auth.uid(), nullif(trim(p_note), ''))
+      on conflict (user_id) do update
+        set plan = excluded.plan, granted_by = excluded.granted_by, granted_at = now(),
+            note = coalesce(excluded.note, public.subscriptions.note);
   end if;
   return (select display_name from public.profiles where id = uid);
 end;
 $$;
-revoke execute on function public.admin_set_subscription(text, boolean, text) from public, anon;
-grant execute on function public.admin_set_subscription(text, boolean, text) to authenticated;
+revoke execute on function public.admin_set_plan(text, text, text) from public, anon;
+grant execute on function public.admin_set_plan(text, text, text) to authenticated;
 
 -- Seznam předplatitelů pro správce (s e-mailem z auth.users).
 create or replace function public.admin_list_subscriptions()
-returns table (user_id uuid, display_name text, email text, granted_at timestamptz, note text)
+returns table (user_id uuid, display_name text, email text, plan text, granted_at timestamptz, note text)
 language plpgsql stable security definer set search_path = '' as $$
 begin
   if not public.is_admin() then raise exception 'Jen pro správce'; end if;
   return query
-    select s.user_id, p.display_name, u.email::text, s.granted_at, s.note
+    select s.user_id, p.display_name, u.email::text, s.plan, s.granted_at, s.note
     from public.subscriptions s
     join public.profiles p on p.id = s.user_id
     join auth.users u on u.id = s.user_id

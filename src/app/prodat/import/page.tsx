@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
 import { getCurrentUser } from '@/lib/auth';
-import { FREE_ROW_LIMIT } from '@/lib/import/columns';
+import { PLANS, toPlan } from '@/lib/plans';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { ImportWizard } from './ImportWizard';
@@ -19,7 +19,7 @@ export default async function ImportPage() {
   if (!user) redirect('/prihlaseni?dalsi=/prodat/import');
 
   const supabase = await createClient();
-  const { data: subscribed } = await supabase.rpc('has_subscription');
+  const { data: plan } = await supabase.rpc('current_plan');
 
   return (
     <div className={`container ${styles.page}`}>
@@ -28,7 +28,7 @@ export default async function ImportPage() {
         <h1 className="t-heading-l">Hromadné nahrávání nabídek</h1>
         <p className="muted">Nahrajte celý sklad z tabulky: karty spárujeme s katalogem, zkontrolujete je a vystavíte jedním tlačítkem.</p>
       </div>
-      <ImportWizard limit={subscribed === true ? null : FREE_ROW_LIMIT} />
+      <ImportWizard limit={PLANS[toPlan(plan)].importRows} />
     </div>
   );
 }

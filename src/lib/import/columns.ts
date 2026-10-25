@@ -176,4 +176,3 @@ export function cleanName(v: string): string {
 }
 
 export const QUANTITY_MAX = 999;
-export const FREE_ROW_LIMIT = 100;
