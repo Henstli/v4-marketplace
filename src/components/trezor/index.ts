@@ -7,3 +7,4 @@ export { Chip, ChipLink } from './Chip';
 export { Sparkline } from './Sparkline';
 export { SearchField } from './SearchField';
 export { CardTile } from './CardTile';
+export { Skeleton, SkeletonTile } from './Skeleton';
