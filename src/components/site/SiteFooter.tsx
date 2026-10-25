@@ -11,7 +11,7 @@ export function SiteFooter() {
           Marketplace sběratelských karet pro Česko a Slovensko. Peníze držíme v úschově do doručení.
         </p>
         <p className="t-small muted">
-          <Link href="/ochrana-osobnich-udaju">Ochrana osobních údajů</Link> · Beta verze
+          <Link href="/ochrana-osobnich-udaju">Ochrana osobních údajů</Link> · <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a> · Beta verze
         </p>
       </div>
     </footer>

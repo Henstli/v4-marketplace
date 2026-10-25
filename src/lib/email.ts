@@ -3,6 +3,7 @@ import type { createClient } from './supabase/server';
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 const FROM = 'V4cards <noreply@v4cards.com>';
+const REPLY_TO = 'podpora@v4cards.com';
 
 /** Pošle e-mail přes Resend. Bez klíče RESEND_API_KEY (třeba v náhledu) nedělá nic. */
 async function send(to: string, subject: string, html: string): Promise<void> {
@@ -12,7 +13,7 @@ async function send(to: string, subject: string, html: string): Promise<void> {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
+      body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to, subject, html }),
     });
   } catch {
     // Uvítání není kritické, přihlášení kvůli němu nezdržujeme.
@@ -42,6 +43,6 @@ function welcomeHtml(siteUrl: string): string {
     ${item('Zabezpečte účet', 'V nastavení účtu si zapněte dvoufázové ověření. Do účtu se pak nikdo nedostane ani s heslem.')}
     <a href="${siteUrl}" style="display:inline-block;margin-top:12px;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">Přejít na V4cards</a>
   </div>
-  <p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6E7681;text-align:center">V4cards · sběratelské karty · <a href="${siteUrl}" style="color:#6E7681">www.v4cards.com</a></p>
+  <p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6E7681;text-align:center">V4cards · sběratelské karty · <a href="${siteUrl}" style="color:#6E7681">www.v4cards.com</a> · <a href="mailto:podpora@v4cards.com" style="color:#6E7681">podpora@v4cards.com</a></p>
 </div>`;
 }
