@@ -21,9 +21,10 @@ export async function proxy(request: NextRequest) {
       },
     },
   });
-  const { data } = await supabase.auth.getUser();
+  // getClaims ověří token lokálně podle veřejného klíče (ES256), takže proxy nečeká na server Supabase.
+  const { data } = await supabase.auth.getClaims();
   const path = request.nextUrl.pathname;
-  if (data.user && !MFA_EXEMPT.some((p) => path.startsWith(p))) {
+  if (data?.claims && !MFA_EXEMPT.some((p) => path.startsWith(p))) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.currentLevel === 'aal1' && aal.nextLevel === 'aal2') {
       const url = request.nextUrl.clone();
