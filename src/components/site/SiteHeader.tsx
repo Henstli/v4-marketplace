@@ -2,13 +2,13 @@ import Link from 'next/link';
 import { SearchField, ButtonLink } from '@/components/trezor';
 import { GAMES } from '@/lib/games';
 import { CartLink } from '@/components/cart/CartLink';
-import { getCurrentUser } from '@/lib/auth';
+import { getSignedInUser } from '@/lib/auth';
 import { signOut } from '@/app/prihlaseni/actions';
 import { Logo } from './Logo';
 import styles from './site.module.css';
 
 export async function SiteHeader() {
-  const user = await getCurrentUser();
+  const user = await getSignedInUser();
   return (
     <header className={styles.header}>
       <div className={`container ${styles.headerRow}`}>

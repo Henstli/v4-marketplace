@@ -1,8 +1,10 @@
 // Přístup ke katalogu karet. S nastaveným Supabase čte databázi (vyhledávání a filtry
 // běží v SQL funkci search_cards), jinak ukázková data z mock-data.ts.
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { CARDS, LISTINGS, SELLERS } from './mock-data';
 import { isSupabaseConfigured } from './supabase/config';
-import { createClient } from './supabase/server';
+import { createPublicClient } from './supabase/public';
 import type { Card, CardSummary, Condition, Language, Listing, Seller, SellerKind } from './types';
 import type { GameId } from './games';
 
@@ -80,7 +82,7 @@ function fromRow(r: SearchRow): CardSummary {
 }
 
 async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const size = query.pageSize ?? PAGE_SIZE;
   const { data, error } = await supabase.rpc('search_cards', {
     p_q: query.q ?? null,
@@ -99,7 +101,7 @@ async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
 }
 
 async function dbOffers(cardId: string): Promise<Offer[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: listings, error } = await supabase
     .from('listings')
     .select('id, card_id, seller_id, price_czk, condition, language, quantity, graded, note, profiles(display_name, kind, country)')
@@ -141,7 +143,7 @@ async function dbOffers(cardId: string): Promise<Offer[]> {
 }
 
 async function dbCardBySlug(slug: string): Promise<CardSummary | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: c } = await supabase
     .from('cards')
     .select('id, slug, name, number, rarity, image_url, card_sets(game_id, code, name)')
@@ -152,7 +154,7 @@ async function dbCardBySlug(slug: string): Promise<CardSummary | null> {
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
   const [{ data: history }, offers] = await Promise.all([
     supabase.from('price_history').select('avg_price_czk').eq('card_id', c.id).gte('day', since).order('day'),
-    dbOffers(c.id),
+    getOffers(c.id),
   ]);
   const priceHistory = (history ?? []).map((h) => h.avg_price_czk as number);
   return {
@@ -224,35 +226,55 @@ export async function searchCards(query: CatalogQuery): Promise<CatalogPage> {
   return isSupabaseConfigured() ? dbSearch(query) : mockSearch(query);
 }
 
+// Úvodní stránka je pro všechny stejná, stačí ji z databáze načíst jednou za minutu.
+const HOME_CACHE = { revalidate: 60 };
+
+const dbTrending = unstable_cache(
+  async (limit: number) => (await dbSearch({ sort: 'trend', onlyOffers: true, pageSize: limit })).cards,
+  ['home-trending'],
+  HOME_CACHE,
+);
+
 export async function getTrending(limit = 8): Promise<CardSummary[]> {
-  return (await searchCards({ sort: 'trend', onlyOffers: true, pageSize: limit })).cards;
+  if (isSupabaseConfigured()) return dbTrending(limit);
+  return mockSearch({ sort: 'trend', onlyOffers: true, pageSize: limit }).cards;
 }
 
-export async function getCardBySlug(slug: string): Promise<CardSummary | null> {
+// cache(): metadata i stránka detailu čtou stejnou kartu a nabídky jen jednou za požadavek.
+export const getCardBySlug = cache(async (slug: string): Promise<CardSummary | null> => {
   if (isSupabaseConfigured()) return dbCardBySlug(slug);
   const card = CARDS.find((c) => c.slug === slug);
   return card ? mockSummarize(card) : null;
-}
+});
 
-export async function getOffers(cardId: string): Promise<Offer[]> {
+export const getOffers = cache(async (cardId: string): Promise<Offer[]> => {
   if (isSupabaseConfigured()) return dbOffers(cardId);
   return LISTINGS.filter((l) => l.cardId === cardId)
     .map((l) => ({ ...l, seller: SELLERS.find((s) => s.id === l.sellerId)! }))
     .sort((a, b) => a.price - b.price);
-}
+});
+
+const dbStats = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    // Přesný počet 120 tisíc karet stojí stovky ms, odhad z plánovače stačí.
+    const [cards, listings] = await Promise.all([
+      supabase.from('cards').select('id', { count: 'estimated', head: true }),
+      supabase.from('listings').select('seller_id').gt('quantity', 0),
+    ]);
+    return {
+      cards: cards.count ?? 0,
+      offers: listings.data?.length ?? 0,
+      sellers: new Set((listings.data ?? []).map((l) => l.seller_id)).size,
+    };
+  },
+  ['home-stats'],
+  HOME_CACHE,
+);
 
 export async function getStats(): Promise<{ cards: number; offers: number; sellers: number }> {
   if (!isSupabaseConfigured()) {
     return { cards: CARDS.length, offers: LISTINGS.length, sellers: new Set(LISTINGS.map((l) => l.sellerId)).size };
   }
-  const supabase = await createClient();
-  const [cards, listings] = await Promise.all([
-    supabase.from('cards').select('id', { count: 'exact', head: true }),
-    supabase.from('listings').select('seller_id').gt('quantity', 0),
-  ]);
-  return {
-    cards: cards.count ?? 0,
-    offers: listings.data?.length ?? 0,
-    sellers: new Set((listings.data ?? []).map((l) => l.seller_id)).size,
-  };
+  return dbStats();
 }

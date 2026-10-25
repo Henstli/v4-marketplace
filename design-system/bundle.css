@@ -38,3 +38,9 @@
 .tz-tile-name{font-weight:600;font-size:15px;line-height:20px}
 .tz-tile-set{font-size:13px;color:var(--ink-muted)}
 .tz-tile-row{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2)}
+.tz-skel{display:block;background:var(--line);border-radius:var(--radius-sm);animation:tz-skel-pulse 1.4s ease-in-out infinite}
+.tz-skel-text{height:14px;width:100%}
+.tz-tile-skel{pointer-events:none}
+.tz-tile-skel .tz-tile-art{padding:0}
+@keyframes tz-skel-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.tz-skel{animation:none}}
