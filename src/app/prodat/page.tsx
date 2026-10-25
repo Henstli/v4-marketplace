@@ -52,7 +52,7 @@ export default async function SellPage({ searchParams }: Props) {
         {selected ? (
           <>
             <div className={styles.picked}>
-              <CardThumb size="lg" image={thumbUrl(selected.image)} color={`var(--game-${selected.game}-art)`} />
+              <CardThumb size="lg" image={thumbUrl(selected.image)} preview={selected.image} color={`var(--game-${selected.game}-art)`} />
               <div className={styles.grow}>
                 <p className="t-label muted">KARTA</p>
                 <Link href={`/karty/${selected.slug}`} className={styles.rowName}>{selected.name}</Link>
@@ -81,7 +81,7 @@ export default async function SellPage({ searchParams }: Props) {
                 <div className={styles.list}>
                   {found.cards.map((c) => (
                     <Link key={c.id} href={`/prodat?karta=${c.slug}`} className={styles.result}>
-                      <CardThumb image={thumbUrl(c.image)} color={`var(--game-${c.game}-art)`} />
+                      <CardThumb image={thumbUrl(c.image)} preview={c.image} color={`var(--game-${c.game}-art)`} />
                       <span className={styles.resultText}>
                         <span className={styles.rowName}>{c.name}</span>
                         <span className="t-small muted">
@@ -119,6 +119,7 @@ export default async function SellPage({ searchParams }: Props) {
                 <div key={l.id} className={`${styles.row} ${styles.rowThumb}`}>
                   <CardThumb
                     image={thumbUrl(card?.image_url ?? undefined)}
+                    preview={card?.image_url ?? undefined}
                     color={card?.game_id ? `var(--game-${card.game_id}-art)` : undefined}
                   />
                   <div>

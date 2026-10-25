@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { Button, ButtonLink, Price } from '@/components/trezor';
+import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
 import { placeOrder } from '@/app/kosik/actions';
+import { thumbUrl } from '@/lib/images';
 import { useCart, type CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
@@ -60,10 +61,13 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
               </div>
               {group.map((item) => (
                 <div key={item.listingId} className={styles.item}>
-                  <div className={styles.itemInfo}>
-                    <Link href={`/karty/${item.cardSlug}`} className={styles.itemName}>{item.cardName}</Link>
-                    <div className="t-small muted">
-                      <span className="code">{item.setLabel}</span> · <span className="code">{item.condition}</span> · {item.language}
+                  <div className={styles.itemCard}>
+                    <CardThumb image={thumbUrl(item.image)} preview={item.image} color={item.game ? `var(--game-${item.game}-art)` : undefined} />
+                    <div className={styles.itemInfo}>
+                      <Link href={`/karty/${item.cardSlug}`} className={styles.itemName}>{item.cardName}</Link>
+                      <div className="t-small muted">
+                        <span className="code">{item.setLabel}</span> · <span className="code">{item.condition}</span> · {item.language}
+                      </div>
                     </div>
                   </div>
                   <label className={styles.qty}>

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Button, Price } from '@/components/trezor';
+import { Button, CardThumb, Price } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
+import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { addReview, setOrderStatus } from './actions';
@@ -28,7 +29,7 @@ interface OrderRow {
   total_czk: number;
   shipping_czk: number;
   created_at: string;
-  order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string } | null }>;
+  order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null } | null }>;
 }
 
 type Props = { searchParams: Promise<{ nova?: string }> };
@@ -43,7 +44,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const [{ data: orders }, { data: profiles }, { data: reviews }] = await Promise.all([
     supabase
       .from('orders')
-      .select('id, buyer_id, seller_id, status, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, condition, cards(name, slug))')
+      .select('id, buyer_id, seller_id, status, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))')
       .order('created_at', { ascending: false })
       .returns<OrderRow[]>(),
     supabase.from('profiles').select('id, display_name'),
@@ -123,6 +124,11 @@ function OrderCard({ order, counterpart, children }: { order: OrderRow; counterp
       <ul className={styles.items}>
         {order.order_items.map((i, n) => (
           <li key={n}>
+            <CardThumb
+              image={thumbUrl(i.cards?.image_url ?? undefined)}
+              preview={i.cards?.image_url ?? undefined}
+              color={i.cards?.game_id ? `var(--game-${i.cards.game_id}-art)` : undefined}
+            />
             {i.cards ? <Link href={`/karty/${i.cards.slug}`}>{i.cards.name}</Link> : 'Karta'}
             {i.condition ? <> <span className="code">{i.condition}</span></> : null}
             <span className="muted"> · {i.quantity}&nbsp;ks</span>
