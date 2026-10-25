@@ -15,6 +15,10 @@ export interface CartItem {
   price: number;
   maxQuantity: number;
   quantity: number;
+  /** Obrázek karty; starší položky v košíku ho nemají */
+  image?: string;
+  /** Hra karty, pro barvu zástupné plochy bez obrázku */
+  game?: string;
 }
 
 interface CartContextValue {

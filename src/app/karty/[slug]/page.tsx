@@ -155,5 +155,7 @@ function cartItem(card: CardSummary, o: Offer) {
     language: LANGUAGE_NAMES[o.language],
     price: o.price,
     maxQuantity: o.quantity,
+    image: card.image,
+    game: card.game,
   };
 }
