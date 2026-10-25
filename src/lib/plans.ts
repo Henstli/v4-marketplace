@@ -1,6 +1,6 @@
-// Tarify předplatného: jeden zdarma a dva placené. Placení přijde s platbami (fáze D), zatím tarif přiděluje správce.
-// Názvy, ceny a výhody placených tarifů ještě nejsou rozhodnuté; mění se jen tady, databáze zná jen kódy.
-export type Plan = 'free' | 'tier1' | 'tier2';
+// Tarify předplatného: Zdarma a dva placené, Plus a Pro. Placení přijde s platbami (fáze D), zatím tarif přiděluje správce.
+// Ceny a výhody placených tarifů se ještě dolaďují; mění se jen tady, databáze zná jen kódy.
+export type Plan = 'free' | 'plus' | 'pro';
 
 export interface PlanInfo {
   id: Plan;
@@ -11,12 +11,13 @@ export interface PlanInfo {
 
 export const PLANS: Record<Plan, PlanInfo> = {
   free: { id: 'free', name: 'Zdarma', importRows: 100 },
-  tier1: { id: 'tier1', name: 'Placený tarif 1', importRows: null },
-  tier2: { id: 'tier2', name: 'Placený tarif 2', importRows: null },
+  plus: { id: 'plus', name: 'Plus', importRows: 100 },
+  // Hromadné nahrávání celého skladu je výhoda tarifu Pro.
+  pro: { id: 'pro', name: 'Pro', importRows: null },
 };
 
-export const PAID_PLANS: Plan[] = ['tier1', 'tier2'];
+export const PAID_PLANS: Plan[] = ['plus', 'pro'];
 
 export function toPlan(v: unknown): Plan {
-  return v === 'tier1' || v === 'tier2' ? v : 'free';
+  return v === 'plus' || v === 'pro' ? v : 'free';
 }

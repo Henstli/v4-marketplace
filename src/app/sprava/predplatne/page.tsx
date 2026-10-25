@@ -32,8 +32,9 @@ export default async function SubscriptionsPage({ searchParams }: Props) {
       <div>
         <h1 className="t-heading-l">Předplatné prodejců</h1>
         <p className="muted">
-          Tři tarify: zdarma a dva placené. Zatím bez placení, tarif přiděluje správce. Výhody tarifů se nastavují
-          v kódu webu (soubor src/lib/plans.ts); teď mají oba placené tarify hromadné nahrávání bez limitu, zdarma {PLANS.free.importRows} řádků najednou. <Link href="/sprava/karty">Schvalování karet</Link>
+          Tři tarify: {Object.values(PLANS).map((p) => p.name).join(', ')}. Zatím bez placení, tarif přiděluje správce.
+          Výhody tarifů se nastavují v kódu webu (src/lib/plans.ts). Hromadné nahrávání najednou:{' '}
+          {Object.values(PLANS).map((p) => `${p.name} ${p.importRows ? `${p.importRows} řádků` : 'bez limitu'}`).join(', ')}. <Link href="/sprava/karty">Schvalování karet</Link>
         </p>
       </div>
       {chyba ? <p className={styles.error} role="alert">{chyba}</p> : null}
@@ -43,7 +44,7 @@ export default async function SubscriptionsPage({ searchParams }: Props) {
         <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Nastavit tarif</h2>
         <form action={setPlan} className={styles.reject}>
           <input name="email" type="email" required placeholder="E-mail prodejce" className={styles.reason} />
-          <select name="plan" defaultValue="tier1" className={styles.reason} aria-label="Tarif">
+          <select name="plan" defaultValue="pro" className={styles.reason} aria-label="Tarif">
             {PAID_PLANS.map((p) => <option key={p} value={p}>{PLANS[p].name}</option>)}
             <option value="free">{PLANS.free.name} (odebrat předplatné)</option>
           </select>

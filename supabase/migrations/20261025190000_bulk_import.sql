@@ -1,12 +1,12 @@
 -- Hromadné nahrávání nabídek (CSV, Excel, export z Cardmarketu), hromadné úpravy a tarify předplatného.
 -- Nic se nemaže ani nepřepisuje, jen přibývá tabulka a funkce.
 
--- Předplatné: tři tarify, zdarma (bez řádku v tabulce) a dva placené (tier1, tier2).
+-- Předplatné: tři tarify, zdarma (bez řádku v tabulce) a dva placené (plus, pro).
 -- Zatím ho přiděluje správce, placení přijde s platbami (fáze D). Výhody tarifů (limity, úpravy stránky)
 -- určuje web podle current_plan(), takže jdou měnit bez migrace. Názvy tarifů jsou jen v kódu webu.
 create table public.subscriptions (
   user_id uuid primary key references public.profiles(id) on delete cascade,
-  plan text not null check (plan in ('tier1', 'tier2')),
+  plan text not null check (plan in ('plus', 'pro')),
   granted_at timestamptz not null default now(),
   granted_by uuid references auth.users(id) on delete set null,
   note text check (char_length(note) <= 200)
@@ -16,7 +16,7 @@ create policy "vlastní předplatné a správce" on public.subscriptions for sel
   using (user_id = auth.uid() or public.is_admin());
 grant select on public.subscriptions to authenticated;
 
--- Tarif přihlášeného uživatele: free, tier1 nebo tier2.
+-- Tarif přihlášeného uživatele: free, plus nebo pro.
 create or replace function public.current_plan() returns text
 language sql stable security definer set search_path = '' as $$
   select coalesce((select plan from public.subscriptions where user_id = auth.uid()), 'free');
@@ -34,7 +34,7 @@ begin
   if not public.is_admin() or not public.mfa_ok() then
     raise exception 'Předplatné přiděluje jen správce';
   end if;
-  if p_plan not in ('free', 'tier1', 'tier2') then raise exception 'Neznámý tarif'; end if;
+  if p_plan not in ('free', 'plus', 'pro') then raise exception 'Neznámý tarif'; end if;
   select id into uid from auth.users where lower(email) = lower(trim(p_email));
   if uid is null then raise exception 'Uživatel s tímto e-mailem neexistuje'; end if;
   if p_plan = 'free' then

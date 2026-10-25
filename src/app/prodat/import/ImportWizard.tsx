@@ -220,7 +220,7 @@ export function ImportWizard({ limit }: { limit: number | null }) {
           </div>
           <p className="t-small muted">
             {limit
-              ? `S vaším tarifem vystavíte najednou až ${limit} řádků, větší soubor nahrajete po částech. Placené tarify jsou bez omezení.`
+              ? `S vaším tarifem vystavíte najednou až ${limit} řádků, větší soubor nahrajete po částech. Tarif Pro je bez omezení.`
               : 'Váš tarif nemá omezení: nahrajete soubor libovolné velikosti.'}
           </p>
         </section>
@@ -498,7 +498,7 @@ export function ImportWizard({ limit }: { limit: number | null }) {
 
       {limit && step < 3 ? (
         <p className="t-small muted">
-          Potřebujete nahrávat víc než {limit} řádků najednou? Předplatné pro obchody chystáme, napište nám na{' '}
+          Potřebujete nahrát celý sklad najednou? To umí tarif Pro, o přidělení nám napište na{' '}
           <Link href="mailto:podpora@v4cards.com">podpora@v4cards.com</Link>.
         </p>
       ) : null}
