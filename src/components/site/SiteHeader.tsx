@@ -21,6 +21,7 @@ export async function SiteHeader() {
           <CartLink />
           {user ? (
             <>
+            <ButtonLink href="/objednavky" variant="ghost">Objednávky</ButtonLink>
             <ButtonLink href="/ucet" variant="ghost">Účet</ButtonLink>
             <form action={signOut}>
               <button type="submit" className="tz-btn tz-btn-ghost tz-btn-md" title={user.email}>Odhlásit</button>

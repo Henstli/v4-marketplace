@@ -38,4 +38,7 @@ Aby fungoval přihlašovací odkaz, musí být adresa webu v Supabase v Authenti
 - Přihlášení e-mailovým odkazem, profil prodejce (`/ucet`)
 - Vystavení karty k prodeji a správa vlastních nabídek (`/prodat`)
 
-Připravujeme: objednávky a platby, hodnocení.
+- Testovací objednávka z košíku (jedna objednávka na prodejce, bez platby), stavy zaplaceno → odesláno → doručeno
+  a hodnocení prodejce po doručení (`/objednavky`)
+
+Připravujeme: skutečné platby (Stripe Connect) a výběr dopravy.
