@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
-import { Button, ButtonLink, Price } from '@/components/trezor';
+import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { getCurrentUser } from '@/lib/auth';
 import { getCardBySlug, searchCards } from '@/lib/catalog';
 import { getGame } from '@/lib/games';
+import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { LANGUAGE_NAMES, type Language } from '@/lib/types';
@@ -35,7 +36,7 @@ export default async function SellPage({ searchParams }: Props) {
   const supabase = await createClient();
   const { data: mine } = await supabase
     .from('listings')
-    .select('id, price_czk, condition, language, quantity, cards(slug, name)')
+    .select('id, price_czk, condition, language, quantity, cards(slug, name, image_url, game_id)')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -51,7 +52,8 @@ export default async function SellPage({ searchParams }: Props) {
         {selected ? (
           <>
             <div className={styles.picked}>
-              <div>
+              <CardThumb size="lg" image={thumbUrl(selected.image)} color={`var(--game-${selected.game}-art)`} />
+              <div className={styles.grow}>
                 <p className="t-label muted">KARTA</p>
                 <Link href={`/karty/${selected.slug}`} className={styles.rowName}>{selected.name}</Link>
                 <div className="t-small muted">
@@ -79,9 +81,12 @@ export default async function SellPage({ searchParams }: Props) {
                 <div className={styles.list}>
                   {found.cards.map((c) => (
                     <Link key={c.id} href={`/prodat?karta=${c.slug}`} className={styles.result}>
-                      <span className={styles.rowName}>{c.name}</span>
-                      <span className="t-small muted">
-                        {c.setName} · <span className="code">{c.setCode} {c.number}</span> · {getGame(c.game)?.name}
+                      <CardThumb image={thumbUrl(c.image)} color={`var(--game-${c.game}-art)`} />
+                      <span className={styles.resultText}>
+                        <span className={styles.rowName}>{c.name}</span>
+                        <span className="t-small muted">
+                          {c.setName} · <span className="code">{c.setCode} {c.number}</span> · {getGame(c.game)?.name}
+                        </span>
                       </span>
                     </Link>
                   ))}
@@ -107,9 +112,15 @@ export default async function SellPage({ searchParams }: Props) {
         {mine?.length ? (
           <div className={styles.list}>
             {mine.map((l) => {
-              const card = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as { slug: string; name: string } | null;
+              const card = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as
+                | { slug: string; name: string; image_url: string | null; game_id: string | null }
+                | null;
               return (
-                <div key={l.id} className={styles.row}>
+                <div key={l.id} className={`${styles.row} ${styles.rowThumb}`}>
+                  <CardThumb
+                    image={thumbUrl(card?.image_url ?? undefined)}
+                    color={card?.game_id ? `var(--game-${card.game_id}-art)` : undefined}
+                  />
                   <div>
                     {card ? <Link href={`/karty/${card.slug}`} className={styles.rowName}>{card.name}</Link> : 'Karta'}
                     <div className="t-small muted">

@@ -8,4 +8,5 @@ export { Sparkline } from './Sparkline';
 export { SearchField } from './SearchField';
 export { SearchSuggest, type SearchSuggestItem } from './SearchSuggest';
 export { CardTile } from './CardTile';
+export { CardThumb } from './CardThumb';
 export { Skeleton, SkeletonTile } from './Skeleton';

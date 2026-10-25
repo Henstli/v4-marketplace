@@ -57,26 +57,36 @@
 
 .row:last-child { border-bottom: 0; }
 
+.rowThumb { grid-template-columns: auto minmax(0, 1fr) auto auto; gap: var(--space-3) var(--space-4); }
+
+@media (max-width: 520px) {
+  .rowThumb { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .rowThumb > form { grid-column: 2 / -1; justify-self: end; }
+}
+
 .rowName { font-weight: 600; text-decoration: none; }
 
 .search { max-width: 560px; margin-bottom: var(--space-4); }
 
 .result {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--line);
   text-decoration: none;
   color: inherit;
 }
 
+.resultText { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+
+.grow { flex: 1; min-width: 0; }
+
 .result:hover .rowName { color: var(--accent); }
 
 .picked {
   display: flex;
-  justify-content: space-between;
-  align-items: start;
+  align-items: center;
   gap: var(--space-4);
   padding-bottom: var(--space-4);
   margin-bottom: var(--space-4);
