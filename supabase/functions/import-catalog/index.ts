@@ -47,8 +47,8 @@ async function getJson<T>(url: string): Promise<T> {
     const res = await fetch(url, { headers: HEADERS });
     if (res.ok) return (await res.json()) as T;
     if (res.status === 404) throw new NotFound(`404 ${url}`);
-    if ((res.status === 429 || res.status >= 500) && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+    if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+      await new Promise((r) => setTimeout(r, (res.status === 429 ? 5000 : 1000) * (attempt + 1)));
       continue;
     }
     throw new Error(`${res.status} ${url}`);
@@ -141,10 +141,19 @@ interface ScryfallCard {
   card_faces?: Array<{ image_uris?: { normal?: string } }>;
 }
 
+// Scryfall povoluje u vyhledávání nejvýš 2 dotazy za sekundu, proto mezi jeho dotazy držíme odstup.
+let lastScryfall = 0;
+async function scryfall<T>(url: string): Promise<T> {
+  const wait = lastScryfall + 600 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastScryfall = Date.now();
+  return getJson<T>(url);
+}
+
 const MAGIC_RARITY: Record<string, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', mythic: 'Mythic', special: 'Special', bonus: 'Bonus' };
 
 async function discoverMagic(): Promise<Array<{ id: string; name: string; released_on?: string }>> {
-  const { data } = await getJson<{ data: ScryfallSet[] }>('https://api.scryfall.com/sets');
+  const { data } = await scryfall<{ data: ScryfallSet[] }>('https://api.scryfall.com/sets');
   return data
     .filter((s) => !s.digital && s.card_count > 0 && !MAGIC_SKIP_TYPES.includes(s.set_type))
     .filter((s) => (s.released_at ?? '') <= new Date().toISOString().slice(0, 10))
@@ -152,21 +161,20 @@ async function discoverMagic(): Promise<Array<{ id: string; name: string; releas
 }
 
 async function fetchMagicSet(code: string): Promise<ImportedSet> {
-  const set = await getJson<ScryfallSet>(`https://api.scryfall.com/sets/${code}`);
+  const set = await scryfall<ScryfallSet>(`https://api.scryfall.com/sets/${code}`);
   const cards: ScryfallCard[] = [];
   let url: string | null =
     `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`e:${code}`)}&unique=prints&order=set&include_extras=true&include_variations=true`;
   while (url) {
     let page: { data: ScryfallCard[]; has_more: boolean; next_page?: string };
     try {
-      page = await getJson(url);
+      page = await scryfall(url);
     } catch (e) {
       if (e instanceof NotFound) break; // sada bez karet, které vyhledávání vrací
       throw e;
     }
     cards.push(...page.data);
     url = page.has_more && page.next_page ? page.next_page : null;
-    await new Promise((r) => setTimeout(r, 120)); // Scryfall žádá max. 10 dotazů za sekundu
   }
   const upper = code.toUpperCase();
   return {
@@ -270,15 +278,17 @@ Deno.serve(async (req) => {
 
     if (body.mode === 'set') return json({ imported: await importSet(body.game, body.id) });
 
-    // Režim next: nejdřív sady, které ještě nebyly, pak ty starší než 7 dní. Víc sad za sebou, dokud je čas.
+    // Režim next: nejdřív sady, které ještě nebyly, pak ty starší než 7 dní a hodinu staré chyby.
+    // Víc sad za sebou, dokud je čas.
     const started = Date.now();
     const done: Array<{ set: string; imported?: number; error?: string }> = [];
     while (Date.now() - started < NEXT_BUDGET_MS) {
       const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
       const { data: next } = await supabase
         .from('catalog_sources')
         .select('game_id, source_set_id')
-        .or(`imported_at.is.null,imported_at.lt.${weekAgo}`)
+        .or(`imported_at.is.null,imported_at.lt.${weekAgo},and(last_error.not.is.null,imported_at.lt.${hourAgo})`)
         .order('imported_at', { ascending: true, nullsFirst: true })
         .order('released_on', { ascending: false, nullsFirst: false })
         .limit(1)
