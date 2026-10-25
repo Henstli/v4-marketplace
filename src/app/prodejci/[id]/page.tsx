@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ChipLink, initials } from '@/components/trezor';
+import { Achievements, ChipLink, initials } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { PLANS } from '@/lib/plans';
 import { shopHref } from '@/lib/shop-config';
-import { getShopProfile, mediaUrl } from '@/lib/shop';
+import { achievementsFor, getShopProfile, mediaUrl } from '@/lib/shop';
 import styles from './seller.module.css';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ strana?: string }> };
@@ -51,6 +51,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
           {' · '}{plural(total, ['karta v nabídce', 'karty v nabídce', 'karet v nabídce'])}
         </p>
         {about ? <p className={styles.about}>{about}</p> : null}
+        <Achievements items={shop?.achievements ?? achievementsFor(seller, null)} />
         </div>
       </section>
 

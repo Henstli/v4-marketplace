@@ -45,10 +45,45 @@ export async function saveShopPage(json: string): Promise<SaveState> {
     if (error.code === '42501') return { error: 'Uložení vyžaduje dvoufázové ověření, pokud ho máte zapnuté. Přihlaste se znovu s kódem.' };
     return { error: 'Stránku se nepodařilo uložit.' };
   }
+  // Zveřejněno: rozpracovaný koncept už není potřeba.
+  await supabase.from('shop_page_drafts').delete().eq('user_id', auth.user.id);
   revalidatePath(`/prodejci/${auth.user.id}`);
   const href = plan.shopPage && config.slug ? shopHref(kind, config.slug) : `/prodejci/${auth.user.id}`;
   revalidatePath(href);
   return { ok: true, href };
+}
+
+/** Průběžně uloží rozpracovaný koncept (vidí ho jen majitel v náhledu editoru). */
+export async function saveDraft(json: string): Promise<SaveState> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: 'Nejste přihlášeni.' };
+  if (json.length > 200_000) return { error: 'Nastavení je příliš velké.' };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    return { error: 'Nastavení se nepodařilo přečíst.' };
+  }
+  const { data: profile } = await supabase.from('profiles').select('kind').eq('id', auth.user.id).single();
+  const draft = sanitizeConfig(raw, auth.user.id, profile?.kind === 'shop' ? 'shop' : 'private');
+  const { error } = await supabase
+    .from('shop_page_drafts')
+    .upsert({ user_id: auth.user.id, draft, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) {
+    if (error.code === '42501') return { error: 'Ukládání vyžaduje dvoufázové ověření, pokud ho máte zapnuté. Přihlaste se znovu s kódem.' };
+    return { error: 'Koncept se nepodařilo uložit.' };
+  }
+  return { ok: true };
+}
+
+/** Zahodí koncept, editor se vrátí ke zveřejněné verzi. */
+export async function discardDraft(): Promise<SaveState> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: 'Nejste přihlášeni.' };
+  const { error } = await supabase.from('shop_page_drafts').delete().eq('user_id', auth.user.id);
+  return error ? { error: 'Koncept se nepodařilo zahodit.' } : { ok: true };
 }
 
 export interface PickerCard {

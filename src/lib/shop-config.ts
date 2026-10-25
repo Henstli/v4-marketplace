@@ -67,13 +67,82 @@ export interface ShopDesign {
   tabs: string[];
   /** Skryté záložky (stejná id) */
   hiddenTabs: string[];
+  /** Postranní panel s O nás, prodejnou a kontaktem na Přehledu */
+  sidebar: 'right' | 'left' | 'none';
+  /** Lišta záložek drží při posouvání nahoře */
+  stickyTabs: boolean;
+  /** Jemné pozadí celé stránky v barvě obchodu */
+  background: ShopBackground;
+  /** Ikona před nadpisy sekcí ('bar' = proužek) */
+  icon: ShopIcon;
+  /** Oddělovač mezi bloky */
+  divider: ShopDivider;
+  /** Běžící pruh novinek nad hlavičkou (prázdný = vypnutý) */
+  ticker: string[];
+  /** Automatické štítky Novinka a Poslední kus */
+  tagsAuto: boolean;
+  /** Vlastní štítek a nabídky, na kterých je */
+  customTag: string;
+  customTagIds: string[];
+  /** Holo lesk na kartách (Pro) */
+  holo: boolean;
+  /** Sezónní motiv banneru (Pro) a do kdy platí */
+  season: ShopSeason;
+  seasonUntil: string;
+  /** Druhá barva obchodu (Pro), prázdná = jen hlavní */
+  color2: ShopColor | '';
+  /** Pomalu se posouvající vzor banneru (Pro) */
+  liveBanner: boolean;
 }
 
-export const DEFAULT_DESIGN: ShopDesign = { color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'pattern', tabs: [], hiddenTabs: [] };
+export const SHOP_BACKGROUNDS = [
+  { id: 'none', name: 'Žádné' },
+  { id: 'dots', name: 'Puntíky' },
+  { id: 'glow', name: 'Záře nahoře' },
+  { id: 'stripes', name: 'Proužky' },
+  { id: 'grid', name: 'Mřížka' },
+] as const;
+export type ShopBackground = (typeof SHOP_BACKGROUNDS)[number]['id'];
+
+export const SHOP_ICONS = [
+  { id: 'bar', name: 'Proužek', char: '▍' },
+  { id: 'star', name: 'Hvězda', char: '★' },
+  { id: 'bolt', name: 'Blesk', char: '⚡︎' },
+  { id: 'heart', name: 'Srdce', char: '♥' },
+  { id: 'crown', name: 'Koruna', char: '♛' },
+  { id: 'diamond', name: 'Diamant', char: '◆' },
+  { id: 'spark', name: 'Jiskra', char: '✦' },
+] as const;
+export type ShopIcon = (typeof SHOP_ICONS)[number]['id'];
+
+export const SHOP_DIVIDERS = [
+  { id: 'none', name: 'Žádný' },
+  { id: 'line', name: 'Linka' },
+  { id: 'wave', name: 'Vlnka' },
+  { id: 'zigzag', name: 'Zubatý' },
+  { id: 'dots', name: 'Tečky' },
+] as const;
+export type ShopDivider = (typeof SHOP_DIVIDERS)[number]['id'];
+
+export const SHOP_SEASONS = [
+  { id: 'none', name: 'Žádný' },
+  { id: 'winter', name: 'Zima a Vánoce' },
+  { id: 'spring', name: 'Jaro' },
+  { id: 'summer', name: 'Léto' },
+  { id: 'autumn', name: 'Podzim' },
+] as const;
+export type ShopSeason = (typeof SHOP_SEASONS)[number]['id'];
+
+export const DEFAULT_DESIGN: ShopDesign = {
+  color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'pattern', tabs: [], hiddenTabs: [],
+  sidebar: 'right', stickyTabs: false, background: 'none', icon: 'bar', divider: 'none', ticker: [], tagsAuto: true,
+  customTag: '', customTagIds: [], holo: false, season: 'none', seasonUntil: '', color2: '', liveBanner: false,
+};
 
 export type BlockType =
   | 'notice' | 'spotlight' | 'featured' | 'games' | 'collections' | 'newest' | 'cheap'
-  | 'events' | 'photos' | 'faq' | 'showcase' | 'wanted';
+  | 'events' | 'photos' | 'faq' | 'showcase' | 'wanted'
+  | 'window' | 'countdown' | 'reviews' | 'team' | 'video' | 'map';
 
 export interface BlockInfo {
   type: BlockType;
@@ -81,24 +150,33 @@ export interface BlockInfo {
   desc: string;
   /** Jen tarif Pro */
   pro: boolean;
+  /** Skupina v galerii bloků */
+  group: 'offer' | 'shop' | 'fun';
+  emoji: string;
   variants: { id: string; name: string }[];
 }
 
 const GRID = [{ id: 'grid', name: 'Mřížka' }, { id: 'strip', name: 'Posuvný pás' }];
 
 export const BLOCKS: BlockInfo[] = [
-  { type: 'notice', name: 'Oznámení', desc: 'Turnaj, dovolená nebo sleva, s datem platnosti', pro: false, variants: [{ id: 'card', name: 'Karta' }, { id: 'bar', name: 'Pruh' }] },
-  { type: 'spotlight', name: 'Karta týdne', desc: 'Jedna vaše nabídka velká, s příběhem', pro: true, variants: [{ id: 'left', name: 'Obrázek vlevo' }, { id: 'right', name: 'Obrázek vpravo' }] },
-  { type: 'featured', name: 'Doporučujeme', desc: 'Až 12 nabídek, které vyberete', pro: false, variants: GRID },
-  { type: 'games', name: 'Kolekce podle hry', desc: 'Dlaždice s počtem karet pro každou hru', pro: false, variants: [{ id: 'tiles', name: 'Dlaždice' }] },
-  { type: 'collections', name: 'Vlastní kolekce', desc: 'Vaše uložené výběry skladu, i jako záložky', pro: true, variants: [{ id: 'tiles', name: 'Dlaždice' }] },
-  { type: 'newest', name: 'Novinky ve skladu', desc: 'Plní se samo z posledních nabídek', pro: false, variants: GRID },
-  { type: 'cheap', name: 'Nejlevnější', desc: 'Karty do zvolené ceny, plní se samo', pro: false, variants: GRID },
-  { type: 'events', name: 'Turnaje a akce', desc: 'Kalendář akcí v prodejně', pro: true, variants: [{ id: 'list', name: 'Seznam' }] },
-  { type: 'photos', name: 'Fotky z prodejny', desc: 'Až 8 fotek', pro: true, variants: [{ id: 'gallery', name: 'Galerie' }] },
-  { type: 'faq', name: 'Doprava, platba a reklamace', desc: 'Vaše pravidla a časté dotazy', pro: false, variants: [{ id: 'list', name: 'Seznam' }] },
-  { type: 'showcase', name: 'Vitrína', desc: 'Karty ze sbírky, které nejsou na prodej', pro: false, variants: [{ id: 'grid', name: 'Mřížka' }] },
-  { type: 'wanted', name: 'Hledám', desc: 'Karty, které sháníte, s cenou', pro: false, variants: [{ id: 'list', name: 'Seznam' }] },
+  { type: 'notice', name: 'Oznámení', desc: 'Turnaj, dovolená nebo sleva, s datem platnosti', pro: false, group: 'shop', emoji: '📣', variants: [{ id: 'card', name: 'Karta' }, { id: 'bar', name: 'Pruh' }] },
+  { type: 'spotlight', name: 'Karta týdne', desc: 'Jedna vaše nabídka velká, s příběhem', pro: true, group: 'offer', emoji: '⭐', variants: [{ id: 'left', name: 'Obrázek vlevo' }, { id: 'right', name: 'Obrázek vpravo' }] },
+  { type: 'featured', name: 'Doporučujeme', desc: 'Až 12 nabídek, které vyberete', pro: false, group: 'offer', emoji: '👍', variants: GRID },
+  { type: 'games', name: 'Kolekce podle hry', desc: 'Dlaždice s počtem karet pro každou hru', pro: false, group: 'offer', emoji: '🎮', variants: [{ id: 'tiles', name: 'Dlaždice' }] },
+  { type: 'collections', name: 'Vlastní kolekce', desc: 'Vaše uložené výběry skladu, i jako záložky', pro: true, group: 'offer', emoji: '🗂', variants: [{ id: 'tiles', name: 'Dlaždice' }] },
+  { type: 'newest', name: 'Novinky ve skladu', desc: 'Plní se samo z posledních nabídek', pro: false, group: 'offer', emoji: '🆕', variants: GRID },
+  { type: 'cheap', name: 'Nejlevnější', desc: 'Karty do zvolené ceny, plní se samo', pro: false, group: 'offer', emoji: '💸', variants: GRID },
+  { type: 'events', name: 'Turnaje a akce', desc: 'Kalendář akcí v prodejně', pro: true, group: 'shop', emoji: '🏆', variants: [{ id: 'list', name: 'Seznam' }] },
+  { type: 'photos', name: 'Fotky z prodejny', desc: 'Až 8 fotek', pro: true, group: 'shop', emoji: '📷', variants: [{ id: 'gallery', name: 'Galerie' }] },
+  { type: 'faq', name: 'Doprava, platba a reklamace', desc: 'Vaše pravidla a časté dotazy', pro: false, group: 'shop', emoji: '❓', variants: [{ id: 'list', name: 'Seznam' }] },
+  { type: 'showcase', name: 'Vitrína', desc: 'Karty ze sbírky, které nejsou na prodej', pro: false, group: 'offer', emoji: '🖼', variants: [{ id: 'grid', name: 'Mřížka' }] },
+  { type: 'window', name: 'Výloha', desc: '3 nebo 5 karet ve vějíři, nejlépe hned pod hlavičkou', pro: true, group: 'offer', emoji: '🃏', variants: [{ id: '3', name: '3 karty' }, { id: '5', name: '5 karet' }] },
+  { type: 'countdown', name: 'Odpočet', desc: 'Do vydání sady, turnaje nebo konce slevy', pro: false, group: 'fun', emoji: '⏱', variants: [{ id: 'card', name: 'Karta' }] },
+  { type: 'reviews', name: 'Recenze zákazníků', desc: 'Skutečná kladná hodnocení s komentářem', pro: false, group: 'shop', emoji: '💬', variants: [{ id: '3', name: '3 recenze' }, { id: '6', name: '6 recenzí' }] },
+  { type: 'team', name: 'Kdo jsme', desc: 'Lidé za obchodem s fotkou', pro: true, group: 'shop', emoji: '👋', variants: [{ id: 'grid', name: 'Mřížka' }] },
+  { type: 'video', name: 'Video', desc: 'Video z YouTube, načte se až po kliknutí', pro: true, group: 'fun', emoji: '▶️', variants: [{ id: 'wide', name: 'Široké' }] },
+  { type: 'map', name: 'Mapa prodejny', desc: 'Adresa prodejny na mapě a navigace', pro: false, group: 'shop', emoji: '📍', variants: [{ id: 'map', name: 'Mapa' }] },
+  { type: 'wanted', name: 'Hledám', desc: 'Karty, které sháníte, s cenou', pro: false, group: 'offer', emoji: '🔎', variants: [{ id: 'list', name: 'Seznam' }] },
 ];
 
 export function blockInfo(type: string): BlockInfo | undefined {
@@ -115,6 +193,12 @@ export interface EventItem { date: string; title: string; info: string }
 export interface FaqItem { q: string; a: string }
 export interface ShowcaseItem { cardId: string; grade: string; note: string }
 export interface WantedItem { cardId: string; maxPrice: number | null }
+export interface WindowData { listingIds: string[] }
+export interface CountdownData { title: string; at: string }
+export interface TeamPerson { name: string; role: string; photo: string; note: string }
+export interface VideoData { youtube: string }
+
+export type BlockWidth = 'full' | 'half' | 'third';
 
 export interface ShopBlock {
   id: string;
@@ -123,6 +207,8 @@ export interface ShopBlock {
   variant: string;
   /** Vlastní nadpis; prázdný = název bloku */
   title: string;
+  /** Šířka v mřížce Přehledu (Pro): celá, polovina, třetina */
+  width: BlockWidth;
   data: {
     notice?: NoticeData;
     spotlight?: SpotlightData;
@@ -134,6 +220,10 @@ export interface ShopBlock {
     faq?: FaqItem[];
     showcase?: ShowcaseItem[];
     wanted?: WantedItem[];
+    window?: WindowData;
+    countdown?: CountdownData;
+    team?: TeamPerson[];
+    video?: VideoData;
   };
 }
 
@@ -166,7 +256,7 @@ export interface ShopPageConfig {
 
 export function newBlock(type: BlockType): ShopBlock {
   const info = blockInfo(type)!;
-  return { id: Math.random().toString(36).slice(2, 10), type, enabled: true, variant: info.variants[0].id, title: '', data: {} };
+  return { id: Math.random().toString(36).slice(2, 10), type, enabled: true, variant: info.variants[0].id, title: '', width: 'full', data: {} };
 }
 
 export function defaultConfig(kind: 'shop' | 'private'): ShopPageConfig {
@@ -223,6 +313,13 @@ function mediaPath(v: unknown, owner: string): string {
 
 const TAB_RE = /^(nabidka|onas|c:[a-z0-9]{1,12})$/i;
 
+/** Id videa z odkazu YouTube (watch, youtu.be, shorts) nebo samotné id */
+export function youtubeId(v: unknown): string {
+  const s = str(v, 200);
+  const m = s.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/) ?? s.match(/^([\w-]{11})$/);
+  return m ? m[1] : '';
+}
+
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
 export function slugify(s: string): string {
@@ -269,6 +366,21 @@ function sanitizeBlock(raw: unknown, owner: string): ShopBlock | null {
     case 'showcase':
       data.showcase = arr(d.showcase, 12).map((e) => obj(e)).map((e) => ({ cardId: uuid(e.cardId), grade: str(e.grade, 20), note: str(e.note, 80) })).filter((e) => e.cardId);
       break;
+    case 'window':
+      data.window = { listingIds: [...new Set(arr(obj(d.window).listingIds, 5).map(uuid).filter(Boolean))] };
+      break;
+    case 'countdown': {
+      const c = obj(d.countdown);
+      const at = typeof c.at === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(c.at) ? c.at : '';
+      data.countdown = { title: str(c.title, 80), at };
+      break;
+    }
+    case 'team':
+      data.team = arr(d.team, 6).map((e) => obj(e)).map((e) => ({ name: str(e.name, 40), role: str(e.role, 40), photo: mediaPath(e.photo, owner), note: str(e.note, 80) })).filter((e) => e.name);
+      break;
+    case 'video':
+      data.video = { youtube: youtubeId(obj(d.video).youtube) };
+      break;
     case 'wanted':
       data.wanted = arr(d.wanted, 20).map((e) => obj(e)).map((e) => ({ cardId: uuid(e.cardId), maxPrice: price(e.maxPrice) })).filter((e) => e.cardId);
       break;
@@ -279,6 +391,7 @@ function sanitizeBlock(raw: unknown, owner: string): ShopBlock | null {
     enabled: b.enabled !== false,
     variant: oneOf(b.variant, ids(info.variants), info.variants[0].id),
     title: str(b.title, 60),
+    width: oneOf(b.width, ['full', 'half', 'third'] as const, 'full'),
     data,
   };
 }
@@ -312,6 +425,20 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
       banner: oneOf(d.banner, ids(SHOP_BANNERS), 'pattern'),
       tabs: [...new Set(arr(d.tabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
       hiddenTabs: [...new Set(arr(d.hiddenTabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
+      sidebar: oneOf(d.sidebar, ['right', 'left', 'none'] as const, 'right'),
+      stickyTabs: d.stickyTabs === true,
+      background: oneOf(d.background, ids(SHOP_BACKGROUNDS), 'none'),
+      icon: oneOf(d.icon, ids(SHOP_ICONS), 'bar'),
+      divider: oneOf(d.divider, ids(SHOP_DIVIDERS), 'none'),
+      ticker: arr(d.ticker, 6).map((t) => str(t, 60)).filter(Boolean),
+      tagsAuto: d.tagsAuto !== false,
+      customTag: str(d.customTag, 20),
+      customTagIds: [...new Set(arr(d.customTagIds, 24).map(uuid).filter(Boolean))],
+      holo: d.holo === true,
+      season: oneOf(d.season, ids(SHOP_SEASONS), 'none'),
+      seasonUntil: date(d.seasonUntil),
+      color2: oneOf(d.color2, ['', ...ids(SHOP_COLORS)] as const, ''),
+      liveBanner: d.liveBanner === true,
     },
     blocks: Array.isArray(r.blocks) ? blocks : base.blocks,
     collections: arr(r.collections, 20).map((x) => obj(x)).map((x) => ({
@@ -338,12 +465,18 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
 export function effectiveConfig(config: ShopPageConfig, plan: Plan): ShopPageConfig {
   const info: PlanInfo = PLANS[plan];
   const proBanner = SHOP_BANNERS.find((b) => b.id === config.design.banner)?.pro;
+  const today = new Date().toISOString().slice(0, 10);
+  const seasonOver = config.design.seasonUntil && config.design.seasonUntil < today;
   const design: ShopDesign = info.fullDesign
-    ? config.design
-    : { ...config.design, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner };
+    ? { ...config.design, season: seasonOver ? 'none' : config.design.season }
+    : {
+        ...config.design, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner,
+        holo: false, season: 'none', color2: '', liveBanner: false,
+      };
   const blocks = config.blocks
     .filter((b) => b.enabled && (info.proBlocks || !blockInfo(b.type)?.pro))
-    .slice(0, info.maxBlocks);
+    .slice(0, info.maxBlocks)
+    .map((b) => (info.fullDesign ? b : { ...b, width: 'full' as const }));
   return {
     ...config,
     design,

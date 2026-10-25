@@ -57,14 +57,21 @@ export interface ShopHeaderProps {
   badges?: ReactNode;
   actions?: ReactNode;
   tabs?: { label: string; href: string; current?: boolean }[];
+  /** Pomalu se posouvající vzor banneru */
+  bannerLive?: boolean;
+  /** Sezónní motiv přes banner: winter, spring, summer, autumn */
+  season?: string;
+  /** Řádek pod podtitulem, např. odznaky úspěchů */
+  extra?: ReactNode;
   className?: string;
 }
 
 /** Hlavička stránky obchodu ve čtyřech šablonách; patří do obalu .tz-shop. */
-export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerStyle = 'pattern', meta, tagline, badges, actions, tabs, className }: ShopHeaderProps) {
+export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerStyle = 'pattern', meta, tagline, badges, actions, tabs, bannerLive, season, extra, className }: ShopHeaderProps) {
   const banner = layout === 'minimal' ? null : (
     <div
-      className={cx('tz-shop-banner', !bannerImage && `tz-shop-banner-${bannerStyle}`)}
+      className={cx('tz-shop-banner', !bannerImage && `tz-shop-banner-${bannerStyle}`, bannerLive && !bannerImage && 'tz-shop-banner-live')}
+      data-season={season && season !== 'none' ? season : undefined}
       style={bannerImage ? { backgroundImage: `url(${JSON.stringify(bannerImage)})` } : undefined}
       aria-hidden="true"
     />
@@ -79,6 +86,7 @@ export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerS
         </div>
         {meta ? <p className="tz-shop-meta">{meta}</p> : null}
         {tagline ? <p className="tz-shop-tagline">{tagline}</p> : null}
+        {extra}
       </div>
       {actions ? <div className="tz-shop-actions">{actions}</div> : null}
     </div>
@@ -111,4 +119,38 @@ export function ShopSection({ title, note, id, children, className }: { title: s
 /** Styl obalu .tz-shop pro barvu obchodu (token shop-*). */
 export function shopStyle(color: string): CSSProperties {
   return { ['--shop' as string]: `var(--shop-${color})` } as CSSProperties;
+}
+
+/** Běžící pruh novinek nad hlavičkou; při omezeném pohybu stojí. */
+export function ShopTicker({ items }: { items: string[] }) {
+  if (!items.length) return null;
+  const row = items.map((t, i) => <span key={i}>{t}</span>);
+  return (
+    <div className="tz-shop-ticker" role="marquee" aria-label="Novinky obchodu">
+      <div className="tz-shop-ticker-track">
+        {row}
+        <span className="tz-shop-ticker-dup" aria-hidden="true">{items.map((t, i) => <span key={i}>{t}</span>)}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Odznaky úspěchů prodejce. */
+export function Achievements({ items }: { items: { icon: string; label: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="tz-achievements">
+      {items.map((a) => <span key={a.label} className="tz-achievement"><span aria-hidden="true">{a.icon}</span>{a.label}</span>)}
+    </div>
+  );
+}
+
+/** Štítek v rohu obrázku karty: new = Novinka, last = Poslední kus, custom = vlastní štítek obchodu. */
+export function CardTag({ kind, children }: { kind: 'new' | 'last' | 'custom'; children: ReactNode }) {
+  return <span className={cx('tz-card-tag', `tz-card-tag-${kind}`)}>{children}</span>;
+}
+
+/** Oddělovač mezi bloky stránky obchodu. */
+export function ShopDivider({ style }: { style: string }) {
+  return style && style !== 'none' ? <div className={cx('tz-shop-divider', `tz-shop-divider-${style}`)} aria-hidden="true" /> : null;
 }
