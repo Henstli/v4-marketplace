@@ -36,6 +36,8 @@
 .tz-tile{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-family:var(--font-sans)}
 .tz-tile:hover{border-color:var(--line-strong)}
 .tz-tile-art{aspect-ratio:63/88;max-width:100%;border-radius:var(--radius-md);padding:8px;box-sizing:border-box;display:flex}
+.tz-tile-art-photo{padding:0;align-items:center;justify-content:center}
+.tz-tile-img{display:block;width:100%;height:100%;object-fit:contain;border-radius:var(--radius-sm)}
 .tz-tile-frame{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:var(--radius-sm);padding:10px;font-size:11px;font-weight:600;letter-spacing:.06em;color:#ffffff}
 .tz-tile-name{font-weight:600;font-size:15px;line-height:20px}
 .tz-tile-set{font-size:13px;color:var(--ink-muted)}
@@ -54,7 +56,8 @@
 .tz-suggest-item{display:flex;align-items:center;gap:var(--space-3);min-height:56px;padding:6px var(--space-2);border-radius:var(--radius-md);color:var(--ink);text-decoration:none;cursor:pointer}
 .tz-suggest-item[aria-selected="true"],.tz-suggest-item:hover{background:var(--surface-sunken)}
 .tz-suggest-art{flex:none;width:32px;aspect-ratio:63/88;border-radius:4px;overflow:hidden;background:var(--surface-sunken)}
-.tz-suggest-art img{display:block;width:100%;height:100%;object-fit:cover}
+.tz-suggest-art img{display:block;width:100%;height:100%;object-fit:contain}
+.tz-suggest-art:has(img){background:none}
 .tz-suggest-text{flex:1;min-width:0}
 .tz-suggest-name{font-weight:600;font-size:15px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tz-suggest-name mark{background:none;color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:3px}
@@ -67,6 +70,7 @@
 @media (hover:none){.tz-suggest-all .tz-kbd{display:none}}
 
 .tz-thumb{flex:none;display:block;width:40px;aspect-ratio:63/88;border-radius:4px;overflow:hidden;background:var(--surface-sunken)}
-.tz-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.tz-thumb img{display:block;width:100%;height:100%;object-fit:contain}
+.tz-thumb:has(img){background:none}
 .tz-thumb-sm{width:32px}
 .tz-thumb-lg{width:64px;border-radius:var(--radius-sm)}

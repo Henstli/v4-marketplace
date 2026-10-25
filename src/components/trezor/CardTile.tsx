@@ -20,7 +20,10 @@ export interface CardTileProps {
 export function CardTile({ name, set, game, color, image, price, trend, href = '#' }: CardTileProps) {
   return (
     <Link className="tz-tile" href={href}>
-      <div className="tz-tile-art" style={{ background: color || 'var(--surface-sunken)' }}>
+      <div
+        className={image ? 'tz-tile-art tz-tile-art-photo' : 'tz-tile-art'}
+        style={image ? undefined : { background: color || 'var(--surface-sunken)' }}
+      >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="" loading="lazy" className="tz-tile-img" />
