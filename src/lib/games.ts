@@ -18,7 +18,7 @@ export const GAMES: Game[] = [
   { id: 'riftbound', name: 'Riftbound', label: 'RIFTBOUND', dot: 'var(--game-riftbound)', live: true },
   { id: 'lorcana', name: 'Lorcana', label: 'LORCANA', dot: 'var(--game-lorcana)', live: true },
   { id: 'onepiece', name: 'One Piece', label: 'ONE PIECE', dot: 'var(--game-onepiece)', live: true },
-  { id: 'cyberpunk', name: 'Cyberpunk', label: 'CYBERPUNK', dot: 'var(--game-cyberpunk)', live: true },
+  { id: 'cyberpunk', name: 'Cyberpunk', label: 'CYBERPUNK', dot: 'var(--game-cyberpunk)', live: false },
   { id: 'sport', name: 'Sport', label: 'SPORT', dot: 'var(--game-sport)', live: true },
 ];
 

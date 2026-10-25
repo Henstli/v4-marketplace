@@ -1,7 +1,7 @@
 // Import katalogů karet do databáze.
 //   Pokémon: TCGdex (https://tcgdex.dev), Magic: Scryfall (https://scryfall.com/docs/api),
 //   Riftbound: Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
-//   One Piece: OPTCG API (https://optcgapi.com/documentation), Cyberpunk: databáze karet z cyberpunktcg.com (Netdeck).
+//   One Piece: OPTCG API (https://optcgapi.com/documentation).
 // Volá ho plánovač v databázi (pg_cron) s hlavičkou x-import-secret (heslo je ve Vaultu jako import_secret).
 //   { "mode": "discover" }  doplní seznam sad do catalog_sources
 //   { "mode": "next" }      importuje sady, které ještě nebyly nebo jsou starší než 7 dní (kolik stihne za ~40 s)
@@ -401,85 +401,6 @@ async function fetchOnePieceSet(id: string): Promise<ImportedSet> {
   };
 }
 
-// ---------- Cyberpunk (Netdeck, databáze karet z cyberpunktcg.com) ----------
-// Odkazy na obrázky jsou podepsané a po pár dnech vyprší, proto obrázky kopírujeme do úložiště (bucket card-images).
-
-interface NetdeckPrinting {
-  id: string;
-  set: { code: string; name: string };
-  rarity?: string;
-  language: string;
-  image_url?: string;
-  collector_number: string;
-}
-interface NetdeckCard { display_name: string; name: string; printings: NetdeckPrinting[] }
-
-const NETDECK = 'https://api.netdeck.gg/api/cards/cyberpunk';
-const IMAGE_BUCKET = 'card-images';
-
-async function discoverCyberpunk(): Promise<DiscoveredSet[]> {
-  const { filters } = await getJson<{ filters: Array<{ key: string; options: Array<{ code: string; name: string }> }> }>(
-    `${NETDECK}/filters`,
-  );
-  // Jen anglické sady, jazyk tisku vybírá prodejce u nabídky.
-  return (filters.find((f) => f.key === 'set')?.options ?? [])
-    .filter((s) => !/-[a-z]{2}$/.test(s.code))
-    .map((s) => ({ id: s.code, name: s.name }));
-}
-
-async function cyberpunkImage(printing: NetdeckPrinting, existing: Map<string, string | null>): Promise<string | null> {
-  const external = `netdeck:${printing.id}`;
-  const stored = existing.get(external);
-  if (stored?.includes(`/${IMAGE_BUCKET}/`)) return stored;
-  if (!printing.image_url) return null;
-  try {
-    const res = await fetch(printing.image_url, { headers: { 'User-Agent': HEADERS['User-Agent'] } });
-    if (!res.ok) return null;
-    const type = res.headers.get('content-type') ?? 'image/webp';
-    const path = `cyberpunk/${printing.id}.${type.includes('png') ? 'png' : type.includes('jpeg') ? 'jpg' : 'webp'}`;
-    const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, await res.arrayBuffer(), { contentType: type, upsert: true });
-    if (error) return null;
-    return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchCyberpunkSet(code: string): Promise<ImportedSet> {
-  const set = (await discoverCyberpunk()).find((s) => s.id === code);
-  const cards: NetdeckCard[] = [];
-  for (let offset = 0; ; offset += 100) {
-    const page = await getJson<{ items: NetdeckCard[]; total: number }>(
-      `${NETDECK}?set=${encodeURIComponent(code)}&limit=100&offset=${offset}`,
-    );
-    cards.push(...page.items);
-    if (offset + 100 >= page.total) break;
-  }
-  const printings = cards.flatMap((c) =>
-    c.printings.filter((p) => p.set.code === code && p.language === 'en').map((p) => ({ card: c, p })),
-  );
-  const { data: rows } = await supabase
-    .from('cards')
-    .select('external_id, image_url')
-    .in('external_id', printings.map(({ p }) => `netdeck:${p.id}`));
-  const existing = new Map((rows ?? []).map((r) => [r.external_id as string, r.image_url as string | null]));
-  const images = await mapLimit(printings, 4, ({ p }) => cyberpunkImage(p, existing));
-  const upper = code.toUpperCase();
-  return {
-    code: upper,
-    name: set?.name ?? printings[0]?.p.set.name ?? upper,
-    released_on: null,
-    cards: printings.map(({ card, p }, i) => ({
-      slug: slugify(card.display_name, upper, p.collector_number),
-      name: card.display_name,
-      number: p.collector_number,
-      rarity: p.rarity ?? null,
-      image_url: images[i],
-      external_id: `netdeck:${p.id}`,
-    })),
-  };
-}
-
 // ---------- Hry ----------
 
 interface DiscoveredSet { id: string; name: string; released_on?: string }
@@ -490,7 +411,6 @@ const SOURCES: Record<string, { discover: () => Promise<DiscoveredSet[]>; fetchS
   riftbound: { discover: discoverRiftbound, fetchSet: fetchRiftboundSet },
   lorcana: { discover: discoverLorcana, fetchSet: fetchLorcanaSet },
   onepiece: { discover: discoverOnePiece, fetchSet: fetchOnePieceSet },
-  cyberpunk: { discover: discoverCyberpunk, fetchSet: fetchCyberpunkSet },
 };
 
 // ---------- Zápis do databáze ----------
