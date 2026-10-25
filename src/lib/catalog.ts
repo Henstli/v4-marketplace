@@ -1,5 +1,5 @@
 // Přístup ke katalogu karet. S nastaveným Supabase čte databázi (vyhledávání a filtry
-// běží v SQL funkci search_cards), jinak ukázková data z mock-data.ts.
+// běží v SQL funkci search_catalog), jinak ukázková data z mock-data.ts.
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { CARDS, LISTINGS, SELLERS } from './mock-data';
@@ -18,6 +18,10 @@ export interface CatalogQuery {
   condition?: Condition;
   language?: Language;
   sellerKind?: SellerKind;
+  /** Jen karty jedné sady (id sady z getSet) */
+  setId?: string;
+  /** Jen karty, které prodává tento prodejce */
+  sellerId?: string;
   sort?: SortKey;
   /** Jen karty, které někdo prodává */
   onlyOffers?: boolean;
@@ -43,6 +47,34 @@ export interface Suggestion {
 }
 
 export const SUGGEST_LIMIT = 6;
+
+/** Sada v našeptávači a v záhlaví katalogu */
+export interface CardSet {
+  id: string;
+  game: GameId;
+  code: string;
+  name: string;
+  /** Rok vydání */
+  year: number | null;
+  cards: number;
+}
+
+/** Prodejce v našeptávači */
+export interface SellerSuggestion {
+  id: string;
+  name: string;
+  kind: SellerKind;
+  country: Seller['country'];
+  /** Podíl kladných hodnocení v %, null bez hodnocení */
+  rating: number | null;
+  offers: number;
+}
+
+export interface SuggestGroups {
+  cards: Suggestion[];
+  sets: CardSet[];
+  sellers: SellerSuggestion[];
+}
 
 export interface Offer extends Listing {
   seller: Seller;
@@ -97,7 +129,7 @@ function fromRow(r: SearchRow): CardSummary {
 async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
   const supabase = createPublicClient();
   const size = query.pageSize ?? PAGE_SIZE;
-  const { data, error } = await supabase.rpc('search_cards', {
+  const { data, error } = await supabase.rpc('search_catalog', {
     p_q: query.q ?? null,
     p_game: query.game ?? null,
     p_condition: query.condition ?? null,
@@ -107,6 +139,8 @@ async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
     p_only_offers: query.onlyOffers ?? false,
     p_limit: size,
     p_offset: ((query.page ?? 1) - 1) * size,
+    p_set: query.setId ?? null,
+    p_seller: query.sellerId ?? null,
   });
   if (error) throw new Error(`Katalog se nepodařilo načíst: ${error.message}`);
   const rows = (data ?? []) as SearchRow[];
@@ -136,6 +170,80 @@ async function dbSuggest(q: string, game?: GameId): Promise<Suggestion[]> {
     image: r.image_url ?? undefined,
     minPrice: r.min_price,
   }));
+}
+
+interface GroupRow {
+  kind: 'set' | 'seller';
+  ref: string;
+  name: string;
+  game_id: GameId | null;
+  code: string | null;
+  released_on: string | null;
+  items: number;
+  seller_kind: SellerKind | null;
+  country: Seller['country'] | null;
+  positive: number | null;
+}
+
+async function dbSuggestGroups(q: string, game?: GameId): Promise<Pick<SuggestGroups, 'sets' | 'sellers'>> {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase.rpc('suggest_groups', { p_q: q, p_game: game ?? null });
+  if (error) throw new Error(`Návrhy se nepodařilo načíst: ${error.message}`);
+  const rows = (data ?? []) as GroupRow[];
+  return {
+    sets: rows.filter((r) => r.kind === 'set').map((r) => ({
+      id: r.ref,
+      game: r.game_id as GameId,
+      code: r.code ?? '',
+      name: r.name,
+      year: r.released_on ? Number(r.released_on.slice(0, 4)) : null,
+      cards: r.items,
+    })),
+    sellers: rows.filter((r) => r.kind === 'seller').map((r) => ({
+      id: r.ref,
+      name: r.name,
+      kind: r.seller_kind ?? 'private',
+      country: r.country ?? 'CZ',
+      rating: r.positive,
+      offers: r.items,
+    })),
+  };
+}
+
+async function dbSet(game: GameId | undefined, code: string): Promise<CardSet | null> {
+  const supabase = createPublicClient();
+  let query = supabase.from('card_sets').select('id, game_id, code, name, released_on').ilike('code', code);
+  if (game) query = query.eq('game_id', game);
+  const { data } = await query.order('released_on', { ascending: false }).limit(1).maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    game: data.game_id as GameId,
+    code: data.code,
+    name: data.name,
+    year: data.released_on ? Number(String(data.released_on).slice(0, 4)) : null,
+    cards: 0,
+  };
+}
+
+async function dbSeller(id: string): Promise<Seller | null> {
+  // Neplatné id by v Postgresu skončilo chybou typu uuid, neexistující prodejce je prostě null.
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const supabase = createPublicClient();
+  const [{ data: p }, { data: reviews }] = await Promise.all([
+    supabase.from('profiles').select('id, display_name, kind, country').eq('id', id).maybeSingle(),
+    supabase.from('reviews').select('rating').eq('seller_id', id),
+  ]);
+  if (!p) return null;
+  const r = (reviews ?? []).map((x) => x.rating as number);
+  return {
+    id: p.id,
+    name: p.display_name,
+    kind: p.kind as SellerKind,
+    country: p.country as Seller['country'],
+    rating: r.length ? (r.filter((x) => x >= 4).length / r.length) * 100 : null,
+    sales: r.length,
+  };
 }
 
 async function dbOffers(cardId: string): Promise<Offer[]> {
@@ -218,6 +326,7 @@ function mockMatchesListing(listing: Listing, query: CatalogQuery): boolean {
   if (query.condition && listing.condition !== query.condition) return false;
   if (query.language && listing.language !== query.language) return false;
   if (query.sellerKind && SELLERS.find((s) => s.id === listing.sellerId)?.kind !== query.sellerKind) return false;
+  if (query.sellerId && listing.sellerId !== query.sellerId) return false;
   return true;
 }
 
@@ -233,9 +342,11 @@ function mockSummarize(card: Card, query: CatalogQuery = {}): CardSummary {
 
 function mockSearch(query: CatalogQuery): CatalogPage {
   const q = query.q ? normalize(query.q.trim()) : '';
-  const listingFilter = Boolean(query.condition || query.language || query.sellerKind || query.onlyOffers);
+  const listingFilter = Boolean(query.condition || query.language || query.sellerKind || query.sellerId || query.onlyOffers);
   let result = CARDS.filter((card) => {
     if (query.game && card.game !== query.game) return false;
+    // V ukázkových datech je id sady její kód.
+    if (query.setId && card.setCode !== query.setId) return false;
     if (q && !normalize(`${card.name} ${card.setName} ${card.setCode} ${card.number}`).includes(q)) return false;
     return true;
   })
@@ -278,6 +389,52 @@ export async function suggestCards(q: string, game?: GameId): Promise<Suggestion
     minPrice: c.minPrice,
   }));
 }
+
+// Našeptávač: karty, sady (název nebo kód) a prodejci, kteří něco prodávají.
+export async function suggestGroups(q: string, game?: GameId): Promise<SuggestGroups> {
+  if (normalize(q.trim()).length < 2) return { cards: [], sets: [], sellers: [] };
+  if (isSupabaseConfigured()) {
+    const [cards, groups] = await Promise.all([dbSuggest(q, game), dbSuggestGroups(q, game)]);
+    return { cards, ...groups };
+  }
+  const n = normalize(q.trim());
+  const words = (s: string) => normalize(s).split(/[^a-z0-9]+/);
+  const sets = new Map<string, CardSet>();
+  for (const c of CARDS) {
+    if (game && c.game !== game) continue;
+    if (!words(`${c.setName} ${c.setCode}`).some((w) => w.startsWith(n))) continue;
+    const set = sets.get(c.setCode) ?? { id: c.setCode, game: c.game, code: c.setCode, name: c.setName, year: null, cards: 0 };
+    set.cards++;
+    sets.set(c.setCode, set);
+  }
+  return {
+    cards: await suggestCards(q, game),
+    sets: [...sets.values()].slice(0, 3),
+    sellers: SELLERS.filter((s) => words(s.name).some((w) => w.startsWith(n)))
+      .slice(0, 3)
+      .map((s) => ({ ...s, offers: LISTINGS.filter((l) => l.sellerId === s.id).length })),
+  };
+}
+
+// Sady a prodejci k hledanému textu (katalog je ukáže nad výsledky, třeba když hledání karet nic nenajde).
+export async function findSetsAndSellers(q: string, game?: GameId): Promise<Pick<SuggestGroups, 'sets' | 'sellers'>> {
+  if (normalize(q.trim()).length < 2) return { sets: [], sellers: [] };
+  if (isSupabaseConfigured()) return dbSuggestGroups(q, game);
+  const { sets, sellers } = await suggestGroups(q, game);
+  return { sets, sellers };
+}
+
+// Sada podle hry a kódu (parametr katalogu ?hra=pokemon&sada=OBF).
+export const getSet = cache(async (game: GameId | undefined, code: string): Promise<CardSet | null> => {
+  if (isSupabaseConfigured()) return dbSet(game, code);
+  const card = CARDS.find((c) => c.setCode.toLowerCase() === code.toLowerCase() && (!game || c.game === game));
+  return card ? { id: card.setCode, game: card.game, code: card.setCode, name: card.setName, year: null, cards: 0 } : null;
+});
+
+export const getSeller = cache(async (id: string): Promise<Seller | null> => {
+  if (isSupabaseConfigured()) return dbSeller(id);
+  return SELLERS.find((s) => s.id === id) ?? null;
+});
 
 // Úvodní stránka je pro všechny stejná, stačí ji z databáze načíst jednou za minutu.
 const HOME_CACHE = { revalidate: 60 };

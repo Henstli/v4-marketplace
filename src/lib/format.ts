@@ -12,3 +12,9 @@ export function formatPrice(amount: number, currency = 'Kč'): string {
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' });
 }
+
+// České skloňování podle počtu: plural(3, ['karta', 'karty', 'karet']) → „3 karty“.
+export function plural(n: number, forms: [string, string, string]): string {
+  const form = n === 1 ? forms[0] : n >= 2 && n <= 4 ? forms[1] : forms[2];
+  return `${formatNumber(n)} ${form}`;
+}

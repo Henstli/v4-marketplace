@@ -65,7 +65,8 @@
 
 .num, .table th.num { text-align: right; white-space: nowrap; }
 
-.seller { font-weight: 600; }
+.seller { display: block; font-weight: 600; color: inherit; text-decoration: none; }
+.seller:hover { color: var(--accent); }
 
 @media (max-width: 900px) {
   .top { grid-template-columns: 1fr; gap: var(--space-6); }

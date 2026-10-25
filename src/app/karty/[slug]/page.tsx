@@ -112,7 +112,7 @@ export default async function CardDetailPage({ params }: Props) {
                 {offers.map((o) => (
                   <tr key={o.id}>
                     <td>
-                      <div className={styles.seller}>{o.seller.name}</div>
+                      <Link href={`/prodejci/${o.seller.id}`} className={styles.seller}>{o.seller.name}</Link>
                       <div className="t-small muted">
                         {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} ·{' '}
                         {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
