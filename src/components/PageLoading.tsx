@@ -1,11 +1,11 @@
 import { Skeleton } from '@/components/trezor';
 
-// Neutrální stav načítání pro stránky bez vlastního (úvodní stránka, účet, prodej, objednávky):
-// nadpis a panely s řádky textu, ne kostra katalogu, ať po kliknutí neproblikne cizí rozvržení.
-export default function Loading() {
+// Neutrální kostra pro stránky jako účet, prodej nebo objednávky: nadpis a panely s řádky textu.
+// Třída tz-loading ji ukáže až po 0,4 s, takže rychlé načtení nic neproblikne.
+export function PageLoading() {
   return (
     <div
-      className="container section"
+      className="container section tz-loading"
       role="status"
       aria-label="Načítání"
       style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}
