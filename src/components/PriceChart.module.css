@@ -1,0 +1,44 @@
+.chart {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.axis {
+  position: relative;
+  height: 240px;
+  min-width: 56px;
+}
+
+.axis span,
+.days span {
+  font-family: var(--font-mono);
+  font-size: var(--t-code-size);
+  line-height: var(--t-code-lh);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.plot svg {
+  display: block;
+  width: 100%;
+  height: 240px;
+}
+
+.days {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .axis, .plot svg { height: 180px; }
+}

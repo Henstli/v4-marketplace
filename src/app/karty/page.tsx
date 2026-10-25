@@ -1,0 +1,148 @@
+import type { Metadata } from 'next';
+import { ChipLink, SearchField } from '@/components/trezor';
+import { CardSummaryTile } from '@/components/CardSummaryTile';
+import { searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
+import { GAMES, getGame, type GameId } from '@/lib/games';
+import { CONDITIONS, LANGUAGE_NAMES, type Condition, type Language, type SellerKind } from '@/lib/types';
+import styles from './catalog.module.css';
+
+export const metadata: Metadata = { title: 'Karty' };
+
+type Params = Record<string, string | string[] | undefined>;
+
+// Parametry v URL jsou česky, ať se dají sdílet a čtou se v adrese.
+const SORTS: Array<{ id: SortKey; label: string }> = [
+  { id: 'relevance', label: 'Doporučené' },
+  { id: 'price-asc', label: 'Nejlevnější' },
+  { id: 'price-desc', label: 'Nejdražší' },
+  { id: 'trend', label: 'Největší růst' },
+];
+const SORT_PARAM: Record<SortKey, string> = { relevance: '', 'price-asc': 'cena', 'price-desc': 'cena-sestupne', trend: 'trend' };
+const SELLER_KINDS: Array<{ id: SellerKind; label: string; param: string }> = [
+  { id: 'shop', label: 'Obchody', param: 'obchod' },
+  { id: 'private', label: 'Sběratelé', param: 'sberatel' },
+];
+
+function one(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v || undefined;
+}
+
+function parse(params: Params): CatalogQuery {
+  const game = one(params.hra);
+  const condition = one(params.stav);
+  const language = one(params.jazyk);
+  const seller = one(params.prodejce);
+  const sort = one(params.razeni);
+  return {
+    q: one(params.q),
+    game: game && getGame(game) ? (game as GameId) : undefined,
+    condition: CONDITIONS.includes(condition as Condition) ? (condition as Condition) : undefined,
+    language: language && language in LANGUAGE_NAMES ? (language as Language) : undefined,
+    sellerKind: SELLER_KINDS.find((k) => k.param === seller)?.id,
+    sort: (Object.keys(SORT_PARAM) as SortKey[]).find((k) => SORT_PARAM[k] && SORT_PARAM[k] === sort) ?? 'relevance',
+  };
+}
+
+function href(params: Params, key: string, value: string | undefined): string {
+  const next = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    const val = one(v);
+    if (val && k !== key) next.set(k, val);
+  }
+  if (value) next.set(key, value);
+  const s = next.toString();
+  return s ? `/karty?${s}` : '/karty';
+}
+
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const params = await searchParams;
+  const query = parse(params);
+  const cards = await searchCards(query);
+  const game = query.game ? getGame(query.game) : undefined;
+  const sellerParam = SELLER_KINDS.find((k) => k.id === query.sellerKind)?.param;
+
+  return (
+    <div className={`container ${styles.layout}`}>
+      <aside className={styles.filters} aria-label="Filtry">
+        <form action="/karty" className={styles.filterSearch}>
+          {Object.entries(params).map(([k, v]) =>
+            k !== 'q' && one(v) ? <input key={k} type="hidden" name={k} value={one(v)} /> : null,
+          )}
+          <SearchField name="q" defaultValue={query.q} placeholder="Hledat v katalogu" label="Hledat v katalogu" />
+        </form>
+
+        <FilterGroup title="HRA">
+          <ChipLink href={href(params, 'hra', undefined)} selected={!query.game}>Vše</ChipLink>
+          {GAMES.filter((g) => g.live).map((g) => (
+            <ChipLink key={g.id} href={href(params, 'hra', g.id)} selected={query.game === g.id} dot={g.dot}>
+              {g.name}
+            </ChipLink>
+          ))}
+        </FilterGroup>
+
+        <FilterGroup title="STAV">
+          <ChipLink href={href(params, 'stav', undefined)} selected={!query.condition}>Vše</ChipLink>
+          {CONDITIONS.map((c) => (
+            <ChipLink key={c} href={href(params, 'stav', c)} selected={query.condition === c}>{c}</ChipLink>
+          ))}
+        </FilterGroup>
+
+        <FilterGroup title="JAZYK">
+          <ChipLink href={href(params, 'jazyk', undefined)} selected={!query.language}>Vše</ChipLink>
+          {(Object.keys(LANGUAGE_NAMES) as Language[]).map((l) => (
+            <ChipLink key={l} href={href(params, 'jazyk', l)} selected={query.language === l}>{LANGUAGE_NAMES[l]}</ChipLink>
+          ))}
+        </FilterGroup>
+
+        <FilterGroup title="PRODEJCE">
+          <ChipLink href={href(params, 'prodejce', undefined)} selected={!query.sellerKind}>Všichni</ChipLink>
+          {SELLER_KINDS.map((k) => (
+            <ChipLink key={k.id} href={href(params, 'prodejce', k.param)} selected={sellerParam === k.param}>{k.label}</ChipLink>
+          ))}
+        </FilterGroup>
+      </aside>
+
+      <section className={styles.results}>
+        <div className="section-head">
+          <div>
+            <h1 className="t-heading-l">{query.q ? `Výsledky pro „${query.q}“` : game ? game.name : 'Všechny karty'}</h1>
+            <p className="t-small muted">{resultCount(cards.length)}</p>
+          </div>
+          <nav className={styles.sort} aria-label="Řazení">
+            {SORTS.map((s) => (
+              <ChipLink key={s.id} href={href(params, 'razeni', SORT_PARAM[s.id] || undefined)} selected={query.sort === s.id}>
+                {s.label}
+              </ChipLink>
+            ))}
+          </nav>
+        </div>
+
+        {cards.length ? (
+          <div className="card-grid">
+            {cards.map((card) => <CardSummaryTile key={card.id} card={card} />)}
+          </div>
+        ) : (
+          <div className="panel">
+            <h2 className="t-heading-m">Nic jsme nenašli</h2>
+            <p className="muted">Zkuste jiný název karty nebo zrušte některý z filtrů.</p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function resultCount(n: number): string {
+  if (n === 1) return '1 karta';
+  if (n >= 2 && n <= 4) return `${n} karty`;
+  return `${n} karet`;
+}
+
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className={styles.group}>
+      <h2 className="t-label muted">{title}</h2>
+      <div className={styles.chips}>{children}</div>
+    </div>
+  );
+}

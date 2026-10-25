@@ -1,0 +1,65 @@
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--space-12);
+  align-items: center;
+  padding-top: var(--space-16);
+  padding-bottom: var(--space-12);
+}
+
+.heroText { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.heroActions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+.stats { display: flex; gap: var(--space-8); margin: 0; flex-wrap: wrap; }
+.stats dd { margin: 0; }
+
+.heroPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.heroPanel:hover { border-color: var(--line-strong); }
+.heroPanel svg { width: 100%; height: auto; margin-top: var(--space-3); }
+
+.heroPrice { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+.games {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.game {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+a.game:hover { border-color: var(--line-strong); }
+
+.gameSoon { background: var(--surface-sunken); }
+
+.gameDot { width: 12px; height: 12px; border-radius: 3px; }
+
+.trust {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.trust p { margin-top: var(--space-2); }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; padding-top: var(--space-8); gap: var(--space-8); }
+  .hero h1 { font-size: var(--t-display-l-size); line-height: var(--t-display-l-lh); }
+}
