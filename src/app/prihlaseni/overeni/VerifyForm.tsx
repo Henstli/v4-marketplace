@@ -20,9 +20,9 @@ export function VerifyForm({ next }: { next: string }) {
           pattern="[0-9 ]{6,7}"
           maxLength={7}
           autoFocus
-          placeholder="123 456"
           className={`${styles.input} ${styles.code}`}
         />
+        <span className="t-small muted">Šest číslic, které vám teď ukazuje aplikace. Mění se každých 30 sekund.</span>
       </label>
       {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
       <Button type="submit" size="lg" disabled={pending}>{pending ? 'Ověřuji…' : 'Ověřit'}</Button>
