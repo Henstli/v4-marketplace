@@ -17,6 +17,11 @@ export interface SearchBoxProps {
   keep?: Record<string, string>;
   /** Klávesa „/“ skočí do pole odkudkoli na stránce (jen jedno pole na stránce, v hlavičce) */
   shortcut?: boolean;
+  /** Kam formulář hledá a pod jakým parametrem (výchozí katalog /karty?q=) */
+  action?: string;
+  param?: string;
+  /** Začátek odkazu na kartu, za který se přidá slug (výchozí detail karty) */
+  cardHref?: string;
   className?: string;
 }
 
@@ -27,9 +32,9 @@ function fold(s: string): string {
   return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-function toItem(s: Suggestion): SearchSuggestItem {
+function toItem(s: Suggestion, cardHref: string): SearchSuggestItem {
   return {
-    href: `/karty/${s.slug}`,
+    href: `${cardHref}${encodeURIComponent(s.slug)}`,
     name: s.name,
     set: s.setName,
     number: s.number,
@@ -42,7 +47,18 @@ function toItem(s: Suggestion): SearchSuggestItem {
 
 // Vyhledávací pole s našeptávačem: při psaní ukáže pár nejpodobnějších karet (vzor combobox).
 // Bez JavaScriptu zůstává obyčejný formulář, který hledá v katalogu.
-export function SearchBox({ placeholder, label, defaultValue = '', game, keep, shortcut, className }: SearchBoxProps) {
+export function SearchBox({
+  placeholder,
+  label,
+  defaultValue = '',
+  game,
+  keep,
+  shortcut,
+  action = '/karty',
+  param = 'q',
+  cardHref = '/karty/',
+  className,
+}: SearchBoxProps) {
   const router = useRouter();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,7 +70,7 @@ export function SearchBox({ placeholder, label, defaultValue = '', game, keep, s
   const [result, setResult] = useState<{ q: string; items: SearchSuggestItem[] } | null>(null);
 
   const q = value.trim();
-  const key = `${game ?? ''}|${fold(q)}`;
+  const key = `${cardHref}|${game ?? ''}|${fold(q)}`;
   const enough = fold(q).length >= MIN_CHARS;
 
   useEffect(() => {
@@ -74,7 +90,7 @@ export function SearchBox({ placeholder, label, defaultValue = '', game, keep, s
       try {
         const res = await fetch(`/api/naseptavac?${params}`, { signal: ctrl.signal });
         if (!res.ok) return;
-        const items = ((await res.json()) as Suggestion[]).map(toItem);
+        const items = ((await res.json()) as Suggestion[]).map((s) => toItem(s, cardHref));
         cache.current.set(key, items);
         setResult({ q, items });
       } catch {
@@ -87,7 +103,7 @@ export function SearchBox({ placeholder, label, defaultValue = '', game, keep, s
     };
     // q se mění spolu s key, stačí sledovat key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enough, game]);
+  }, [key, enough, game, cardHref]);
 
   useEffect(() => {
     if (!shortcut) return;
@@ -103,8 +119,8 @@ export function SearchBox({ placeholder, label, defaultValue = '', game, keep, s
     return () => document.removeEventListener('keydown', onKey);
   }, [shortcut]);
 
-  const allParams = new URLSearchParams({ ...keep, q });
-  const allHref = `/karty?${allParams}`;
+  const allParams = new URLSearchParams({ ...keep, [param]: q });
+  const allHref = `${action}?${allParams}`;
   const items = result?.items ?? [];
   // Prázdný stav jen tehdy, když opravdu přišla odpověď pro to, co je v poli.
   const show = open && enough && result !== null && (items.length > 0 || fold(result.q) === fold(q));
@@ -142,12 +158,12 @@ export function SearchBox({ placeholder, label, defaultValue = '', game, keep, s
   }
 
   return (
-    <form action="/karty" role="search" className={className} onSubmit={() => setOpen(false)}>
+    <form action={action} role="search" className={className} onSubmit={() => setOpen(false)}>
       {keep ? Object.entries(keep).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : null}
       <div className="tz-suggest-wrap">
         <SearchField
           ref={inputRef}
-          name="q"
+          name={param}
           value={value}
           placeholder={placeholder}
           label={label}
