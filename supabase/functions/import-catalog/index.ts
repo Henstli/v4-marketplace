@@ -2,7 +2,7 @@
 //   Pokémon: TCGdex (https://tcgdex.dev), Magic: Scryfall (https://scryfall.com/docs/api).
 // Volá ho plánovač v databázi (pg_cron) s hlavičkou x-import-secret (heslo je ve Vaultu jako import_secret).
 //   { "mode": "discover" }  doplní seznam sad do catalog_sources
-//   { "mode": "next" }      naimportuje jednu sadu, která ještě nebyla nebo je starší než 7 dní
+//   { "mode": "next" }      importuje sady, které ještě nebyly nebo jsou starší než 7 dní (kolik stihne za ~40 s)
 //   { "mode": "set", "game": "magic", "id": "dmu" }  naimportuje konkrétní sadu
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.110.0';
@@ -12,13 +12,12 @@ const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPAB
 });
 
 const HEADERS = { 'User-Agent': 'V4market/0.1 (katalog karet)', Accept: 'application/json' };
-// Pokémon: celá éra Scarlet & Violet a Evolving Skies (je v ukázkových datech).
-const POKEMON_SERIES = ['sv'];
-const POKEMON_EXTRA_SETS = ['swsh7'];
-// Magic: papírové sady od roku 2023 a pár starších oblíbených.
-const MAGIC_SINCE = '2023-01-01';
-const MAGIC_TYPES = ['expansion', 'core', 'masters', 'draft_innovation'];
-const MAGIC_EXTRA_SETS = ['dmu', 'ltr', 'mh2'];
+// Pokémon: všechny série kromě digitální TCG Pocket.
+const POKEMON_SKIP_SERIES = ['tcgp'];
+// Magic: všechny papírové sady kromě tokenů, art karet a podobných doplňků, které se neprodávají jako karty.
+const MAGIC_SKIP_TYPES = ['token', 'memorabilia', 'minigame', 'alchemy', 'treasure_chest', 'vanguard'];
+// Režim next zpracuje víc sad za sebou, dokud nevyprší tento čas (plánovač ho volá každou minutu).
+const NEXT_BUDGET_MS = 40_000;
 
 interface ImportedCard {
   slug: string;
@@ -41,12 +40,15 @@ function describe(e: unknown): string {
   return typeof e === 'object' ? JSON.stringify(e) : String(e);
 }
 
+class NotFound extends Error {}
+
 async function getJson<T>(url: string): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, { headers: HEADERS });
     if (res.ok) return (await res.json()) as T;
-    if ((res.status === 429 || res.status >= 500) && attempt < 3) {
-      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+    if (res.status === 404) throw new NotFound(`404 ${url}`);
+    if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+      await new Promise((r) => setTimeout(r, (res.status === 429 ? 5000 : 1000) * (attempt + 1)));
       continue;
     }
     throw new Error(`${res.status} ${url}`);
@@ -79,25 +81,22 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 
 // ---------- Pokémon (TCGdex) ----------
 
-interface TcgdexSetBrief { id: string; name: string }
+interface TcgdexBrief { id: string; name: string }
 interface TcgdexSet {
   id: string;
   name: string;
   releaseDate?: string;
   abbreviation?: { official?: string };
-  cardCount: { official: number; total: number };
+  cardCount: { official?: number; total?: number };
   cards: Array<{ id: string; localId: string; name: string; image?: string }>;
 }
 
 async function discoverPokemon(): Promise<Array<{ id: string; name: string }>> {
+  const series = await getJson<TcgdexBrief[]>('https://api.tcgdex.net/v2/en/series');
   const sets: Array<{ id: string; name: string }> = [];
-  for (const serie of POKEMON_SERIES) {
-    const s = await getJson<{ sets: TcgdexSetBrief[] }>(`https://api.tcgdex.net/v2/en/series/${serie}`);
+  for (const serie of series.filter((x) => !POKEMON_SKIP_SERIES.includes(x.id))) {
+    const s = await getJson<{ sets: TcgdexBrief[] }>(`https://api.tcgdex.net/v2/en/series/${serie.id}`);
     sets.push(...s.sets.map((x) => ({ id: x.id, name: x.name })));
-  }
-  for (const id of POKEMON_EXTRA_SETS) {
-    const s = await getJson<TcgdexSet>(`https://api.tcgdex.net/v2/en/sets/${id}`);
-    sets.push({ id: s.id, name: s.name });
   }
   return sets;
 }
@@ -117,7 +116,7 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
     name: set.name,
     released_on: set.releaseDate ?? null,
     cards: set.cards.map((c, i) => {
-      const number = `${c.localId}/${set.cardCount.official}`;
+      const number = set.cardCount.official ? `${c.localId}/${set.cardCount.official}` : c.localId;
       return {
         slug: slugify(c.name, code, number),
         name: c.name,
@@ -142,26 +141,40 @@ interface ScryfallCard {
   card_faces?: Array<{ image_uris?: { normal?: string } }>;
 }
 
+// Scryfall povoluje u vyhledávání nejvýš 2 dotazy za sekundu, proto mezi jeho dotazy držíme odstup.
+let lastScryfall = 0;
+async function scryfall<T>(url: string): Promise<T> {
+  const wait = lastScryfall + 600 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastScryfall = Date.now();
+  return getJson<T>(url);
+}
+
 const MAGIC_RARITY: Record<string, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', mythic: 'Mythic', special: 'Special', bonus: 'Bonus' };
 
 async function discoverMagic(): Promise<Array<{ id: string; name: string; released_on?: string }>> {
-  const { data } = await getJson<{ data: ScryfallSet[] }>('https://api.scryfall.com/sets');
+  const { data } = await scryfall<{ data: ScryfallSet[] }>('https://api.scryfall.com/sets');
   return data
-    .filter((s) => !s.digital && s.card_count > 0)
-    .filter((s) => MAGIC_EXTRA_SETS.includes(s.code) || (MAGIC_TYPES.includes(s.set_type) && (s.released_at ?? '') >= MAGIC_SINCE))
+    .filter((s) => !s.digital && s.card_count > 0 && !MAGIC_SKIP_TYPES.includes(s.set_type))
     .filter((s) => (s.released_at ?? '') <= new Date().toISOString().slice(0, 10))
     .map((s) => ({ id: s.code, name: s.name, released_on: s.released_at }));
 }
 
 async function fetchMagicSet(code: string): Promise<ImportedSet> {
-  const set = await getJson<ScryfallSet>(`https://api.scryfall.com/sets/${code}`);
+  const set = await scryfall<ScryfallSet>(`https://api.scryfall.com/sets/${code}`);
   const cards: ScryfallCard[] = [];
-  let url: string | null = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`e:${code}`)}&unique=prints&order=set`;
+  let url: string | null =
+    `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`e:${code}`)}&unique=prints&order=set&include_extras=true&include_variations=true`;
   while (url) {
-    const page: { data: ScryfallCard[]; has_more: boolean; next_page?: string } = await getJson(url);
+    let page: { data: ScryfallCard[]; has_more: boolean; next_page?: string };
+    try {
+      page = await scryfall(url);
+    } catch (e) {
+      if (e instanceof NotFound) break; // sada bez karet, které vyhledávání vrací
+      throw e;
+    }
     cards.push(...page.data);
     url = page.has_more && page.next_page ? page.next_page : null;
-    await new Promise((r) => setTimeout(r, 120)); // Scryfall žádá max. 10 dotazů za sekundu
   }
   const upper = code.toUpperCase();
   return {
@@ -181,7 +194,18 @@ async function fetchMagicSet(code: string): Promise<ImportedSet> {
 
 // ---------- Zápis do databáze ----------
 
-async function save(game: string, set: ImportedSet): Promise<number> {
+async function save(game: string, set: ImportedSet, sourceId: string): Promise<number> {
+  // Zkratka sady může být u dvou různých sad stejná (hlavně u starých Pokémonů), pak použijeme id ze zdroje.
+  const { data: clash } = await supabase
+    .from('card_sets')
+    .select('name')
+    .match({ game_id: game, code: set.code })
+    .maybeSingle();
+  if (clash && clash.name !== set.name) {
+    const code = sourceId.toUpperCase();
+    set = { ...set, code, cards: set.cards.map((c) => ({ ...c, slug: slugify(c.name, code, c.number) })) };
+  }
+
   const { data: cardSet, error: setError } = await supabase
     .from('card_sets')
     .upsert({ game_id: game, code: set.code, name: set.name, released_on: set.released_on }, { onConflict: 'game_id,code' })
@@ -218,7 +242,7 @@ async function save(game: string, set: ImportedSet): Promise<number> {
 async function importSet(game: string, id: string): Promise<number> {
   try {
     const set = game === 'pokemon' ? await fetchPokemonSet(id) : await fetchMagicSet(id);
-    const count = await save(game, set);
+    const count = await save(game, set, id);
     await supabase
       .from('catalog_sources')
       .update({ imported_at: new Date().toISOString(), cards_imported: count, last_error: null })
@@ -254,23 +278,35 @@ Deno.serve(async (req) => {
 
     if (body.mode === 'set') return json({ imported: await importSet(body.game, body.id) });
 
-    // Režim next: nejdřív sady, které ještě nebyly, pak ty starší než 7 dní.
-    const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const { data: next } = await supabase
-      .from('catalog_sources')
-      .select('game_id, source_set_id')
-      .or(`imported_at.is.null,imported_at.lt.${weekAgo}`)
-      .order('imported_at', { ascending: true, nullsFirst: true })
-      .limit(1)
-      .maybeSingle();
-    if (!next) return json({ idle: true });
-    // Sadu si zabereme předem: kdyby import nedoběhl (limit času funkce), plánovač na ní neuvízne
-    // a chyba zůstane vidět v last_error.
-    await supabase
-      .from('catalog_sources')
-      .update({ imported_at: new Date().toISOString(), last_error: 'Import nedoběhl do konce' })
-      .match({ game_id: next.game_id, source_set_id: next.source_set_id });
-    return json({ set: next.source_set_id, imported: await importSet(next.game_id, next.source_set_id) });
+    // Režim next: nejdřív sady, které ještě nebyly, pak ty starší než 7 dní a hodinu staré chyby.
+    // Víc sad za sebou, dokud je čas.
+    const started = Date.now();
+    const done: Array<{ set: string; imported?: number; error?: string }> = [];
+    while (Date.now() - started < NEXT_BUDGET_MS) {
+      const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+      const { data: next } = await supabase
+        .from('catalog_sources')
+        .select('game_id, source_set_id')
+        .or(`imported_at.is.null,imported_at.lt.${weekAgo},and(last_error.not.is.null,imported_at.lt.${hourAgo})`)
+        .order('imported_at', { ascending: true, nullsFirst: true })
+        .order('released_on', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      if (!next) break;
+      // Sadu si zabereme předem: kdyby import nedoběhl (limit času funkce), plánovač na ní neuvízne
+      // a chyba zůstane vidět v last_error.
+      await supabase
+        .from('catalog_sources')
+        .update({ imported_at: new Date().toISOString(), last_error: 'Import nedoběhl do konce' })
+        .match({ game_id: next.game_id, source_set_id: next.source_set_id });
+      try {
+        done.push({ set: next.source_set_id, imported: await importSet(next.game_id, next.source_set_id) });
+      } catch (e) {
+        done.push({ set: next.source_set_id, error: describe(e) });
+      }
+    }
+    return json(done.length ? { done } : { idle: true });
   } catch (e) {
     return json({ error: describe(e) }, 500);
   }
