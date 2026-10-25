@@ -1,10 +1,10 @@
-# V4market Trezor
+# V4cards Trezor
 
 Design systém pro marketplace sběratelských karet pro Česko a Slovensko (později Maďarsko a Polsko). Kategorie: Magic: The Gathering, Pokémon, Riftbound, Lorcana, One Piece, Sport (hlavně hokej) a Cyberpunk.
 
 Směr „Trezor“: tmavé prostředí, ve kterém karty svítí jako ve vitríně, a ceny s grafy působí přesně jako na burze. Má budit důvěru u vážných sběratelů i obchodů a ukázat hlavní odlišení od konkurence: přehled o ceně a nástroje, které šetří čas.
 
-> Název „V4market“ a logo jsou provizorní, dokud nebude vybrán finální název. Barvy, písma a komponenty platí bez ohledu na název.
+> Značka se jmenuje **V4cards** („we for cards“), hlavní doména www.v4cards.com. Logo je zatím provizorní, výběr finální podoby je odložený.
 
 ## Obsah a tón
 
@@ -41,7 +41,7 @@ Obrysové ikony, tah 1,8–2 px, zakončení kulaté, velikost 18–20 px, barva
 
 ## Logo
 
-Zatím provizorní. Ve hře jsou tři koncepty (monogram „V4“, karta s rostoucím grafem, čistý nápis „v4.market“), finální podoba přijde s názvem. Do té doby se používá monogram: čtverec 36 px, `radius-md`, plocha `accent`, text `on-accent` v `display` 700.
+Zatím provizorní, finální podoba se vybere později. Do té doby se používá monogram „V4“ a vedle něj nápis „V4cards“ v `display` 700. Monogram: čtverec 36 px, `radius-md`, plocha `accent`, text `on-accent` v `display` 700.
 
 ## Přístupnost
 

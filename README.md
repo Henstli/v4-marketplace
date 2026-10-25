@@ -1,13 +1,13 @@
-# V4market
+# V4cards
 
 Marketplace sběratelských karet pro Česko a Slovensko: hokej a další sport, Pokémon, Magic a další TCG.
-Název a logo jsou provizorní.
+Logo je zatím provizorní.
 
 ## Stack
 
 - Next.js (App Router) + TypeScript
 - Supabase: databáze, přihlašování, úložiště fotek (`supabase/migrations/`)
-- Design systém V4market Trezor (`design-system/`, viz jeho README)
+- Design systém V4cards Trezor (`design-system/`, viz jeho README)
 
 ## Spuštění
 

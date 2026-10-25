@@ -5,7 +5,7 @@ import { CartProvider } from '@/components/cart/CartProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: { default: 'V4market · sběratelské karty', template: '%s · V4market' },
+  title: { default: 'V4cards · sběratelské karty', template: '%s · V4cards' },
   description: 'Kupujte a prodávejte hokejové karty, Pokémon a Magic s přehledem o cenách. Česko a Slovensko.',
 };
 

@@ -43,7 +43,7 @@ export async function startMfa(): Promise<MfaState> {
   for (const f of factors?.all ?? []) {
     if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id });
   }
-  const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'V4market', friendlyName: 'Ověřovací aplikace' });
+  const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'V4cards', friendlyName: 'Ověřovací aplikace' });
   if (error) return { error: authErrorMessage(error) };
   return { enroll: { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret } };
 }
