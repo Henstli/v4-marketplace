@@ -23,7 +23,7 @@ export async function SiteHeader() {
             <ButtonLink href="/objednavky" variant="ghost">Objednávky</ButtonLink>
             <ButtonLink href="/ucet" variant="ghost">Účet</ButtonLink>
             <form action={signOut}>
-              <button type="submit" className="tz-btn tz-btn-ghost tz-btn-md" title={user.email}>Odhlásit</button>
+              <button type="submit" className="tz-btn tz-btn-danger tz-btn-md" title={user.email}>Odhlásit</button>
             </form>
             </>
           ) : (
@@ -32,13 +32,20 @@ export async function SiteHeader() {
         </nav>
       </div>
       <nav className={`container ${styles.games}`} aria-label="Kategorie">
-        {GAMES.filter((g) => g.live).map((g) => (
-          <Link key={g.id} href={`/karty?hra=${g.id}`} className={styles.gameLink}>
-            <span className="tz-chip-dot" style={{ background: g.dot }} aria-hidden="true" />
-            {g.name}
-          </Link>
-        ))}
-        <span className={styles.soon}>Brzy: One Piece, Lorcana, Riftbound, Cyberpunk</span>
+        {GAMES.map((g) =>
+          g.live ? (
+            <Link key={g.id} href={`/karty?hra=${g.id}`} className={styles.gameLink}>
+              <span className="tz-chip-dot" style={{ background: g.dot }} aria-hidden="true" />
+              {g.name}
+            </Link>
+          ) : (
+            <span key={g.id} className={styles.gameSoon}>
+              <span className="tz-chip-dot" style={{ background: g.dot }} aria-hidden="true" />
+              {g.name}
+              <span className={styles.soonTag}>Brzy</span>
+            </span>
+          ),
+        )}
       </nav>
     </header>
   );

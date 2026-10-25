@@ -17,7 +17,7 @@ export default async function HomePage() {
           <p className="t-label muted">SBĚRATELSKÉ KARTY · CZ A SK</p>
           <h1 className="t-display-xl">Kupujte karty s přehledem</h1>
           <p className="t-body-l muted">
-            Hokej, Pokémon a Magic od ověřených obchodů i sběratelů. Vidíte vývoj ceny, nakoupíte od více
+            Pokémon, Magic a sportovní karty od ověřených obchodů i sběratelů. Vidíte vývoj ceny, nakoupíte od více
             prodejců v jednom košíku a peníze držíme v úschově do doručení.
           </p>
           <div className={styles.heroActions}>
