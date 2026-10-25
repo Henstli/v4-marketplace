@@ -1,13 +1,15 @@
 import Link from 'next/link';
-import { ButtonLink, Price, Sparkline, Trend } from '@/components/trezor';
+import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Sparkline, Trend } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { getStats, getTrending } from '@/lib/catalog';
 import { GAMES } from '@/lib/games';
-import { formatNumber } from '@/lib/format';
+import { formatNumber, plural } from '@/lib/format';
+import { getProShops } from '@/lib/shop';
+import { safeColor, shopHref } from '@/lib/shop-config';
 import styles from './home.module.css';
 
 export default async function HomePage() {
-  const [trending, stats] = await Promise.all([getTrending(8), getStats()]);
+  const [trending, stats, proShops] = await Promise.all([getTrending(8), getStats(), getProShops(6)]);
   const top = trending[0];
 
   return (
@@ -61,6 +63,27 @@ export default async function HomePage() {
           {trending.map((card) => <CardSummaryTile key={card.id} card={card} />)}
         </div>
       </section>
+
+      {proShops.length ? (
+        <section className="container section">
+          <div className="section-head">
+            <h2 className="t-heading-l">Obchody Pro</h2>
+            <span className="t-small muted">Prodejci s tarifem Pro, pořadí se střídá</span>
+          </div>
+          <div className={styles.shops}>
+            {proShops.map((s) => (
+              <Link key={s.id} href={shopHref(s.kind, s.slug)} className={`tz-shop ${styles.shop}`} style={shopStyle(safeColor(s.color))}>
+                <ShopLogo name={s.name} image={s.logo} size={56} />
+                <span className={styles.shopText}>
+                  <span className={styles.shopName}><span className="t-heading-m">{s.name}</span><SellerBadge type="pro" /></span>
+                  {s.tagline ? <span className="t-small muted">{s.tagline}</span> : null}
+                  <span className="t-small muted">{plural(s.offers, ['karta v nabídce', 'karty v nabídce', 'karet v nabídce'])}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="container section">
         <h2 className="t-heading-l" style={{ marginBottom: 'var(--space-6)' }}>Kategorie</h2>

@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/format';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { PAID_PLANS, PLANS, toPlan } from '@/lib/plans';
-import { setPlan } from './actions';
+import { setPlan, setVerified } from './actions';
 import styles from '../karty/admin.module.css';
 
 export const metadata: Metadata = { title: 'Předplatné prodejců' };
@@ -24,8 +24,15 @@ export default async function SubscriptionsPage({ searchParams }: Props) {
 
   const { chyba, ok } = await searchParams;
   const supabase = await createClient();
-  const { data } = await supabase.rpc('admin_list_subscriptions');
+  const [{ data }, { data: verifiedRows }] = await Promise.all([
+    supabase.rpc('admin_list_subscriptions'),
+    supabase.from('seller_verifications').select('user_id, method, ico, verified_at, profiles(display_name)').order('verified_at', { ascending: false }),
+  ]);
   const subscribers = (data ?? []) as Subscriber[];
+  const verified = (verifiedRows ?? []).map((v) => {
+    const p = (Array.isArray(v.profiles) ? v.profiles[0] : v.profiles) as { display_name: string } | null;
+    return { id: v.user_id as string, name: p?.display_name ?? 'Prodejce', method: v.method as string, ico: v.ico as string | null, at: v.verified_at as string };
+  });
 
   return (
     <div className={`container ${styles.page}`}>
@@ -51,6 +58,35 @@ export default async function SubscriptionsPage({ searchParams }: Props) {
           <input name="note" maxLength={200} placeholder="Poznámka, např. zakládající obchod" className={styles.reason} />
           <Button type="submit">Uložit tarif</Button>
         </form>
+      </section>
+
+      <section className="panel">
+        <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-2)' }}>Ověření prodejce</h2>
+        <p className="t-small muted" style={{ marginBottom: 'var(--space-4)' }}>
+          Odznak „Ověřený prodejce“ se ukáže jen u placeného tarifu a s aspoň 95 % kladných hodnocení (od 5 hodnocení).
+        </p>
+        <form action={setVerified} className={styles.reject}>
+          <input name="email" type="email" required placeholder="E-mail prodejce" className={styles.reason} />
+          <select name="method" defaultValue="identity" className={styles.reason} aria-label="Způsob ověření">
+            <option value="identity">Ověřená totožnost</option>
+            <option value="ico">IČO (firma nebo živnost)</option>
+            <option value="none">Odebrat ověření</option>
+          </select>
+          <input name="ico" inputMode="numeric" maxLength={10} placeholder="IČO (jen u ověření podle IČO)" className={styles.reason} />
+          <Button type="submit">Uložit ověření</Button>
+        </form>
+        {verified.length ? (
+          <div className={styles.done} style={{ marginTop: 'var(--space-4)' }}>
+            {verified.map((v) => (
+              <div key={v.id} className={styles.doneRow}>
+                <div>
+                  <Link href={`/prodejci/${v.id}`}>{v.name}</Link>
+                  <div className="t-small muted">{v.method === 'ico' ? `IČO ${v.ico ?? ''}` : 'Totožnost'} · od {formatDate(v.at)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section>
