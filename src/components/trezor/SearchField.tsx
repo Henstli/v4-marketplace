@@ -1,10 +1,11 @@
-import type { InputHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, Ref } from 'react';
 import { cx } from './cx';
 
 export interface SearchFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Klávesová zkratka zobrazená vpravo, např. "/" */
   shortcut?: string;
   label?: string;
+  ref?: Ref<HTMLInputElement>;
 }
 
 export function SearchField({ shortcut, className, label = 'Hledat', ...rest }: SearchFieldProps) {
