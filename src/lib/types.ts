@@ -35,7 +35,8 @@ export interface Seller {
   name: string;
   kind: SellerKind;
   country: 'CZ' | 'SK';
-  rating: number;
+  /** Podíl kladných hodnocení v %, null u prodejce bez hodnocení */
+  rating: number | null;
   sales: number;
 }
 
