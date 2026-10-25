@@ -59,26 +59,25 @@ export interface ShopHeaderProps {
   tabs?: { label: string; href: string; current?: boolean }[];
   /** Pomalu se posouvající vzor banneru */
   bannerLive?: boolean;
-  /** Sezónní motiv přes banner: winter, spring, summer, autumn */
-  season?: string;
+  /** Kulaté logo místo čtvercového (bez volby kulaté jen u šablony Na střed) */
+  logoRound?: boolean;
   /** Řádek pod podtitulem, např. odznaky úspěchů */
   extra?: ReactNode;
   className?: string;
 }
 
 /** Hlavička stránky obchodu ve čtyřech šablonách; patří do obalu .tz-shop. */
-export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerStyle = 'pattern', meta, tagline, badges, actions, tabs, bannerLive, season, extra, className }: ShopHeaderProps) {
+export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerStyle = 'pattern', meta, tagline, badges, actions, tabs, bannerLive, logoRound, extra, className }: ShopHeaderProps) {
   const banner = layout === 'minimal' ? null : (
     <div
       className={cx('tz-shop-banner', !bannerImage && `tz-shop-banner-${bannerStyle}`, bannerLive && !bannerImage && 'tz-shop-banner-live')}
-      data-season={season && season !== 'none' ? season : undefined}
       style={bannerImage ? { backgroundImage: `url(${JSON.stringify(bannerImage)})` } : undefined}
       aria-hidden="true"
     />
   );
   const id = (
     <div className="tz-shop-id">
-      <ShopLogo name={name} image={logo} size={layout === 'minimal' ? 64 : layout === 'split' ? 72 : 112} round={layout === 'center'} />
+      <ShopLogo name={name} image={logo} size={layout === 'minimal' ? 64 : layout === 'split' ? 72 : 112} round={logoRound ?? layout === 'center'} />
       <div className="tz-shop-text">
         <div className="tz-shop-titlerow">
           <h1 className="tz-shop-name">{name}</h1>
@@ -121,16 +120,20 @@ export function shopStyle(color: string): CSSProperties {
   return { ['--shop' as string]: `var(--shop-${color})` } as CSSProperties;
 }
 
-/** Běžící pruh novinek nad hlavičkou; při omezeném pohybu stojí. */
-export function ShopTicker({ items }: { items: string[] }) {
-  if (!items.length) return null;
-  const row = items.map((t, i) => <span key={i}>{t}</span>);
+/** Běžící pruh nad hlavičkou: jedna zpráva pořád dokola, mezi opakováními ✦. Při omezeném pohybu stojí. */
+export function ShopTicker({ message }: { message: string }) {
+  if (!message) return null;
+  // Tolik opakování, aby polovina pásu byla širší než obrazovka; pás se posouvá o polovinu.
+  const unit = message.length * 7.5 + 56;
+  const repeat = Math.min(24, Math.max(2, Math.ceil(2600 / unit)));
+  const items: ReactNode[] = [];
+  for (let i = 0; i < repeat * 2; i++) {
+    items.push(<span key={`m${i}`} aria-hidden={i > 0 ? 'true' : undefined}>{message}</span>);
+    items.push(<span key={`s${i}`} className="tz-shop-ticker-sep" aria-hidden="true">✦</span>);
+  }
   return (
-    <div className="tz-shop-ticker" role="marquee" aria-label="Novinky obchodu">
-      <div className="tz-shop-ticker-track">
-        {row}
-        <span className="tz-shop-ticker-dup" aria-hidden="true">{items.map((t, i) => <span key={i}>{t}</span>)}</span>
-      </div>
+    <div className="tz-shop-ticker" role="marquee" aria-label="Novinka obchodu">
+      <div className="tz-shop-ticker-track" style={{ ['--ticker-dur' as string]: `${Math.round((repeat * unit) / 45)}s` } as CSSProperties}>{items}</div>
     </div>
   );
 }

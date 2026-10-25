@@ -2,7 +2,7 @@
 
 // Nastavení jednotlivých bloků stránky v editoru.
 import { useState } from 'react';
-import { Button, Chip } from '@/components/trezor';
+import { Button, CardThumb, Chip } from '@/components/trezor';
 import { GAMES } from '@/lib/games';
 import { youtubeId, type ShopBlock } from '@/lib/shop-config';
 import type { PickerCard } from './actions';
@@ -19,10 +19,11 @@ export interface BlockSettingsProps {
   cards: Map<string, PickerCard>;
   rememberCard: (c: PickerCard) => void;
   storeAddress: string;
+  setStoreAddress: (address: string) => void;
   goTo: (section: string) => void;
 }
 
-export function BlockSettings({ b, setData, uid, listings, listingById, cards, rememberCard, storeAddress, goTo }: BlockSettingsProps) {
+export function BlockSettings({ b, setData, uid, listings, listingById, cards, rememberCard, storeAddress, setStoreAddress, goTo }: BlockSettingsProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   switch (b.type) {
@@ -179,6 +180,7 @@ export function BlockSettings({ b, setData, uid, listings, listingById, cards, r
             return (
               <div key={x.cardId} className={styles.card}>
                 <div className={styles.inline}>
+                  <CardThumb image={card?.image} size="sm" preview={card?.image} />
                   <span className={styles.pickText}><strong>{card?.name ?? 'Karta'}</strong>{card ? <span className="code muted">{card.setCode} {card.number}</span> : null}</span>
                   <RowActions onRemove={() => put(items.filter((_, j) => j !== i))} />
                 </div>
@@ -202,6 +204,7 @@ export function BlockSettings({ b, setData, uid, listings, listingById, cards, r
             const card = cards.get(x.cardId);
             return (
               <div key={x.cardId} className={styles.picked}>
+                <CardThumb image={card?.image} size="sm" preview={card?.image} />
                 <span className={styles.pickText}><strong>{card?.name ?? 'Karta'}</strong>{card ? <span className="code muted">{card.setCode} {card.number}</span> : null}</span>
                 <input type="number" min={1} className={`${sell.input} ${styles.narrow}`} value={x.maxPrice ?? ''} placeholder="Do Kč" aria-label="Nejvyšší cena" onChange={(e) => put(items.map((y, j) => (j === i ? { ...y, maxPrice: Math.round(Number(e.target.value)) || null } : y)))} />
                 <RowActions onRemove={() => put(items.filter((_, j) => j !== i))} />
@@ -213,10 +216,11 @@ export function BlockSettings({ b, setData, uid, listings, listingById, cards, r
       );
     }
     case 'countdown': {
-      const cd = b.data.countdown ?? { title: '', at: '' };
+      const cd = b.data.countdown ?? { title: '', text: '', at: '' };
       return (
         <div className={styles.stack}>
           <Field label="NA CO SE ČEKÁ"><input className={sell.input} value={cd.title} maxLength={80} placeholder="Např. Vydání nové sady Pokémon" onChange={(e) => setData({ countdown: { ...cd, title: e.target.value } })} /></Field>
+          <Field label="POPISEK" hint={`${cd.text.length} / 200 · nepovinné`}><textarea className={`${sell.input} ${styles.textareaSmall}`} value={cd.text} maxLength={200} placeholder="Např. Předobjednávky boosterů spouštíme v den vydání v 10:00." onChange={(e) => setData({ countdown: { ...cd, text: e.target.value } })} /></Field>
           <Field label="DATUM A ČAS" hint="Po uplynutí se ukáže „Už je to tady!“"><input type="datetime-local" className={sell.input} value={cd.at} onChange={(e) => setData({ countdown: { ...cd, at: e.target.value } })} /></Field>
         </div>
       );
@@ -257,10 +261,14 @@ export function BlockSettings({ b, setData, uid, listings, listingById, cards, r
       );
     }
     case 'map':
-      return storeAddress ? (
-        <p className="t-small muted" style={{ margin: 0 }}>Ukazuje adresu prodejny: <strong style={{ color: 'var(--ink)' }}>{storeAddress.replace(/\s+/g, ' ')}</strong>. <button type="button" className={styles.linkButton} onClick={() => goTo('about')}>Změnit adresu</button></p>
-      ) : (
-        <p className="t-small muted" style={{ margin: 0 }}>Nejdřív vyplňte adresu prodejny, bez ní se mapa neukáže. <button type="button" className={styles.linkButton} onClick={() => goTo('about')}>Vyplnit adresu</button></p>
+      return (
+        <div className={styles.stack}>
+          <Field label="ADRESA NA MAPĚ" hint="Ulice, číslo, město. Stejná adresa se ukáže i v části O nás.">
+            <textarea className={`${sell.input} ${styles.textareaSmall}`} value={storeAddress} maxLength={200} placeholder={'Např. Vodičkova 12\n110 00 Praha 1'} onChange={(e) => setStoreAddress(e.target.value)} />
+          </Field>
+          {!storeAddress.trim() ? <span className="t-small muted">Bez adresy se mapa na stránce neukáže.</span> : null}
+          <span className="t-small muted">Otevírací dobu nastavíte v části <button type="button" className={styles.linkButton} onClick={() => goTo('about')}>O nás</button>.</span>
+        </div>
       );
     case 'reviews':
       return <p className="t-small muted" style={{ margin: 0 }}>Plní se samo: skutečná hodnocení se 4 nebo 5 hvězdami a komentářem, bez jmen kupujících. Dokud žádná nemáte, blok se neukáže.</p>;

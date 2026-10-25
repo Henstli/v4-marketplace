@@ -115,3 +115,13 @@
 /* Náhled v editoru: části, na které jde kliknout a upravit je. */
 .editable { position: relative; cursor: pointer; border-radius: var(--radius-lg); }
 .editable:hover { outline: 2px dashed var(--shop); outline-offset: 6px; }
+.barSpacer { flex: 1; }
+
+/* Přetahování bloků v náhledu editoru: kam blok dopadne */
+.editable[data-drop] { outline: 2px dashed var(--shop); outline-offset: 6px; }
+.editable[data-drop='before'] { box-shadow: 0 -10px 0 -6px var(--shop); }
+.editable[data-drop='after'] { box-shadow: 0 10px 0 -6px var(--shop); }
+.editable[data-drop='left'] { box-shadow: -10px 0 0 -6px var(--shop); }
+.editable[data-drop='right'] { box-shadow: 10px 0 0 -6px var(--shop); }
+.editable[data-dragging] { opacity: 0.4; }
+.editable[draggable='true'] { cursor: grab; }

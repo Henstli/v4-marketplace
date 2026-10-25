@@ -147,18 +147,46 @@
 .tz-shop-logo img{display:block;width:100%;height:100%;object-fit:cover}
 .tz-shop-logo-round{border-radius:50%}
 .tz-shop-head{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-xl);overflow:hidden}
-.tz-shop-banner{position:relative;height:220px;background-color:color-mix(in srgb,var(--shop) 22%,var(--surface-sunken));background-size:cover;background-position:center}
-.tz-shop-banner-pattern{background-image:repeating-linear-gradient(-20deg,transparent 0 22px,color-mix(in srgb,var(--shop) 30%,transparent) 22px 26px)}
-.tz-shop-banner-solid{background-color:var(--shop)}
-/* Další vzory banneru, všechny z barvy obchodu (--shop) */
-.tz-shop-banner-gradient{background-image:linear-gradient(120deg,var(--shop),color-mix(in srgb,var(--shop) 30%,var(--surface-sunken)))}
-.tz-shop-banner-dots{background-image:radial-gradient(color-mix(in srgb,var(--shop) 32%,transparent) 2.5px,transparent 3px);background-size:18px 18px}
-.tz-shop-banner-grid{background-image:linear-gradient(color-mix(in srgb,var(--shop) 32%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--shop) 32%,transparent) 1px,transparent 1px);background-size:28px 28px}
-.tz-shop-banner-checks{background-image:conic-gradient(color-mix(in srgb,var(--shop) 32%,transparent) 25%,transparent 0 50%,color-mix(in srgb,var(--shop) 32%,transparent) 0 75%,transparent 0);background-size:44px 44px}
-.tz-shop-banner-waves{background-image:repeating-radial-gradient(circle at 0 100%,transparent 0 18px,color-mix(in srgb,var(--shop) 32%,transparent) 18px 21px)}
-.tz-shop-banner-rays{background-image:repeating-conic-gradient(from 0deg at 50% 130%,color-mix(in srgb,var(--shop) 32%,transparent) 0 5deg,transparent 5deg 10deg)}
-.tz-shop-banner-holo{background-image:linear-gradient(115deg,var(--shop) 0%,oklch(from var(--shop) l c calc(h + 70)) 38%,oklch(from var(--shop) l c calc(h + 150)) 68%,var(--shop) 100%)}
-.tz-shop-banner-sparkle{background-image:radial-gradient(circle at 12% 28%,color-mix(in srgb,var(--shop) 75%,transparent) 0 2px,transparent 3px),radial-gradient(circle at 46% 70%,color-mix(in srgb,var(--shop) 55%,transparent) 0 3px,transparent 4px),radial-gradient(circle at 78% 22%,color-mix(in srgb,var(--shop) 70%,transparent) 0 1.5px,transparent 2.5px),radial-gradient(circle at 88% 82%,color-mix(in srgb,var(--shop) 45%,transparent) 0 2.5px,transparent 3.5px);background-size:140px 90px}
+.tz-shop-banner{position:relative;overflow:hidden;isolation:isolate;height:220px;--b-dark:color-mix(in srgb,var(--shop) 18%,var(--surface-sunken));background-color:var(--b-dark);background-size:cover;background-position:center}
+/* Vzory banneru: všechny z barev obchodu (--shop, --shop-2). Vzory se dlaždicují, takže živý banner se posouvá bez švů. */
+.tz-shop-banner[class*="tz-shop-banner-"]::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.22))}
+.tz-shop-banner-pattern{--tile-x:28px;background-image:linear-gradient(45deg,color-mix(in srgb,var(--shop-2) 38%,transparent) 25%,transparent 25% 50%,color-mix(in srgb,var(--shop-2) 38%,transparent) 50% 75%,transparent 75%),linear-gradient(150deg,var(--shop),var(--b-dark) 85%);background-size:28px 28px,100% 100%}
+.tz-shop-banner-solid{background-image:radial-gradient(120% 140% at 100% 100%,color-mix(in srgb,var(--shop-2) 70%,transparent),transparent 60%),linear-gradient(var(--shop),var(--shop))}
+.tz-shop-banner-solid::before,.tz-shop-banner-carbon::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(100deg,transparent 35%,rgba(255,255,255,.22) 50%,transparent 65%);transform:translateX(-100%)}
+.tz-shop-banner-gradient{--tile-x:200%;background-image:linear-gradient(110deg,var(--shop) 0%,var(--shop-2) 33%,color-mix(in srgb,var(--shop) 40%,var(--surface-sunken)) 66%,var(--shop) 100%);background-size:200% 100%}
+.tz-shop-banner-dots{--tile-x:18px;--tile-y:18px;background-image:radial-gradient(circle,color-mix(in srgb,var(--shop-2) 75%,#fff 10%) 1.6px,transparent 2.3px),linear-gradient(120deg,var(--shop),var(--b-dark) 80%);background-size:18px 18px,100% 100%}
+.tz-shop-banner-aurora{background-image:radial-gradient(42% 80% at 18% 30%,var(--shop),transparent 70%),radial-gradient(42% 80% at 66% 55%,var(--shop-2),transparent 70%),radial-gradient(34% 60% at 45% 105%,color-mix(in srgb,var(--shop) 60%,#fff 25%),transparent 70%);background-size:125% 125%;background-position:0 0}
+.tz-shop-banner-mesh{background-image:radial-gradient(60% 90% at 0 0,var(--shop),transparent 65%),radial-gradient(60% 90% at 100% 0,var(--shop-2),transparent 65%),radial-gradient(60% 90% at 100% 100%,color-mix(in srgb,var(--shop) 55%,var(--b-dark)),transparent 70%),radial-gradient(60% 90% at 0 100%,oklch(from var(--shop-2) l c calc(h + 40)),transparent 70%);background-size:140% 140%;background-position:0 0}
+.tz-shop-banner-grid{--tile-x:32px;--tile-y:32px;background-image:linear-gradient(color-mix(in srgb,var(--shop-2) 45%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--shop-2) 45%,transparent) 1px,transparent 1px),radial-gradient(70% 90% at 50% 110%,var(--shop),transparent 70%);background-size:32px 32px,32px 32px,100% 100%}
+.tz-shop-banner-checks{--tile-x:48px;--tile-y:48px;background-image:conic-gradient(color-mix(in srgb,var(--shop-2) 55%,transparent) 25%,transparent 0 50%,color-mix(in srgb,var(--shop-2) 55%,transparent) 0 75%,transparent 0),linear-gradient(var(--shop),var(--b-dark));background-size:48px 48px,100% 100%}
+.tz-shop-banner-waves{background-image:linear-gradient(160deg,color-mix(in srgb,var(--shop) 55%,var(--b-dark)),var(--b-dark))}
+.tz-shop-banner-waves::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(90deg,var(--shop),var(--shop-2),var(--shop));-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='36'%3E%3Cpath d='M0 18 Q30 4 60 18 T120 18' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") 0 0/120px 36px repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='36'%3E%3Cpath d='M0 18 Q30 4 60 18 T120 18' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") 0 0/120px 36px repeat;opacity:.75}
+.tz-shop-banner-rays{background-image:radial-gradient(70% 120% at 50% 100%,var(--shop),transparent 70%)}
+.tz-shop-banner-rays::before{content:"";position:absolute;left:50%;top:100%;width:2400px;height:2400px;margin:-1200px 0 0 -1200px;z-index:0;pointer-events:none;background:repeating-conic-gradient(color-mix(in srgb,var(--shop-2) 40%,transparent) 0 6deg,transparent 6deg 12deg)}
+.tz-shop-banner-holo{--tile-x:200%;background-image:linear-gradient(115deg,var(--shop) 0%,oklch(from var(--shop) l c calc(h + 70)) 25%,var(--shop-2) 50%,oklch(from var(--shop-2) l c calc(h + 90)) 75%,var(--shop) 100%);background-size:200% 100%}
+.tz-shop-banner-holo::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:repeating-linear-gradient(115deg,rgba(255,255,255,.1) 0 1px,transparent 1px 7px)}
+.tz-shop-banner-sparkle{--tile-x:180px;--tile-y:120px;background-image:radial-gradient(circle at 12% 28%,#fff 0 1.6px,transparent 2.4px),radial-gradient(circle at 46% 72%,color-mix(in srgb,var(--shop-2) 80%,#fff) 0 2.2px,transparent 3px),radial-gradient(circle at 78% 18%,color-mix(in srgb,var(--shop) 70%,#fff) 0 1.4px,transparent 2.2px),radial-gradient(circle at 90% 84%,#fff 0 1.2px,transparent 2px),radial-gradient(90% 120% at 30% 0,color-mix(in srgb,var(--shop) 70%,transparent),transparent 70%);background-size:180px 120px,180px 120px,180px 120px,180px 120px,100% 100%}
+.tz-shop-banner-sparkle::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 30% 50%,#fff 0 1.4px,transparent 2.2px) 0 0/110px 90px,radial-gradient(circle at 70% 20%,color-mix(in srgb,var(--shop-2) 70%,#fff) 0 1.8px,transparent 2.6px) 0 0/150px 100px;opacity:.6}
+.tz-shop-banner-live.tz-shop-banner-sparkle::before{animation:tz-twinkle 3.2s ease-in-out infinite alternate}
+.tz-shop-banner-carbon{background-image:linear-gradient(110deg,transparent 55%,color-mix(in srgb,var(--shop) 70%,transparent) 55% 63%,color-mix(in srgb,var(--shop-2) 70%,transparent) 63% 68%,transparent 68%),linear-gradient(27deg,#151515 5px,transparent 5px),linear-gradient(207deg,#151515 5px,transparent 5px),linear-gradient(27deg,#222 5px,transparent 5px),linear-gradient(207deg,#222 5px,transparent 5px),linear-gradient(90deg,#1b1b1b 10px,transparent 10px),linear-gradient(#1d1d1d 25%,#1a1a1a 25% 50%,transparent 50% 75%,#242424 75%);background-color:#131313;background-size:100% 100%,20px 20px,20px 20px,20px 20px,20px 20px,20px 20px,20px 20px;background-position:0 0,0 5px,10px 0,0 10px,10px 5px,0 0,0 0}
+/* Živý banner (Pro): dlaždice se posunou přesně o jednu dlaždici, plochy se vlní tam a zpět */
+.tz-shop-banner-live:is(.tz-shop-banner-pattern,.tz-shop-banner-dots,.tz-shop-banner-grid,.tz-shop-banner-checks,.tz-shop-banner-gradient,.tz-shop-banner-holo){animation:tz-banner-tile 4s linear infinite}
+.tz-shop-banner-live:is(.tz-shop-banner-gradient,.tz-shop-banner-holo){animation-duration:14s}
+.tz-shop-banner-live.tz-shop-banner-grid{background-position:0 0,0 0,0 0}
+.tz-shop-banner-live.tz-shop-banner-grid{animation-name:tz-banner-grid}
+.tz-shop-banner-live.tz-shop-banner-sparkle{animation:tz-banner-sparkle 30s linear infinite}
+.tz-shop-banner-live:is(.tz-shop-banner-aurora,.tz-shop-banner-mesh){animation:tz-banner-drift 16s ease-in-out infinite alternate}
+.tz-shop-banner-live.tz-shop-banner-waves::before{animation:tz-banner-waves 5s linear infinite}
+.tz-shop-banner-live.tz-shop-banner-rays::before{animation:tz-banner-rays 6s linear infinite}
+.tz-shop-banner-live:is(.tz-shop-banner-solid,.tz-shop-banner-carbon)::before{animation:tz-banner-sheen 7s ease-in-out infinite}
+@keyframes tz-banner-tile{from{background-position:0 0,0 0}to{background-position:var(--tile-x,0) var(--tile-y,0),0 0}}
+@keyframes tz-banner-grid{from{background-position:0 0,0 0,0 0}to{background-position:32px 32px,32px 32px,0 0}}
+@keyframes tz-banner-sparkle{from{background-position:0 0,0 0,0 0,0 0,0 0}to{background-position:180px 0,180px 0,180px 0,180px 0,0 0}}
+@keyframes tz-banner-drift{to{background-position:100% 100%}}
+@keyframes tz-banner-waves{to{-webkit-mask-position:120px 0;mask-position:120px 0}}
+@keyframes tz-banner-rays{to{transform:rotate(12deg)}}
+@keyframes tz-banner-sheen{0%,55%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@keyframes tz-twinkle{from{opacity:.25}to{opacity:1}}
 .tz-shop-id{position:relative;display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-4) var(--space-6);padding:0 var(--space-8) var(--space-6)}
 .tz-shop-id>.tz-shop-logo{margin-top:-48px;border:4px solid var(--surface)}
 .tz-shop-text{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px;padding-top:var(--space-4)}
@@ -185,88 +213,149 @@
 .tz-shop-tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--shop)}
 @media (max-width:640px){.tz-shop-name{font-size:30px;line-height:36px}.tz-shop-heading{font-size:24px;line-height:30px}.tz-shop-id{padding:0 var(--space-4) var(--space-4)}.tz-shop-head-split .tz-shop-id,.tz-shop-head-minimal .tz-shop-id{padding:var(--space-4)}.tz-shop-banner{height:140px}}
 /* ---------- Stránka obchodu: další přizpůsobení ---------- */
-/* Druhá barva obchodu (Pro); bez ní = hlavní barva */
-.tz-shop{--shop-2:var(--shop)}
-/* Pozadí celé stránky (V1): jemné, karty a texty zůstávají na čistých plochách */
-.tz-shop-bg[data-bg="dots"]{background-image:radial-gradient(color-mix(in srgb,var(--shop) 16%,transparent) 1.5px,transparent 2px);background-size:16px 16px}
-.tz-shop-bg[data-bg="glow"]{background-image:radial-gradient(120% 60% at 50% 0,color-mix(in srgb,var(--shop) 18%,transparent),transparent 70%);background-repeat:no-repeat}
-.tz-shop-bg[data-bg="stripes"]{background-image:repeating-linear-gradient(-20deg,transparent 0 18px,color-mix(in srgb,var(--shop) 8%,transparent) 18px 20px)}
-.tz-shop-bg[data-bg="grid"]{background-image:linear-gradient(color-mix(in srgb,var(--shop) 9%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--shop) 9%,transparent) 1px,transparent 1px);background-size:32px 32px}
-/* Ikony u nadpisů sekcí (V5) místo proužku */
-.tz-shop[data-icon] .tz-shop-heading::before{width:auto;height:auto;border-radius:0;background:none;color:var(--shop-2);font-size:.8em;line-height:1}
-.tz-shop[data-icon="star"] .tz-shop-heading::before{content:"★"}
-.tz-shop[data-icon="bolt"] .tz-shop-heading::before{content:"⚡︎"}
-.tz-shop[data-icon="heart"] .tz-shop-heading::before{content:"♥"}
-.tz-shop[data-icon="crown"] .tz-shop-heading::before{content:"♛"}
-.tz-shop[data-icon="diamond"] .tz-shop-heading::before{content:"◆"}
-.tz-shop[data-icon="spark"] .tz-shop-heading::before{content:"✦"}
-/* Oddělovače sekcí (V6) */
-.tz-shop-divider{height:10px;opacity:.75}
-.tz-shop-divider-wave{background:radial-gradient(circle at 10px -4px,transparent 9px,var(--shop) 10px) 0 0/20px 10px repeat-x}
-.tz-shop-divider-zigzag{background:linear-gradient(135deg,var(--shop) 25%,transparent 25%) 0 0/14px 10px repeat-x,linear-gradient(225deg,var(--shop) 25%,transparent 25%) 0 0/14px 10px repeat-x}
-.tz-shop-divider-dots{height:6px;background:radial-gradient(circle,var(--shop-2) 2px,transparent 2.5px) 0 0/16px 6px repeat-x}
-.tz-shop-divider-line{height:2px;background:linear-gradient(90deg,transparent,var(--shop),var(--shop-2),transparent)}
-/* Běžící pruh novinek (V6 v návrhu V7) */
-.tz-shop-ticker{overflow:hidden;border-radius:var(--radius-md);background:var(--shop);color:var(--on-shop);font-size:13px;font-weight:600;line-height:20px}
-.tz-shop-ticker-track{display:flex;gap:48px;width:max-content;padding:8px 16px;animation:tz-ticker 30s linear infinite}
+/* Druhá barva obchodu (Pro); bez ní = hlavní barva. Barví vzory banneru, ikony, záložky, oddělovače, pruh a štítky. */
+.tz-shop{--shop-2:var(--shop);--shop-grad:linear-gradient(90deg,var(--shop),var(--shop-2))}
+.tz-shop-tabs a[aria-current="page"]{border-bottom-color:transparent;background:linear-gradient(90deg,var(--shop),var(--shop-2)) bottom/100% 2px no-repeat}
+/* Pozadí celé stránky: jemné a v barvách obchodu, karty a texty zůstávají na čistých plochách */
+.tz-shop-bg[data-bg]{background-repeat:no-repeat}
+.tz-shop-bg[data-bg="glow"]{background-image:radial-gradient(70% 520px at 30% 0,color-mix(in srgb,var(--shop) 22%,transparent),transparent 75%),radial-gradient(60% 480px at 85% 0,color-mix(in srgb,var(--shop-2) 18%,transparent),transparent 75%)}
+.tz-shop-bg[data-bg="aurora"]{background-image:radial-gradient(45% 700px at 10% 8%,color-mix(in srgb,var(--shop) 20%,transparent),transparent 70%),radial-gradient(40% 640px at 90% 30%,color-mix(in srgb,var(--shop-2) 18%,transparent),transparent 70%),radial-gradient(50% 700px at 40% 75%,color-mix(in srgb,var(--shop) 12%,transparent),transparent 70%)}
+.tz-shop-bg[data-bg="spotlight"]{background-image:conic-gradient(from 200deg at 50% -120px,transparent 0 10deg,color-mix(in srgb,var(--shop) 14%,transparent) 20deg 40deg,transparent 52deg),radial-gradient(60% 600px at 50% 0,color-mix(in srgb,var(--shop-2) 14%,transparent),transparent 70%)}
+.tz-shop-bg[data-bg="dots"]{background-image:linear-gradient(transparent,var(--bg) 900px),radial-gradient(color-mix(in srgb,var(--shop) 22%,transparent) 1.2px,transparent 1.8px);background-size:100% 100%,18px 18px;background-repeat:no-repeat,repeat}
+.tz-shop-bg[data-bg="grid"]{background-image:radial-gradient(80% 900px at 50% 0,transparent 30%,var(--bg) 75%),linear-gradient(color-mix(in srgb,var(--shop) 12%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--shop-2) 12%,transparent) 1px,transparent 1px);background-size:100% 100%,40px 40px,40px 40px;background-repeat:no-repeat,repeat,repeat}
+.tz-shop-bg[data-bg="lines"]{background-image:linear-gradient(transparent,var(--bg) 1000px),repeating-linear-gradient(135deg,color-mix(in srgb,var(--shop) 9%,transparent) 0 1px,transparent 1px 14px);background-repeat:no-repeat,repeat}
+.tz-shop-bg[data-bg="topo"]{background-image:repeating-radial-gradient(circle at 12% 10%,transparent 0 26px,color-mix(in srgb,var(--shop) 11%,transparent) 26px 27px),repeating-radial-gradient(circle at 88% 55%,transparent 0 34px,color-mix(in srgb,var(--shop-2) 9%,transparent) 34px 35px);background-repeat:repeat}
+.tz-shop-bg[data-bg="grain"]{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),radial-gradient(70% 600px at 50% 0,color-mix(in srgb,var(--shop) 16%,transparent),transparent 75%);background-repeat:repeat,no-repeat}
+/* Ikony u nadpisů sekcí: SVG maska vybarvená přechodem barev obchodu; none = bez ikony */
+.tz-shop-heading::before{background:linear-gradient(180deg,var(--shop),var(--shop-2))}
+.tz-shop[data-icon="none"] .tz-shop-heading::before{display:none}
+.tz-shop[data-icon="dot"] .tz-shop-heading::before{width:14px;height:14px;border-radius:50%}
+.tz-shop[data-icon]:not([data-icon="none"]):not([data-icon="dot"]) .tz-shop-heading::before{width:22px;height:22px;border-radius:0;background:linear-gradient(135deg,var(--shop),var(--shop-2));-webkit-mask:var(--tz-icon) center/contain no-repeat;mask:var(--tz-icon) center/contain no-repeat}
+.tz-shop[data-icon="star"]{--tz-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8z'/%3E%3C/svg%3E")}
+.tz-shop[data-icon="heart"]{--tz-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-7.6-4.7-9.7-9.3C.8 8.4 3 4.8 6.6 4.8c2.1 0 3.7 1.1 4.6 2.7L12 8.8l.8-1.3c.9-1.6 2.5-2.7 4.6-2.7 3.6 0 5.8 3.6 4.3 6.9C19.6 16.3 12 21 12 21z'/%3E%3C/svg%3E")}
+.tz-shop[data-icon="diamond"]{--tz-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l8.5 10L12 22 3.5 12z'/%3E%3C/svg%3E")}
+.tz-shop[data-icon="spark"]{--tz-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1c.9 6.2 4 9.4 11 11-7 1.6-10.1 4.8-11 11-.9-6.2-4-9.4-11-11 7-1.6 10.1-4.8 11-11z'/%3E%3C/svg%3E")}
+.tz-shop[data-icon="hex"]{--tz-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5l9 5.2v10.6l-9 5.2-9-5.2V6.7z'/%3E%3C/svg%3E")}
+/* Oddělovače sekcí: přechod hlavní a druhé barvy, tvar dělá maska */
+.tz-shop-divider{height:10px;background:linear-gradient(90deg,var(--shop),var(--shop-2));opacity:.85}
+.tz-shop-divider-line{height:2px;background:linear-gradient(90deg,transparent,var(--shop) 20%,var(--shop-2) 80%,transparent);opacity:1}
+.tz-shop-divider-wave{-webkit-mask:radial-gradient(circle at 10px -4px,transparent 9px,#000 10px) 0 0/20px 10px repeat-x;mask:radial-gradient(circle at 10px -4px,transparent 9px,#000 10px) 0 0/20px 10px repeat-x}
+.tz-shop-divider-zigzag{-webkit-mask:linear-gradient(135deg,#000 25%,transparent 25%) 0 0/14px 10px repeat-x,linear-gradient(225deg,#000 25%,transparent 25%) 0 0/14px 10px repeat-x;mask:linear-gradient(135deg,#000 25%,transparent 25%) 0 0/14px 10px repeat-x,linear-gradient(225deg,#000 25%,transparent 25%) 0 0/14px 10px repeat-x}
+.tz-shop-divider-dots{height:6px;-webkit-mask:radial-gradient(circle,#000 2px,transparent 2.5px) 0 0/16px 6px repeat-x;mask:radial-gradient(circle,#000 2px,transparent 2.5px) 0 0/16px 6px repeat-x}
+/* Běžící pruh: jedna zpráva pořád dokola, mezi opakováními oddělovač ✦ */
+.tz-shop-ticker{overflow:hidden;border-radius:var(--radius-md);background:linear-gradient(90deg,var(--shop),var(--shop-2));color:var(--on-shop);font-size:13px;font-weight:600;line-height:20px}
+.tz-shop-ticker-track{display:flex;width:max-content;padding:8px 0;animation:tz-ticker var(--ticker-dur,40s) linear infinite}
+.tz-shop-ticker-track>span{white-space:nowrap;padding-right:28px}
+.tz-shop-ticker-track>.tz-shop-ticker-sep{opacity:.6;font-size:11px}
 .tz-shop-ticker:hover .tz-shop-ticker-track{animation-play-state:paused}
-.tz-shop-ticker-dup{display:contents}
 @keyframes tz-ticker{to{transform:translateX(-50%)}}
-/* Odznaky úspěchů (V8): sbírají se samy, pro všechny tarify */
+/* Odznaky úspěchů: sbírají se samy, pro všechny tarify */
 .tz-achievements{display:flex;flex-wrap:wrap;gap:var(--space-2)}
-.tz-achievement{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--radius-pill);border:1px solid var(--line-strong);background:var(--surface);font-size:12px;font-weight:600;white-space:nowrap}
-/* Živý banner (V11) a sezónní motivy (V9) */
-.tz-shop-banner-live{animation:tz-banner-drift 24s linear infinite}
-@keyframes tz-banner-drift{to{background-position:240px 0}}
-.tz-shop-banner[data-season]::after{content:"";position:absolute;inset:0;pointer-events:none}
-.tz-shop-banner[data-season="winter"]::after{background-image:radial-gradient(#fff 1.6px,transparent 2.2px),radial-gradient(rgba(255,255,255,.7) 1px,transparent 1.6px);background-size:34px 34px,21px 21px;background-position:0 0,9px 13px}
-.tz-shop-banner[data-season="autumn"]::after{background-image:radial-gradient(ellipse 5px 3px,var(--shop-copper) 90%,transparent),radial-gradient(ellipse 4px 3px,var(--shop-yellow) 90%,transparent);background-size:70px 50px,53px 41px;background-position:0 0,25px 18px;opacity:.8}
-.tz-shop-banner[data-season="spring"]::after{background-image:radial-gradient(circle,var(--shop-pink) 2.5px,transparent 3px),radial-gradient(circle,#fff 1.5px,transparent 2px);background-size:60px 44px,47px 37px;background-position:0 0,20px 15px;opacity:.85}
-.tz-shop-banner[data-season="summer"]::after{background:radial-gradient(circle at 88% 22%,rgba(255,220,120,.55) 0 28px,transparent 60px)}
-.tz-shop-banner[data-season="winter"].tz-shop-banner-live::after,.tz-shop-banner[data-season="spring"].tz-shop-banner-live::after{animation:tz-snow 14s linear infinite}
-@keyframes tz-snow{to{background-position:0 340px,9px 223px}}
-/* Holo lesk (V2, Pro): náklon za kurzorem nastavuje --rx, --ry a --mx skript stránky */
-.tz-holo{--rx:0deg;--ry:0deg;--mx:50%;position:relative;transform:perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));transition:transform .2s ease-out;transform-style:preserve-3d}
-.tz-holo::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .2s;mix-blend-mode:color-dodge;background:linear-gradient(105deg,transparent calc(var(--mx) - 25%),rgba(255,255,255,.55) var(--mx),transparent calc(var(--mx) + 25%)),linear-gradient(115deg,color-mix(in srgb,var(--shop) 40%,transparent),color-mix(in srgb,var(--shop-2) 40%,transparent))}
-.tz-holo:hover::after,.tz-holo[data-active]::after{opacity:.7}
-/* Štítky na kartách (V3) */
-.tz-card-tag{position:absolute;top:8px;left:8px;z-index:1;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 8px;border-radius:var(--radius-sm);font-size:11px;font-weight:700;line-height:16px;letter-spacing:.02em}
+.tz-achievement{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--radius-pill);border:1px solid color-mix(in srgb,var(--shop-2,var(--line-strong)) 45%,var(--line-strong));background:var(--surface);font-size:12px;font-weight:600;white-space:nowrap}
+/* Holo lesk (Pro): náklon za kurzorem a jemné přiblížení, --rx, --ry a --mx nastavuje skript stránky */
+.tz-holo{--rx:0deg;--ry:0deg;--mx:50%;position:relative;transform:perspective(700px) rotateX(var(--rx)) rotateY(var(--ry)) scale(var(--hs,1));transition:transform .25s ease-out;transform-style:preserve-3d;will-change:transform}
+.tz-holo:hover,.tz-tile:hover .tz-holo{--hs:1.045;z-index:2}
+.tz-holo::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .25s;mix-blend-mode:color-dodge;background:linear-gradient(105deg,transparent calc(var(--mx) - 25%),rgba(255,255,255,.55) var(--mx),transparent calc(var(--mx) + 25%)),linear-gradient(115deg,color-mix(in srgb,var(--shop) 40%,transparent),color-mix(in srgb,var(--shop-2) 40%,transparent))}
+.tz-holo:hover::after,.tz-tile:hover .tz-holo::after{opacity:.7}
+/* Štítky na kartách */
+.tz-card-tag{position:absolute;top:8px;left:8px;z-index:3;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 8px;border-radius:var(--radius-sm);font-size:11px;font-weight:700;line-height:16px;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .tz-card-tag-new{background:var(--accent);color:var(--on-accent)}
 .tz-card-tag-last{background:var(--shop-yellow);color:var(--on-shop)}
-.tz-card-tag-custom{background:var(--shop-2);color:var(--on-shop)}
-/* Výloha pod hlavičkou (R4, Pro): 3 nebo 5 karet ve vějíři */
-.tz-shop-window{display:flex;justify-content:center;align-items:flex-end;padding:var(--space-6) 0 var(--space-4);min-height:300px;overflow-x:clip}
-.tz-shop-window-card{display:block;width:170px;flex:none;margin:0 -28px;transform-origin:50% 120%;transition:transform .25s ease}
+.tz-card-tag-custom{background:linear-gradient(90deg,var(--shop),var(--shop-2));color:var(--on-shop)}
+/* Výloha pod hlavičkou (Pro): 3 nebo 5 karet ve vějíři, karta pod myší se zvedne a je vpředu */
+.tz-shop-window{display:flex;justify-content:center;align-items:flex-end;padding:var(--space-8) 0 var(--space-4);min-height:300px;overflow-x:clip}
+.tz-shop-window-card{--fan:none;--lift:0px;position:relative;display:block;width:170px;flex:none;margin:0 -28px;transform-origin:50% 120%;transform:var(--fan) translateY(var(--lift));transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.tz-shop-window-card:hover,.tz-shop-window-card:focus-visible{--lift:-22px;z-index:10!important}
 .tz-shop-window-card img,.tz-shop-window-art{display:block;width:100%;aspect-ratio:63/88;object-fit:contain;border-radius:4.8%/3.45%;box-shadow:0 18px 40px rgba(0,0,0,.45)}
-.tz-shop-window[data-count="3"] .tz-shop-window-card:nth-child(1){transform:rotate(-12deg)}
-.tz-shop-window[data-count="3"] .tz-shop-window-card:nth-child(2){z-index:1;transform:translateY(-14px) scale(1.08)}
-.tz-shop-window[data-count="3"] .tz-shop-window-card:nth-child(3){transform:rotate(12deg)}
-.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(1){transform:rotate(-22deg) translateY(18px)}
-.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(2){z-index:1;transform:rotate(-11deg) translateY(2px)}
-.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(3){z-index:2;transform:translateY(-14px) scale(1.08)}
-.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(4){z-index:1;transform:rotate(11deg) translateY(2px)}
-.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(5){transform:rotate(22deg) translateY(18px)}
-.tz-shop-window .tz-shop-window-card:hover{z-index:3}
-/* Bloky vedle sebe (R3, Pro): mřížka 6 sloupců, šířka bloku celá, polovina nebo třetina */
+.tz-shop-window-card>.tz-holo{border-radius:4.8%/3.45%}
+.tz-shop-window[data-count="3"] .tz-shop-window-card:nth-child(1){--fan:rotate(-12deg)}
+.tz-shop-window[data-count="3"] .tz-shop-window-card:nth-child(2){z-index:1;--fan:translateY(-14px) scale(1.08)}
+.tz-shop-window[data-count="3"] .tz-shop-window-card:nth-child(3){--fan:rotate(12deg)}
+.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(1){--fan:rotate(-22deg) translateY(18px)}
+.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(2){z-index:1;--fan:rotate(-11deg) translateY(2px)}
+.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(3){z-index:2;--fan:translateY(-14px) scale(1.08)}
+.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(4){z-index:1;--fan:rotate(11deg) translateY(2px)}
+.tz-shop-window[data-count="5"] .tz-shop-window-card:nth-child(5){--fan:rotate(22deg) translateY(18px)}
+/* Bloky vedle sebe (Pro): mřížka 6 sloupců, šířka bloku celá, polovina nebo třetina */
 .tz-shop-blocks{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-12) var(--space-6)}
 .tz-shop-blocks>*{grid-column:span 6;min-width:0}
 .tz-shop-blocks>[data-w="half"]{grid-column:span 3}
 .tz-shop-blocks>[data-w="third"]{grid-column:span 2}
-/* Záložky držící nahoře (R5): samostatná lišta pod hlavičkou, --site-header-h nastaví web */
+/* Záložky držící nahoře: samostatná lišta pod hlavičkou, --site-header-h nastaví web */
 .tz-shop-tabs-sticky{position:sticky;top:var(--site-header-h,0px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg)}
-/* Nové bloky */
-.tz-countdown{display:flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-weight:700;font-size:28px;line-height:36px}
-.tz-countdown-part{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);background:var(--surface-sunken);border:1px solid var(--line)}
+/* Mřížka karet na nejvýš dva řádky, zbytek přes odkaz „Zobrazit vše“ */
+.tz-grid-2rows{grid-template-rows:auto auto;grid-auto-rows:0;row-gap:0!important;overflow:clip;overflow-clip-margin:24px}
+.tz-grid-2rows>*{margin-bottom:var(--space-4)}
+/* Posuvný pás, který jede sám dokola; při najetí, dotyku nebo vlastním posunu stojí */
+.tz-strip-auto{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(168px,200px);gap:var(--space-4);overflow-x:auto;scrollbar-width:none;padding:12px 4px;margin:-12px -4px}
+.tz-strip-auto::-webkit-scrollbar{display:none}
+/* Oznámení: karta s přechodovým rámečkem nebo pruh */
+.tz-notice{position:relative;display:flex;gap:var(--space-4);align-items:flex-start;padding:var(--space-6);border-radius:var(--radius-xl);background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(120deg,var(--shop),var(--shop-2)) border-box;border:1.5px solid transparent;overflow:hidden}
+.tz-notice::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 120% at 100% 0,color-mix(in srgb,var(--shop-2) 14%,transparent),transparent 70%);pointer-events:none}
+.tz-notice-icon{position:relative;flex:none;width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--shop),var(--shop-2));color:var(--on-shop);box-shadow:0 8px 24px color-mix(in srgb,var(--shop) 35%,transparent)}
+.tz-notice-body{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tz-notice-label{align-self:flex-start;padding:2px 8px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--shop) 18%,transparent);color:var(--ink);font:700 11px/16px var(--font-mono);letter-spacing:.06em}
+.tz-notice-title{margin:0;font-family:var(--shop-font);font-weight:700;text-transform:var(--shop-case);font-size:24px;line-height:30px}
+.tz-notice-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-lg);background:linear-gradient(90deg,var(--shop),var(--shop-2));color:var(--on-shop)}
+.tz-notice-bar .tz-notice-label{background:rgba(0,0,0,.18);color:inherit}
+/* Turnaje a akce: kalendářní lístky */
+.tz-events{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--space-3)}
+.tz-event{display:flex;gap:var(--space-4);align-items:center;padding:var(--space-3);border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--line);transition:border-color .2s}
+.tz-event:hover{border-color:color-mix(in srgb,var(--shop) 60%,var(--line))}
+.tz-event-date{flex:none;width:64px;border-radius:var(--radius-md);overflow:hidden;text-align:center;background:var(--surface-sunken);border:1px solid var(--line)}
+.tz-event-month{display:block;padding:2px 0;background:linear-gradient(90deg,var(--shop),var(--shop-2));color:var(--on-shop);font:700 11px/16px var(--font-mono);letter-spacing:.08em}
+.tz-event-day{display:block;padding:4px 0 6px;font:700 26px/30px var(--font-display)}
+.tz-event-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tz-event-when{align-self:flex-start;margin-top:4px;padding:0 8px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--shop) 16%,transparent);font-size:12px;font-weight:600;line-height:20px}
+/* Fotky z prodejny: první velká, ostatní menší vedle */
+.tz-photos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:130px;gap:var(--space-3)}
+.tz-photos>img{width:100%;height:100%;object-fit:cover;border-radius:var(--radius-lg);border:1px solid var(--line)}
+.tz-photos>img:first-child{grid-column:span 2;grid-row:span 2}
+.tz-photos[data-n="1"]{grid-template-columns:1fr;grid-auto-rows:320px}
+.tz-photos[data-n="1"]>img:first-child{grid-column:auto;grid-row:auto}
+/* Vitrína sbírky: tmavý samet, světlo shora, karty na podstavcích, grade jako štítek pouzdra */
+.tz-vitrine{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-8) var(--space-6);padding:var(--space-8) var(--space-6) var(--space-6);border-radius:var(--radius-xl);background:radial-gradient(70% 60% at 50% 0,color-mix(in srgb,var(--shop) 22%,transparent),transparent 70%),radial-gradient(circle at 50% 120%,rgba(0,0,0,.5),transparent 60%),#0d0f14;border:1px solid color-mix(in srgb,var(--shop) 30%,var(--line));box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -30px 60px rgba(0,0,0,.4);color:#e8ecf1}
+.tz-vitrine-item{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);text-decoration:none;color:inherit;text-align:center}
+.tz-vitrine-slab{position:relative;width:100%;padding:8px 8px 10px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.18);box-shadow:0 20px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.25)}
+.tz-vitrine-label{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;padding:3px 6px;border-radius:4px;background:#f3f4f6;color:#111;font:700 10px/14px var(--font-mono);text-transform:uppercase;letter-spacing:.04em}
+.tz-vitrine-label b{color:#b91c1c;font-size:12px}
+.tz-vitrine-art{display:block;width:100%;aspect-ratio:63/88;object-fit:contain;border-radius:4.8%/3.45%}
+.tz-vitrine-stand{width:70%;height:10px;margin-top:-4px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.6),transparent)}
+.tz-vitrine-name{font-weight:600;font-size:13px;line-height:18px}
+.tz-vitrine-note{font-size:12px;line-height:16px;color:#a3adbb}
+/* Vlastní kolekce: dlaždice, velké karty nebo řada štítků */
+.tz-coll-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-3)}
+.tz-coll-card{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;min-height:120px;padding:var(--space-4);border-radius:var(--radius-lg);overflow:hidden;color:var(--on-shop);text-decoration:none;background:linear-gradient(135deg,var(--shop),var(--shop-2))}
+.tz-coll-card::after{content:"→";position:absolute;top:var(--space-3);right:var(--space-4);font-size:20px;transition:transform .2s}
+.tz-coll-card:hover::after{transform:translateX(4px)}
+.tz-coll-card strong{font-family:var(--shop-font);text-transform:var(--shop-case);font-size:20px;line-height:24px}
+.tz-coll-card span{opacity:.8;font-size:13px}
+.tz-coll-chips{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.tz-coll-chip{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:var(--radius-pill);border:1px solid color-mix(in srgb,var(--shop) 50%,var(--line));background:color-mix(in srgb,var(--shop) 10%,var(--surface));color:var(--ink);text-decoration:none;font-weight:600}
+.tz-coll-chip:hover{background:color-mix(in srgb,var(--shop) 22%,var(--surface))}
+/* Hledám: karty s obrázkem a cenou, kterou prodejce nabízí */
+.tz-wanted{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-4)}
+.tz-wanted-item{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border-radius:var(--radius-lg);background:var(--surface);border:1px dashed color-mix(in srgb,var(--shop) 55%,var(--line));color:var(--ink);text-decoration:none}
+.tz-wanted-art{position:relative;display:block;width:100%;aspect-ratio:63/88;border-radius:4.8%/3.45%;object-fit:contain;filter:saturate(.85)}
+.tz-wanted-price{align-self:flex-start;padding:2px 8px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--shop),var(--shop-2));color:var(--on-shop);font:700 12px/18px var(--font-mono)}
+/* Odpočet */
+.tz-countdown{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-weight:700;font-size:28px;line-height:36px}
+.tz-countdown-part{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);background:var(--surface-sunken);border:1px solid color-mix(in srgb,var(--shop) 35%,var(--line))}
 .tz-countdown-part small{font-family:var(--font-sans);font-weight:500;font-size:11px;line-height:14px;color:var(--ink-muted)}
+.tz-countdown-text{margin:0;max-width:560px;color:var(--ink-muted);white-space:pre-line}
+/* Recenze, Kdo jsme */
 .tz-review{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-4);border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--line)}
 .tz-review-stars{color:var(--shop-2);letter-spacing:2px}
 .tz-team{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-4)}
 .tz-team-person{display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--space-2);padding:var(--space-4);border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--line)}
 .tz-team-photo{width:88px;height:88px;border-radius:50%;object-fit:cover;background:var(--surface-sunken);border:2px solid var(--shop)}
-.tz-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:var(--surface-sunken);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+/* Video a mapa: cizí obsah až po kliknutí; video má náhled z YouTube */
+.tz-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:var(--surface-sunken) center/cover no-repeat;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
 .tz-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.tz-embed-play{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);background:none;border:0;color:var(--ink);font:inherit;cursor:pointer}
-.tz-embed-play span:first-child{width:64px;height:44px;border-radius:12px;background:var(--shop);color:var(--on-shop);display:flex;align-items:center;justify-content:center;font-size:20px}
-.tz-embed-map{aspect-ratio:4/3;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:24px 24px}
-@media (max-width:760px){.tz-shop-blocks>[data-w]{grid-column:span 6}.tz-shop-window-card{width:120px;margin:0 -22px}.tz-shop-window[data-count="5"] .tz-shop-window-card{width:96px}.tz-shop-window{min-height:210px}}
-@media (prefers-reduced-motion:reduce){.tz-shop-ticker-track,.tz-shop-banner-live,.tz-shop-banner[data-season]::after{animation:none}.tz-shop-ticker-track{flex-wrap:wrap;width:auto}.tz-shop-ticker-dup{display:none}.tz-holo{transform:none}}
+.tz-embed-play{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-2);background:none;border:0;color:var(--ink);font:inherit;cursor:pointer}
+.tz-embed-play span:first-child{width:64px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--shop),var(--shop-2));color:var(--on-shop);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:transform .2s}
+.tz-embed-play:hover span:first-child{transform:scale(1.08)}
+.tz-embed[data-thumb] .tz-embed-play{background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.55));color:#fff}
+.tz-embed-map{aspect-ratio:16/10;background-image:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--shop) 18%,transparent),transparent 45%),linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:100% 100%,24px 24px,24px 24px}
+@media (max-width:760px){.tz-shop-blocks>[data-w]{grid-column:span 6}.tz-shop-window-card{width:120px;margin:0 -22px}.tz-shop-window[data-count="5"] .tz-shop-window-card{width:96px}.tz-shop-window{min-height:210px}.tz-photos{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:110px}.tz-notice{padding:var(--space-4)}}
+@media (prefers-reduced-motion:reduce){.tz-shop-ticker-track,.tz-shop-banner-live,.tz-shop-banner-live::before,.tz-shop-banner::before{animation:none!important}.tz-shop-ticker-track{width:auto;padding:8px 16px}.tz-shop-ticker-dup{display:none}.tz-holo{transform:none}.tz-shop-window-card{transition:none}}
