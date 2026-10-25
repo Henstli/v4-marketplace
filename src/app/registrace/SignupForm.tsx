@@ -35,6 +35,7 @@ export function SignupForm({ next }: { next: string }) {
       </label>
       <EmailField />
       <PasswordField autoComplete="new-password" hint="Aspoň 8 znaků. Nejbezpečnější je delší fráze nebo heslo ze správce hesel." />
+      <PasswordField name="passwordConfirm" label="HESLO ZNOVU" autoComplete="new-password" />
       <label className="t-small" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
         <input type="checkbox" name="terms" required />
         <span>

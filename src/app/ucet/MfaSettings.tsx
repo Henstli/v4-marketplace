@@ -20,32 +20,50 @@ export function MfaSettings({ enabled }: { enabled: boolean }) {
     }
     return result;
   }, {});
+  const [disabling, setDisabling] = useState(false);
+  const [disable, disableAction, turningOff] = useActionState<MfaState, FormData>(async (prev, form) => {
+    const result = await disableMfa(prev, form);
+    if (result.done === 'disabled') {
+      setIsOn(false);
+      setDisabling(false);
+      setStep({});
+      setNotice('Dvoufázové ověření je vypnuté.');
+    }
+    return result;
+  }, {});
 
   if (isOn) {
     return (
       <div className={styles.form}>
         {notice ? <p className={styles.ok} role="status">{notice}</p> : null}
         <p>Zapnuto. Při přihlášení zadáte heslo a pak kód z ověřovací aplikace.</p>
-        {step.error ? <p className={styles.error} role="alert">{step.error}</p> : null}
-        <div>
-          <Button
-            variant="secondary"
-            disabled={pending}
-            onClick={() => {
-              if (!window.confirm('Opravdu vypnout dvoufázové ověření? Účet pak bude chráněný jen heslem.')) return;
-              startTransition(async () => {
-                const result = await disableMfa();
-                if (result.done === 'disabled') {
-                  setIsOn(false);
-                  setStep({});
-                  setNotice('Dvoufázové ověření je vypnuté.');
-                } else setStep(result);
-              });
-            }}
-          >
-            {pending ? 'Vypínám…' : 'Vypnout'}
-          </Button>
-        </div>
+        {disabling ? (
+          <form action={disableAction} className={styles.form}>
+            <label className={styles.field}>
+              <span className="t-label muted">PRO VYPNUTÍ ZADEJTE KÓD Z APLIKACE</span>
+              <input
+                name="code"
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9 ]{6,7}"
+                maxLength={7}
+                autoFocus
+                className={`${styles.input} ${styles.code}`}
+              />
+              <span className="t-small muted">Bez dvoufázového ověření bude účet chráněný jen heslem.</span>
+            </label>
+            {disable.error ? <p className={styles.error} role="alert">{disable.error}</p> : null}
+            <div className={styles.row}>
+              <Button type="submit" variant="secondary" disabled={turningOff}>{turningOff ? 'Vypínám…' : 'Vypnout'}</Button>
+              <Button variant="ghost" onClick={() => setDisabling(false)}>Zrušit</Button>
+            </div>
+          </form>
+        ) : (
+          <div>
+            <Button variant="secondary" onClick={() => setDisabling(true)}>Vypnout</Button>
+          </div>
+        )}
       </div>
     );
   }

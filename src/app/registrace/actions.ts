@@ -18,6 +18,7 @@ export async function signUp(_prev: SignupState, form: FormData): Promise<Signup
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Zadejte platný e-mail.' };
   const weak = checkPassword(password, email);
   if (weak) return { error: weak };
+  if (password !== String(form.get('passwordConfirm') ?? '')) return { error: 'Hesla se neshodují.' };
   if (form.get('terms') !== 'on') return { error: 'Pro registraci je potřeba souhlas s podmínkami.' };
 
   const supabase = await createClient();

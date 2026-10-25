@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { authErrorMessage, checkPassword } from '@/lib/auth-helpers';
+import { identityMethod, verifyIdentity } from '@/lib/identity';
 import { createClient } from '@/lib/supabase/server';
 
 export interface NewPasswordState {
@@ -16,13 +17,23 @@ export async function setNewPassword(_prev: NewPasswordState, form: FormData): P
   if (!auth.user) return { error: 'Odkaz vypršel. Požádejte prosím o nový.' };
   const weak = checkPassword(password, auth.user.email);
   if (weak) return { error: weak };
+  if (password !== String(form.get('passwordConfirm') ?? '')) return { error: 'Nová hesla se neshodují.' };
 
-  // Současné heslo hlídá databáze (kromě obnovy přes e-mail a účtů bez hesla).
-  const { data: problem, error: checkError } = await supabase.rpc('check_password_change', { current_password: current });
-  if (checkError) return { error: authErrorMessage(null) };
-  if (problem === 'current_required') return { error: 'Zadejte současné heslo.' };
-  if (problem === 'current_wrong') return { error: 'Současné heslo nesedí.' };
-  if (current && current === password) return { error: 'Nové heslo musí být jiné než současné.' };
+  const { data: recovery } = await supabase.rpc('recent_password_recovery');
+  if (recovery !== true) {
+    if ((await identityMethod(supabase)) === 'password') {
+      // Současné heslo hlídá i databáze.
+      const { data: problem, error: checkError } = await supabase.rpc('check_password_change', { current_password: current });
+      if (checkError) return { error: authErrorMessage(null) };
+      if (problem === 'current_required') return { error: 'Zadejte současné heslo.' };
+      if (problem === 'current_wrong') return { error: 'Současné heslo nesedí.' };
+      if (current === password) return { error: 'Nové heslo musí být jiné než současné.' };
+    } else {
+      // Účet bez hesla (přes Google): první heslo potvrdí kódem z aplikace nebo z e-mailu.
+      const problem = await verifyIdentity(supabase, auth.user.email ?? '', form);
+      if (problem) return { error: problem };
+    }
+  }
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: authErrorMessage(error) };

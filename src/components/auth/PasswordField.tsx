@@ -10,7 +10,7 @@ interface Props {
   hint?: string;
 }
 
-/** Pole pro heslo s tlačítkem Zobrazit (místo druhého opakování hesla). */
+/** Pole pro heslo s tlačítkem Zobrazit. */
 export function PasswordField({ name = 'password', label = 'HESLO', autoComplete, hint }: Props) {
   const [visible, setVisible] = useState(false);
   return (
