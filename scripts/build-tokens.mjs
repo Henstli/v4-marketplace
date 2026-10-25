@@ -1,4 +1,4 @@
-// Generuje src/styles/tokens.css z design-system/tokens.json (design systém V4market Trezor).
+// Generuje src/styles/tokens.css z design-system/tokens.json (design systém V4cards Trezor).
 // Barvy, písma, rozestupy a zaoblení se mění jen v design systému, tento soubor je jen převádí.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,7 +19,7 @@ function px(v) {
   return typeof v === 'number' ? `${v}px` : v;
 }
 
-const lines = ['/* V4market Trezor — vygenerováno z design-system/tokens.json, neupravovat ručně */', ':root {'];
+const lines = ['/* V4cards Trezor — vygenerováno z design-system/tokens.json, neupravovat ručně */', ':root {'];
 lines.push(`  color-scheme: ${primary === 'dark' ? 'dark' : 'light'};`);
 for (const t of tokens.color.tokens) lines.push(`  --${t.name}: ${colorValue(t, primary)};`);
 for (const [name, stack] of Object.entries(tokens.type.families)) lines.push(`  --font-${name}: ${stack};`);

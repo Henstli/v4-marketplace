@@ -11,7 +11,7 @@ const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPAB
   auth: { persistSession: false },
 });
 
-const HEADERS = { 'User-Agent': 'V4market/0.1 (katalog karet)', Accept: 'application/json' };
+const HEADERS = { 'User-Agent': 'V4cards/0.1 (katalog karet)', Accept: 'application/json' };
 // Pokémon: všechny série kromě digitální TCG Pocket.
 const POKEMON_SKIP_SERIES = ['tcgp'];
 // Magic: všechny papírové sady kromě tokenů, art karet a podobných doplňků, které se neprodávají jako karty.

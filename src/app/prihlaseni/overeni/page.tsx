@@ -25,7 +25,7 @@ export default async function VerifyPage({ searchParams }: Props) {
       <div className={`panel ${styles.wrap}`}>
         <div>
           <h1 className="t-heading-l">Dvoufázové ověření</h1>
-          <p className="muted">Otevřete ověřovací aplikaci v telefonu a opište kód pro V4market.</p>
+          <p className="muted">Otevřete ověřovací aplikaci v telefonu a opište kód pro V4cards.</p>
         </div>
         <VerifyForm next={next} />
         <form action={signOut}>

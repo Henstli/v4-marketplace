@@ -1,4 +1,4 @@
-// Komponenty design systému V4market Trezor (namespace Trezor), přepsané do TypeScriptu.
+// Komponenty design systému V4cards Trezor (namespace Trezor), přepsané do TypeScriptu.
 // Vzhled je v design-system/bundle.css; měnit nejdřív v design systému.
 export { Button, ButtonLink } from './Button';
 export { Trend } from './Trend';

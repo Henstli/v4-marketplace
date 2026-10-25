@@ -1,7 +1,7 @@
-# Design systém V4market Trezor
+# Design systém V4cards Trezor
 
 Web bere barvy, písma, rozestupy, zaoblení a vzhled komponent jen z design systému
-„V4market Trezor“: https://claude.ai/artifact/Dnoxaj5mtmyjgnnSRRYcrP
+„V4cards Trezor“: https://claude.ai/artifact/Dnoxaj5mtmyjgnnSRRYcrP
 
 | Soubor | Co to je |
 | --- | --- |

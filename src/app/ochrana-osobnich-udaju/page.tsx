@@ -12,7 +12,7 @@ export default function PrivacyPage() {
 
         <h2 className="t-heading-m">Kdo údaje zpracovává</h2>
         <p>
-          Správcem osobních údajů je provozovatel webu V4market (identifikační údaje doplníme před ostrým spuštěním). S
+          Správcem osobních údajů je provozovatel webu V4cards (identifikační údaje doplníme před ostrým spuštěním). S
           dotazy k osobním údajům se obracejte přes stránku Účet nebo na kontakt uvedený na webu.
         </p>
 
