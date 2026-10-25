@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { ChipLink } from '@/components/trezor';
+import { notFound, redirect } from 'next/navigation';
+import { ChipLink, initials } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
+import { PLANS } from '@/lib/plans';
+import { shopHref } from '@/lib/shop-config';
+import { getShopProfile, mediaUrl } from '@/lib/shop';
 import styles from './seller.module.css';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ strana?: string }> };
@@ -19,6 +22,11 @@ export default async function SellerPage({ params, searchParams }: Props) {
   const { id } = await params;
   const seller = await getSeller(id);
   if (!seller) notFound();
+  // Plus a Pro se zveřejněnou stránkou mají vlastní adresu, tahle vede tam.
+  const shop = await getShopProfile(seller.id);
+  if (shop && PLANS[shop.plan].shopPage && shop.saved.published && shop.saved.slug) redirect(shopHref(seller.kind, shop.saved.slug));
+  const avatar = mediaUrl(shop?.saved.logoPath);
+  const about = shop?.saved.about ?? '';
   const n = Number((await searchParams).strana);
   const page = Number.isInteger(n) && n > 1 ? n : 1;
   const { cards, total } = await searchCards({ sellerId: seller.id, page });
@@ -28,6 +36,11 @@ export default async function SellerPage({ params, searchParams }: Props) {
   return (
     <div className={`container ${styles.page}`}>
       <section className={`panel ${styles.head}`}>
+        <span className={styles.avatar} aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {avatar ? <img src={avatar} alt="" /> : initials(seller.name)}
+        </span>
+        <div className={styles.headText}>
         <p className="t-label muted">{seller.kind === 'shop' ? 'OBCHOD' : 'SBĚRATEL'}</p>
         <h1 className="t-heading-l">{seller.name}</h1>
         <p className="muted">
@@ -37,6 +50,8 @@ export default async function SellerPage({ params, searchParams }: Props) {
             : 'Zatím bez hodnocení'}
           {' · '}{plural(total, ['karta v nabídce', 'karty v nabídce', 'karet v nabídce'])}
         </p>
+        {about ? <p className={styles.about}>{about}</p> : null}
+        </div>
       </section>
 
       {cards.length ? (

@@ -126,3 +126,52 @@
 .tz-bulkbar-count{font-weight:600;margin-right:auto;white-space:nowrap}
 .tz-bulkbar-group{display:flex;align-items:center;gap:var(--space-2)}
 @media (max-width:640px){.tz-bulkbar{bottom:var(--space-2)}.tz-bulkbar-count{flex-basis:100%}}
+
+.tz-badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:var(--radius-pill);font-family:var(--font-sans);font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.tz-badge-verified{color:var(--up);background:var(--up-tint)}
+.tz-badge-pro{height:22px;padding:0 8px;border-radius:var(--radius-sm);background:var(--accent);color:var(--on-accent);font-family:var(--font-mono);font-weight:700;letter-spacing:.06em}
+
+.tz-shop{--shop:var(--shop-blue);--shop-font:var(--font-display);--shop-case:none;--shop-track:-0.02em;color:var(--ink);font-family:var(--font-sans)}
+.tz-shop-bg{background:var(--bg)}
+.tz-shop[data-font="classic"]{--shop-font:var(--font-classic);--shop-track:-0.01em}
+.tz-shop[data-font="sport"]{--shop-font:var(--font-sport);--shop-case:uppercase;--shop-track:0}
+.tz-shop[data-corners="sharp"]{--radius-sm:2px;--radius-md:3px;--radius-lg:4px;--radius-xl:4px}
+.tz-shop-name{margin:0;font-family:var(--shop-font);font-weight:700;text-transform:var(--shop-case);letter-spacing:var(--shop-track);font-size:40px;line-height:44px}
+.tz-shop-heading{margin:0;display:flex;align-items:center;gap:var(--space-3);font-family:var(--shop-font);font-weight:700;text-transform:var(--shop-case);letter-spacing:var(--shop-track);font-size:30px;line-height:36px}
+.tz-shop-heading::before{content:"";flex:none;width:6px;height:24px;border-radius:3px;background:var(--shop)}
+.tz-shop-section{display:flex;flex-direction:column;gap:var(--space-4)}
+.tz-shop-section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-2) var(--space-4)}
+.tz-shop-section-note{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.tz-shop-soft{background:color-mix(in srgb,var(--shop) 16%,transparent)}
+.tz-shop-logo{flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box;background:var(--shop);color:var(--on-shop);font-family:var(--shop-font);font-weight:700;border-radius:var(--radius-lg)}
+.tz-shop-logo img{display:block;width:100%;height:100%;object-fit:cover}
+.tz-shop-logo-round{border-radius:50%}
+.tz-shop-head{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-xl);overflow:hidden}
+.tz-shop-banner{position:relative;height:220px;background-color:color-mix(in srgb,var(--shop) 22%,var(--surface-sunken));background-size:cover;background-position:center}
+.tz-shop-banner-pattern{background-image:repeating-linear-gradient(-20deg,transparent 0 22px,color-mix(in srgb,var(--shop) 30%,transparent) 22px 26px)}
+.tz-shop-banner-solid{background-color:var(--shop)}
+.tz-shop-id{position:relative;display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-4) var(--space-6);padding:0 var(--space-8) var(--space-6)}
+.tz-shop-id>.tz-shop-logo{margin-top:-48px;border:4px solid var(--surface)}
+.tz-shop-text{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px;padding-top:var(--space-4)}
+.tz-shop-titlerow{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
+.tz-shop-meta{margin:0;font-size:13px;line-height:18px;color:var(--ink-muted)}
+.tz-shop-tagline{margin:4px 0 0;max-width:640px}
+.tz-shop-actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.tz-shop-head-split{display:flex;flex-wrap:wrap}
+.tz-shop-head-split .tz-shop-id{flex:1 1 340px;flex-direction:column;align-items:flex-start;padding:var(--space-8)}
+.tz-shop-head-split .tz-shop-id>.tz-shop-logo{margin-top:0;border:0}
+.tz-shop-head-split .tz-shop-text{flex:none;padding-top:0}
+.tz-shop-head-split .tz-shop-banner{flex:1 1 300px;height:auto;min-height:240px}
+.tz-shop-head-center .tz-shop-banner{height:160px}
+.tz-shop-head-center .tz-shop-id{flex-direction:column;align-items:center;text-align:center}
+.tz-shop-head-center .tz-shop-text{flex:none;align-items:center;padding-top:0}
+.tz-shop-head-center .tz-shop-titlerow{justify-content:center}
+.tz-shop-head-minimal{border-top:4px solid var(--shop)}
+.tz-shop-head-minimal .tz-shop-id{align-items:center;padding:var(--space-6) var(--space-8)}
+.tz-shop-head-minimal .tz-shop-id>.tz-shop-logo{margin-top:0;border:0}
+.tz-shop-head-minimal .tz-shop-text{padding-top:0}
+.tz-shop-tabs{display:flex;gap:var(--space-1);padding:0 var(--space-6);border-top:1px solid var(--line);overflow-x:auto}
+.tz-shop-tabs a{padding:14px var(--space-3);color:var(--ink-muted);text-decoration:none;font-weight:600;white-space:nowrap;border-bottom:2px solid transparent}
+.tz-shop-tabs a:hover{color:var(--ink)}
+.tz-shop-tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--shop)}
+@media (max-width:640px){.tz-shop-name{font-size:30px;line-height:36px}.tz-shop-heading{font-size:24px;line-height:30px}.tz-shop-id{padding:0 var(--space-4) var(--space-4)}.tz-shop-head-split .tz-shop-id,.tz-shop-head-minimal .tz-shop-id{padding:var(--space-4)}.tz-shop-banner{height:140px}}

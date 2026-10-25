@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ButtonLink, Price, Trend } from '@/components/trezor';
+import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Trend } from '@/components/trezor';
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { getCardBySlug, getOffers, type Offer } from '@/lib/catalog';
 import type { CardSummary } from '@/lib/types';
 import { getGame } from '@/lib/games';
 import { formatNumber } from '@/lib/format';
+import { getOfferBrands, sortOffers } from '@/lib/shop';
+import { safeColor } from '@/lib/shop-config';
 import { CONDITION_NAMES, LANGUAGE_NAMES } from '@/lib/types';
 import styles from './detail.module.css';
 
@@ -21,7 +23,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CardDetailPage({ params }: Props) {
   const card = await getCardBySlug((await params).slug);
   if (!card) notFound();
-  const offers = await getOffers(card.id);
+  const unsorted = await getOffers(card.id);
+  const brands = await getOfferBrands(unsorted.map((o) => o.seller));
+  const offers = sortOffers(unsorted, brands);
   const game = getGame(card.game);
   const avg = card.priceHistory.length
     ? Math.round(card.priceHistory.reduce((a, b) => a + b, 0) / card.priceHistory.length)
@@ -93,7 +97,7 @@ export default async function CardDetailPage({ params }: Props) {
       <section className="section">
         <div className="section-head">
           <h2 className="t-heading-l">Nabídky</h2>
-          <p className="t-small muted">Seřazeno od nejlevnější</p>
+          <p className="t-small muted">Seřazeno od nejlevnější, při stejné ceně od nejlepšího stavu</p>
         </div>
         {offers.length ? (
           <div className={styles.tableWrap}>
@@ -112,11 +116,31 @@ export default async function CardDetailPage({ params }: Props) {
                 {offers.map((o) => (
                   <tr key={o.id}>
                     <td>
-                      <Link href={`/prodejci/${o.seller.id}`} className={styles.seller}>{o.seller.name}</Link>
-                      <div className="t-small muted">
-                        {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} ·{' '}
-                        {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
-                      </div>
+                      {(() => {
+                        const b = brands.get(o.seller.id);
+                        const pro = b?.plan === 'pro';
+                        return (
+                          <div className={styles.sellerCell}>
+                            {b && b.plan !== 'free' ? (
+                              <span style={shopStyle(safeColor(b.color))}>
+                                <ShopLogo name={o.seller.name} image={b.logo} size={pro ? 44 : 32} />
+                              </span>
+                            ) : null}
+                            <div className={styles.sellerText}>
+                              <div className={styles.sellerName}>
+                                <Link href={b?.href ?? `/prodejci/${o.seller.id}`} className={styles.seller}>{o.seller.name}</Link>
+                                {b?.badge ? <SellerBadge type="verified" /> : null}
+                                {pro ? <SellerBadge type="pro" /> : null}
+                              </div>
+                              {b?.note ? <div className="t-small">{b.note}</div> : null}
+                              <div className="t-small muted">
+                                {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} ·{' '}
+                                {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td>
                       <span className="code" title={CONDITION_NAMES[o.condition]}>{o.condition}</span>

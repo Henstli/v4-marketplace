@@ -39,14 +39,17 @@ export default async function AccountPage({ searchParams }: Props) {
         <h1 className="t-heading-l">Účet</h1>
         <p className="muted">Přihlášeni jako {user.email}</p>
         <p className="t-small">
-          <Link href="/prodat/nova-karta">Moje návrhy karet</Link>
+          <Link href="/ucet/stranka">Moje stránka</Link> · <Link href="/prodat/nova-karta">Moje návrhy karet</Link>
           {user.isAdmin ? <> · <Link href="/sprava/karty">Schvalování karet</Link> · <Link href="/sprava/predplatne">Předplatné prodejců</Link></> : null}
         </p>
         <p className="t-small muted">
           Tarif: {PLANS[toPlan(plan)].name}.{' '}
           {PLANS[toPlan(plan)].bulkImport
             ? <><Link href="/prodat/import">Hromadné nahrávání</Link> nabídek bez omezení.</>
-            : 'Hromadné nahrávání nabídek je součástí tarifu Pro.'}
+            : 'Hromadné nahrávání nabídek je součástí tarifu Pro.'}{' '}
+          {PLANS[toPlan(plan)].shopPage
+            ? <><Link href="/ucet/stranka">Vlastní stránka</Link> s vaším vzhledem a bloky.</>
+            : 'Vlastní stránka s bannerem, barvou a bloky je v tarifech Plus a Pro.'}
         </p>
       </div>
       <section className="panel">

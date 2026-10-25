@@ -31,6 +31,8 @@ Směr „Trezor“: tmavé prostředí, ve kterém karty svítí jako ve vitrín
 Písma se načítají z Google Fonts:
 `https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap`
 
+Dvě další písma jsou jen pro jména a nadpisy na vlastních stránkách obchodů (volba v editoru, tarif Pro): `classic` (Fraunces 600/700) a `sport` (Barlow Condensed 600/700, verzálkami). Načítají se jen na stránce obchodu, který je vybral.
+
 **Rozestupy a zaoblení.** Mřížka po 4 px (`space-*`). Zaoblení roste s velikostí prvku: `radius-md` tlačítka, `radius-lg` dlaždice, `radius-xl` velké panely, `radius-pill` štítky a čipy.
 
 **Grafy.** Čára 2,5 px v `up` (nebo `down` při poklesu), pod ní plocha téže barvy s průhledností 8 %, mřížka v `line`. Průměrná prodejní cena přerušovaně v `ink-muted`. Osy a popisky v `mono`, 11–12 px, `ink-muted`.
@@ -43,6 +45,17 @@ Písma se načítají z Google Fonts:
 - Tlačítka v hlavičce jsou `ghost` bez okraje, jen Odhlásit je `danger`. Nepřihlášenému se ukáže `primary` Přihlásit.
 - Lišta kategorií: tečka `game-*` + název, v pořadí z úvodu. Kategorie bez katalogu jsou `ink-muted` se štítkem „Brzy“.
 - Patička: nahoře logo, pod ním jeden řádek se dvěma texty na stejné výšce: vlevo odkazy (Obchodní podmínky · Ochrana osobních údajů · podpora · Beta verze), vpravo popis služby. Oba `small`, `ink-muted`. Na mobilu pod sebou.
+
+## Stránka obchodu
+
+Vlastní stránka obchodu nebo sběratele (`ShopHeader`, `ShopSection`, `ShopLogo`, `SellerBadge`) se skládá z připravených bloků, ne z libovolného HTML. Obchod si v editoru volí:
+
+- **Barvu obchodu**: jednu z osmi `shop-*` (text na ní `on-shop`). Použije se jen na plochách obchodu: logo, banner, značka u nadpisu sekce, podtržení záložky, jemný tón. Nikdy na text a nikdy na tlačítka nákupu, ta zůstávají `accent`.
+- **Motiv**: tmavý (výchozí) nebo světlý, jen pro obsah stránky; hlavička a patička webu zůstávají podle webu.
+- **Šablonu hlavičky** (`banner`, `split`, `center`, `minimal`), **písmo nadpisů** (`display`, `classic`, `sport`) a **rohy** (zaoblené, ostré): jen tarif Pro.
+- **Bloky** v libovolném pořadí: Oznámení, Doporučujeme, Karta týdne, Kolekce podle hry, Vlastní kolekce, Novinky, Nejlevnější, Turnaje a akce, Fotky z prodejny, Doprava a reklamace, Vitrína, Hledám, O nás a prodejna. Plus má až 6 bloků ze základní sady, Pro všechny bez omezení.
+
+Štítky prodejce jsou dva: „Ověřený prodejce“ (stejný pro obchody i sběratele) a „PRO“. Nabídka tarifu Pro má u karty větší logo, štítek PRO a krátký vzkaz obchodu pod jménem, ale žádný rámeček ani barevné pozadí řádku. Řazení nabídek se tarifem nemění, Pro má přednost jen při stejné ceně a stavu.
 
 ## Ikony
 
