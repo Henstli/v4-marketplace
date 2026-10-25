@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
-import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
+import { ButtonLink, CardThumb } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { getCurrentUser } from '@/lib/auth';
 import { getCardBySlug, searchCards } from '@/lib/catalog';
@@ -10,12 +10,17 @@ import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { LANGUAGE_NAMES, type Language } from '@/lib/types';
-import { deleteListing } from './actions';
+import { formatNumber } from '@/lib/format';
 import { ListingForm } from './ListingForm';
+import { StockTable, type StockItem } from './StockTable';
 import styles from './sell.module.css';
 
 export const metadata: Metadata = { title: 'Prodat karty' };
+
+type CardRow = {
+  slug: string; name: string; number: string; image_url: string | null; game_id: string | null;
+  card_sets: { code: string; name: string } | { code: string; name: string }[] | null;
+};
 
 type Props = { searchParams: Promise<{ karta?: string; hledat?: string }> };
 
@@ -34,11 +39,34 @@ export default async function SellPage({ searchParams }: Props) {
   ]);
 
   const supabase = await createClient();
-  const { data: mine } = await supabase
-    .from('listings')
-    .select('id, price_czk, condition, language, quantity, cards(slug, name, image_url, game_id)')
-    .eq('seller_id', user.id)
-    .order('created_at', { ascending: false });
+  // Supabase vrací nejvýš 1000 řádků na dotaz, velký sklad obchodu čteme po stránkách.
+  const mine = [];
+  for (let from = 0; from < 5000; from += 1000) {
+    const { data } = await supabase
+      .from('listings')
+      .select('id, price_czk, condition, language, quantity, cards(slug, name, number, image_url, game_id, card_sets(code, name))')
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + 999);
+    mine.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
+  const stock: StockItem[] = mine.map((l) => {
+    const card = one(l.cards as unknown as CardRow | CardRow[] | null);
+    const set = one(card?.card_sets);
+    return {
+      id: l.id,
+      price: l.price_czk,
+      condition: l.condition,
+      language: l.language,
+      quantity: l.quantity,
+      card: card
+        ? { slug: card.slug, name: card.name, number: card.number, image: card.image_url, game: card.game_id, setCode: set?.code ?? '', setName: set?.name ?? '' }
+        : null,
+    };
+  });
 
   return (
     <div className={`container ${styles.page}`}>
@@ -107,38 +135,20 @@ export default async function SellPage({ searchParams }: Props) {
         )}
       </section>
 
-      <section className="panel">
-        <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Moje nabídky</h2>
-        {mine?.length ? (
-          <div className={styles.list}>
-            {mine.map((l) => {
-              const card = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as
-                | { slug: string; name: string; image_url: string | null; game_id: string | null }
-                | null;
-              return (
-                <div key={l.id} className={`${styles.row} ${styles.rowThumb}`}>
-                  <CardThumb
-                    image={thumbUrl(card?.image_url ?? undefined)}
-                    preview={card?.image_url ?? undefined}
-                    color={card?.game_id ? `var(--game-${card.game_id}-art)` : undefined}
-                  />
-                  <div>
-                    {card ? <Link href={`/karty/${card.slug}`} className={styles.rowName}>{card.name}</Link> : 'Karta'}
-                    <div className="t-small muted">
-                      <span className="code">{l.condition}</span> · {LANGUAGE_NAMES[l.language as Language] ?? l.language} · {l.quantity}&nbsp;ks
-                    </div>
-                  </div>
-                  <Price amount={l.price_czk} />
-                  <form action={deleteListing}>
-                    <input type="hidden" name="id" value={l.id} />
-                    <Button type="submit" variant="ghost">Stáhnout</Button>
-                  </form>
-                </div>
-              );
-            })}
+      <section className="panel" id="moje-nabidky">
+        <div className={styles.sectionHead}>
+          <h2 className="t-heading-m">Moje nabídky{stock.length ? ` (${formatNumber(stock.length)})` : ''}</h2>
+          <div className={styles.headActions}>
+            <ButtonLink href="/prodat/import" variant="secondary">Hromadně nahrát</ButtonLink>
+            {stock.length ? <a href="/prodat/export" className="tz-btn tz-btn-ghost tz-btn-md" download>Exportovat sklad (CSV)</a> : null}
           </div>
+        </div>
+        {stock.length ? (
+          <StockTable items={stock} />
         ) : (
-          <p className="muted">Zatím nic neprodáváte.</p>
+          <p className="muted">
+            Zatím nic neprodáváte. Vystavte kartu výše, nebo <Link href="/prodat/import">nahrajte celý sklad z tabulky</Link> (CSV, Excel, export z Cardmarketu).
+          </p>
         )}
       </section>
     </div>

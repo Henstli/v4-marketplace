@@ -11,8 +11,14 @@ export const CONDITION_NAMES: Record<Condition, string> = {
   PL: 'Played',
 };
 
-export type Language = 'cs' | 'en' | 'de' | 'ja';
-export const LANGUAGE_NAMES: Record<Language, string> = { cs: 'Čeština', en: 'Angličtina', de: 'Němčina', ja: 'Japonština' };
+export type Language = 'cs' | 'en' | 'de' | 'ja' | 'fr' | 'it' | 'es' | 'pt' | 'ko' | 'zh' | 'ru';
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  cs: 'Čeština', en: 'Angličtina', de: 'Němčina', ja: 'Japonština',
+  // Další jazyky kvůli importu skladu z Cardmarketu.
+  fr: 'Francouzština', it: 'Italština', es: 'Španělština', pt: 'Portugalština', ko: 'Korejština', zh: 'Čínština', ru: 'Ruština',
+};
+/** Jazyky, které má filtr katalogu vždy; ostatní se ukážou, jen když jsou vybrané. */
+export const FILTER_LANGUAGES: Language[] = ['cs', 'en', 'de', 'ja'];
 
 export interface Card {
   id: string;

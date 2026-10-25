@@ -96,3 +96,13 @@
 @media (max-width: 720px) {
   .form { grid-template-columns: 1fr; }
 }
+
+.sectionHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.headActions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+.stock { display: flex; flex-direction: column; gap: var(--space-4); }
+.stockSearch { max-width: 420px; }
+.stockCard { display: flex; align-items: center; gap: var(--space-3); min-width: 220px; }
+.mono { font-family: var(--font-mono); }
+.pager { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
+.bulkInput { width: 80px; }

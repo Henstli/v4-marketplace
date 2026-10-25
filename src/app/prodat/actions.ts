@@ -45,10 +45,57 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   return { ok: true };
 }
 
-export async function deleteListing(form: FormData) {
-  const supabase = await createClient();
-  // RLS pustí smazání jen vlastní nabídky.
-  await supabase.from('listings').delete().eq('id', String(form.get('id')));
+function revalidateStock() {
   revalidatePath('/prodat');
   revalidatePath('/karty', 'layout');
+  revalidatePath('/prodejci', 'layout');
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const cleanIds = (ids: unknown) => (Array.isArray(ids) ? ids.map(String).filter((id) => UUID.test(id)).slice(0, 5000) : []);
+
+export interface BulkChange {
+  /** Změna ceny v procentech, např. -10 */
+  pct?: number;
+  /** Nová cena za kus v Kč */
+  price?: number;
+  /** Nový počet kusů */
+  quantity?: number;
+}
+
+export interface BulkResult {
+  count?: number;
+  error?: string;
+}
+
+// Hromadná úprava vlastních nabídek. Databázová funkce běží s právy prodejce, cizí nabídky nezmění.
+export async function bulkUpdateListings(ids: string[], change: BulkChange): Promise<BulkResult> {
+  const list = cleanIds(ids);
+  if (!list.length) return { error: 'Vyberte nabídky.' };
+  const pct = change.pct == null ? null : Number(change.pct);
+  const price = change.price == null ? null : Number(change.price);
+  const quantity = change.quantity == null ? null : Number(change.quantity);
+  if (pct != null && (!Number.isFinite(pct) || pct <= -100 || pct > 1000 || pct === 0)) return { error: 'Změna ceny musí být mezi -99 a 1000 %.' };
+  if (price != null && (!Number.isInteger(price) || price <= 0)) return { error: 'Cena musí být celé číslo v korunách.' };
+  if (quantity != null && (!Number.isInteger(quantity) || quantity < 0 || quantity > 999)) return { error: 'Počet kusů musí být 0 až 999.' };
+  if (pct == null && price == null && quantity == null) return { error: 'Zadejte, co se má změnit.' };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('bulk_update_listings', {
+    p_ids: list, p_price_pct: pct, p_price: price, p_quantity: quantity,
+  });
+  if (error) return { error: 'Nabídky se nepodařilo upravit. Zkuste to prosím znovu.' };
+  revalidateStock();
+  return { count: Number(data ?? 0) };
+}
+
+// Stažení z prodeje: nabídka bez objednávek se smaže, s objednávkou dostane 0 kusů.
+export async function withdrawListings(ids: string[]): Promise<BulkResult> {
+  const list = cleanIds(ids);
+  if (!list.length) return { error: 'Vyberte nabídky.' };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('withdraw_listings', { p_ids: list });
+  if (error) return { error: 'Nabídky se nepodařilo stáhnout. Zkuste to prosím znovu.' };
+  revalidateStock();
+  return { count: Number(data ?? 0) };
 }

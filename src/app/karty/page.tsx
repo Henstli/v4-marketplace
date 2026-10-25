@@ -6,7 +6,7 @@ import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { findSetsAndSellers, getSet, PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame, type GameId } from '@/lib/games';
-import { CONDITIONS, LANGUAGE_NAMES, type Condition, type Language, type SellerKind } from '@/lib/types';
+import { CONDITIONS, FILTER_LANGUAGES, LANGUAGE_NAMES, type Condition, type Language, type SellerKind } from '@/lib/types';
 import styles from './catalog.module.css';
 
 export const metadata: Metadata = { title: 'Karty' };
@@ -122,7 +122,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
 
         <FilterGroup title="JAZYK">
           <ChipLink href={href(params, 'jazyk', undefined)} selected={!query.language}>Vše</ChipLink>
-          {(Object.keys(LANGUAGE_NAMES) as Language[]).map((l) => (
+          {(query.language && !FILTER_LANGUAGES.includes(query.language) ? [...FILTER_LANGUAGES, query.language] : FILTER_LANGUAGES).map((l) => (
             <ChipLink key={l} href={href(params, 'jazyk', l)} selected={query.language === l}>{LANGUAGE_NAMES[l]}</ChipLink>
           ))}
         </FilterGroup>

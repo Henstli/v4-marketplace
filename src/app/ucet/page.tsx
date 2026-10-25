@@ -23,11 +23,12 @@ export default async function AccountPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/ucet');
   const supabase = await createClient();
-  const [{ data: profile }, { data: factors }, method, { heslo, email }] = await Promise.all([
+  const [{ data: profile }, { data: factors }, method, { heslo, email }, { data: subscribed }] = await Promise.all([
     supabase.from('profiles').select('display_name, kind, country').eq('id', user.id).single(),
     supabase.auth.mfa.listFactors(),
     identityMethod(supabase),
     searchParams,
+    supabase.rpc('has_subscription'),
   ]);
   const mfaEnabled = (factors?.totp.length ?? 0) > 0;
 
@@ -38,7 +39,12 @@ export default async function AccountPage({ searchParams }: Props) {
         <p className="muted">Přihlášeni jako {user.email}</p>
         <p className="t-small">
           <Link href="/prodat/nova-karta">Moje návrhy karet</Link>
-          {user.isAdmin ? <> · <Link href="/sprava/karty">Schvalování karet</Link></> : null}
+          {user.isAdmin ? <> · <Link href="/sprava/karty">Schvalování karet</Link> · <Link href="/sprava/predplatne">Předplatné prodejců</Link></> : null}
+        </p>
+        <p className="t-small muted">
+          {subscribed === true
+            ? 'Předplatné: aktivní. Hromadné nahrávání nabídek bez omezení.'
+            : <>Bez předplatného: <Link href="/prodat/import">hromadně nahrajete</Link> až 100 řádků najednou.</>}
         </p>
       </div>
       <section className="panel">
