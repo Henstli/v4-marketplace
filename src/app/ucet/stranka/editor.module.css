@@ -45,6 +45,28 @@
 }
 .imagePreview img { width: 100%; height: 100%; object-fit: cover; }
 .round { border-radius: 50%; }
+.imageWide { width: 240px; height: 72px; }
+.imageWide img { object-fit: cover; }
+
+.banners { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--space-2); }
+.bannerTile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bannerTile[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.bannerTile:disabled { cursor: not-allowed; opacity: 0.55; }
+.bannerSample { display: block; height: 48px !important; min-height: 0 !important; border-radius: calc(var(--radius-md) - 4px); }
+.bannerName { display: flex; align-items: center; gap: 4px; font-size: 13px; line-height: 18px; }
+.bannerName .lockTag { margin-left: auto; }
 .imageActions { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; }
 
 .linkButton { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }

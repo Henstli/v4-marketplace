@@ -50,7 +50,8 @@ export interface ShopHeaderProps {
   name: string;
   logo?: string | null;
   bannerImage?: string | null;
-  bannerStyle?: 'pattern' | 'solid';
+  /** Vzor banneru z design systému (tz-shop-banner-*) */
+  bannerStyle?: string;
   meta?: ReactNode;
   tagline?: ReactNode;
   badges?: ReactNode;
@@ -84,7 +85,7 @@ export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerS
   );
   return (
     <section className={cx('tz-shop-head', `tz-shop-head-${layout}`, className)} aria-label="Hlavička obchodu">
-      {layout === 'split' ? <div className="tz-shop-head-split">{id}{banner}</div> : <>{banner}{id}</>}
+      {layout === 'split' ? <div className="tz-shop-split-row">{id}{banner}</div> : <>{banner}{id}</>}
       {tabs?.length ? (
         <nav className="tz-shop-tabs" aria-label="Části stránky">
           {tabs.map((t) => <a key={t.href + t.label} href={t.href} aria-current={t.current ? 'page' : undefined}>{t.label}</a>)}

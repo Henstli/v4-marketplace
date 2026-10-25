@@ -9,7 +9,7 @@ import { formatNumber } from '@/lib/format';
 import { GAMES } from '@/lib/games';
 import { PLANS, type Plan } from '@/lib/plans';
 import {
-  BLOCKS, blockInfo, effectiveConfig, newBlock, shopHref, slugify, SHOP_BANNERS, SHOP_COLORS, SHOP_FONTS, SHOP_LAYOUTS, SLUG_RE,
+  allTabs, visibleTabs, BLOCKS, blockInfo, effectiveConfig, newBlock, shopHref, slugify, SHOP_BANNERS, SHOP_COLORS, SHOP_FONTS, SHOP_LAYOUTS, SLUG_RE,
   type BlockType, type ShopBlock, type ShopCollection, type ShopPageConfig,
 } from '@/lib/shop-config';
 import { CONDITIONS, LANGUAGE_NAMES, type Language } from '@/lib/types';
@@ -76,8 +76,8 @@ function Field({ label, hint, children, wide }: { label: string; hint?: ReactNod
   );
 }
 
-function ImageInput({ label, path, onPath, uid, prefix, round, disabled }: {
-  label: string; path: string; onPath: (p: string) => void; uid: string; prefix: string; round?: boolean; disabled?: boolean;
+function ImageInput({ label, path, onPath, uid, prefix, round, disabled, wide }: {
+  label: string; path: string; onPath: (p: string) => void; uid: string; prefix: string; round?: boolean; disabled?: boolean; wide?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -86,7 +86,7 @@ function ImageInput({ label, path, onPath, uid, prefix, round, disabled }: {
     <div className={sell.field}>
       <span className="t-label muted">{label}</span>
       <div className={styles.imageRow}>
-        <span className={`${styles.imagePreview} ${round ? styles.round : ''}`}>
+        <span className={`${styles.imagePreview} ${round ? styles.round : ''} ${wide ? styles.imageWide : ''}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {url ? <img src={url} alt="" /> : <span className="t-small muted">Bez obrázku</span>}
         </span>
@@ -113,7 +113,7 @@ function ImageInput({ label, path, onPath, uid, prefix, round, disabled }: {
             }}
           />
           {path ? <button type="button" className={styles.linkButton} onClick={() => onPath('')} disabled={disabled}>Odebrat</button> : null}
-          <span className="t-small muted">{busy ? 'Nahrávám…' : 'JPG, PNG nebo WebP do 3 MB'}</span>
+          <span className="t-small muted">{busy ? 'Nahrávám…' : wide ? 'JPG, PNG nebo WebP do 3 MB, ideálně 1600 × 400 px' : 'JPG, PNG nebo WebP do 3 MB'}</span>
           {error ? <span className={sell.error} role="alert">{error}</span> : null}
         </div>
       </div>
@@ -271,11 +271,11 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, listings, ca
           name={name}
           logo={mediaUrl(c.logoPath)}
           bannerImage={shown.design.banner === 'photo' ? mediaUrl(c.bannerPath) : null}
-          bannerStyle={shown.design.banner === 'solid' ? 'solid' : 'pattern'}
+          bannerStyle={shown.design.banner === 'photo' ? 'pattern' : shown.design.banner}
           meta={kind === 'shop' ? 'Obchod · Česko' : 'Sběratel · Česko'}
           tagline={c.tagline || undefined}
           badges={<>{badge ? <SellerBadge type="verified" /> : null}{plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
-          tabs={[{ label: 'Přehled', href: '#', current: true }, { label: 'Celá nabídka', href: '#' }, ...shown.collections.map((x) => ({ label: x.name, href: '#' }))]}
+          tabs={[{ label: 'Přehled', href: '#', current: true }, ...visibleTabs(shown).map((t) => ({ label: t.label, href: '#' }))]}
         />
       </section>
 
@@ -317,11 +317,28 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, listings, ca
           </div>
           <div className={sell.field}>
             <span className="t-label muted">BANNER</span>
-            <div className={styles.chips}>
-              {SHOP_BANNERS.map((x) => <Chip key={x.id} selected={c.design.banner === x.id} onClick={() => setDesign({ banner: x.id })}>{x.name}</Chip>)}
+            <span className="t-small muted">Vzory se barví podle barvy obchodu. Nebo nahrajte vlastní obrázek níže.</span>
+            <div className={`tz-shop ${styles.banners}`} style={shopStyle(c.design.color)}>
+              {SHOP_BANNERS.filter((x) => x.id !== 'photo').map((x) => (
+                <button key={x.id} type="button" className={styles.bannerTile} aria-pressed={c.design.banner === x.id} onClick={() => setDesign({ banner: x.id })}>
+                  <span className={`tz-shop-banner tz-shop-banner-${x.id} ${styles.bannerSample}`} aria-hidden="true" />
+                  <span className={styles.bannerName}>{x.name}{x.pro && !pro ? <ProTag /> : null}</span>
+                </button>
+              ))}
+              <button type="button" className={styles.bannerTile} aria-pressed={c.design.banner === 'photo'} onClick={() => setDesign({ banner: 'photo' })} disabled={!c.bannerPath}>
+                <span className={`tz-shop-banner ${styles.bannerSample}`} style={c.bannerPath ? { backgroundImage: `url(${JSON.stringify(mediaUrl(c.bannerPath))})` } : undefined} aria-hidden="true" />
+                <span className={styles.bannerName}>Vlastní obrázek</span>
+              </button>
             </div>
           </div>
-          {c.design.banner === 'photo' ? <ImageInput label="OBRÁZEK BANNERU" path={c.bannerPath} onPath={(p) => set('bannerPath', p)} uid={uid} prefix="banner" /> : null}
+          <ImageInput
+            label="VLASTNÍ OBRÁZEK BANNERU"
+            path={c.bannerPath}
+            onPath={(path) => setC((x) => ({ ...x, bannerPath: path, design: { ...x.design, banner: path ? 'photo' : x.design.banner === 'photo' ? 'pattern' : x.design.banner } }))}
+            uid={uid}
+            prefix="banner"
+            wide
+          />
           <div className={sell.field}>
             <span className="t-label muted">ŠABLONA HLAVIČKY {!pro ? <ProTag /> : null}</span>
             <div className={styles.chips}>
@@ -358,6 +375,8 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, listings, ca
           </Field>
         </div>
       </section>
+
+      <TabsEditor c={c} setDesign={setDesign} />
 
       <section className="panel">
         <div className={sell.sectionHead}>
@@ -562,6 +581,20 @@ function BlockSettings({ b, setData, uid, listings, listingById, cards, remember
         </div>
       );
     }
+    case 'games': {
+      const picked = b.data.games?.games ?? [];
+      const toggle = (id: (typeof GAMES)[number]['id']) => setData({ games: { games: GAMES.map((g) => g.id).filter((g) => (g === id ? !picked.includes(g) : picked.includes(g))) } });
+      return (
+        <div className={sell.field}>
+          <span className="t-label muted">HRY</span>
+          <div className={styles.chips}>
+            <Chip selected={!picked.length} onClick={() => setData({ games: { games: [] } })}>Všechny, které prodávám</Chip>
+            {GAMES.map((g) => <Chip key={g.id} selected={picked.includes(g.id)} dot={g.dot} onClick={() => toggle(g.id)}>{g.name}</Chip>)}
+          </div>
+          <span className="t-small muted">Hra bez karet v nabídce se neukáže.</span>
+        </div>
+      );
+    }
     case 'cheap': {
       const max = b.data.cheap?.maxPrice ?? 100;
       return (
@@ -693,4 +726,53 @@ function BlockSettings({ b, setData, uid, listings, listingById, cards, remember
     default:
       return <p className="t-small muted">{b.type === 'collections' ? 'Kolekce nastavíte níže v části Vlastní kolekce.' : 'Plní se samo z vaší nabídky.'}</p>;
   }
+}
+
+/** Záložky pod hlavičkou: Přehled je vždy první, ostatní jde přeřadit a skrýt. */
+function TabsEditor({ c, setDesign }: { c: ShopPageConfig; setDesign: (patch: Partial<ShopPageConfig['design']>) => void }) {
+  const tabs = allTabs(c);
+  const order = tabs.map((t) => t.id);
+  const visible = visibleTabs(c).map((t) => t.id);
+  return (
+    <section className="panel">
+      <div className={sell.sectionHead}>
+        <h2 className="t-heading-m">Záložky</h2>
+        <span className="t-small muted">Lišta pod hlavičkou. Každá záložka otevře vlastní pohled.</span>
+      </div>
+      <div className={styles.rows}>
+        <div className={styles.picked}>
+          <span className={styles.pickText}><strong>Přehled</strong><span className="t-small muted">Vždy první, bloky stránky</span></span>
+        </div>
+        {tabs.map((t, i) => {
+          const hidden = c.design.hiddenTabs.includes(t.id);
+          const empty = !hidden && !visible.includes(t.id);
+          return (
+            <div key={t.id} className={styles.picked}>
+              <label className={styles.check}>
+                <input type="checkbox" checked={!hidden} onChange={(e) => setDesign({ hiddenTabs: e.target.checked ? c.design.hiddenTabs.filter((x) => x !== t.id) : [...c.design.hiddenTabs, t.id] })} />
+                <span className={styles.pickText}>
+                  <strong>{t.label || 'Kolekce bez názvu'}</strong>
+                  {empty ? <span className="t-small muted">Neukáže se, vyplňte O nás, kontakt nebo prodejnu</span> : null}
+                  {t.id.startsWith('c:') ? <span className="t-small muted">Vlastní kolekce</span> : null}
+                </span>
+              </label>
+              <RowActionsMove
+                onUp={i > 0 ? () => setDesign({ tabs: move(order, i, -1) }) : undefined}
+                onDown={i < tabs.length - 1 ? () => setDesign({ tabs: move(order, i, 1) }) : undefined}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RowActionsMove({ onUp, onDown }: { onUp?: () => void; onDown?: () => void }) {
+  return (
+    <span className={styles.rowActions}>
+      {onUp ? <button type="button" className={styles.iconButton} onClick={onUp} aria-label="Posunout doleva">←</button> : null}
+      {onDown ? <button type="button" className={styles.iconButton} onClick={onDown} aria-label="Posunout doprava">→</button> : null}
+    </span>
+  );
 }

@@ -1,18 +1,20 @@
 import Link from 'next/link';
-import { ChipLink, Price, SellerBadge, ShopHeader, ShopSection, shopStyle } from '@/components/trezor';
+import { ButtonLink, ChipLink, Price, SellerBadge, ShopHeader, ShopSection, shopStyle } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame } from '@/lib/games';
 import { PLANS } from '@/lib/plans';
-import { blockInfo, safeColor, shopHref, type ShopBlock, type ShopCollection } from '@/lib/shop-config';
+import { blockInfo, safeColor, shopHref, visibleTabs, type ShopBlock, type ShopCollection } from '@/lib/shop-config';
 import { getCardsByIds, getGameCounts, getShopListings, mediaUrl, type ShopListing, type ShopProfile } from '@/lib/shop';
 import { CONDITION_NAMES, LANGUAGE_NAMES, type Condition, type Language } from '@/lib/types';
 import type { GameId } from '@/lib/games';
 import styles from './shop.module.css';
 
 export interface StockQuery {
+  /** Pohled: 'nabidka' (celá nabídka) nebo 'onas'; bez něj Přehled */
+  zalozka?: string;
   q?: string;
   hra?: string;
   kolekce?: string;
@@ -166,13 +168,17 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
     }
     case 'games': {
       const counts = await getGameCounts(sid);
-      const ordered = GAMES.map((g) => ({ g, n: counts.find((c) => c.game === g.id)?.cards ?? 0 })).filter((x) => x.n > 0);
+      const picked = b.data.games?.games ?? [];
+      const ordered = GAMES
+        .filter((g) => !picked.length || picked.includes(g.id))
+        .map((g) => ({ g, n: counts.find((c) => c.game === g.id)?.cards ?? 0 }))
+        .filter((x) => x.n > 0);
       if (!ordered.length) return null;
       return (
         <ShopSection title={blockTitle(b)}>
           <div className={styles.tiles}>
             {ordered.map(({ g, n }) => (
-              <Link key={g.id} href={`${base}?hra=${g.id}#nabidka`} className={styles.tile}>
+              <Link key={g.id} href={`${base}?zalozka=nabidka&hra=${g.id}`} className={styles.tile}>
                 <span className={styles.tileTitle}><span className={styles.dot} style={{ background: g.dot }} aria-hidden="true" />{g.name}</span>
                 <span className="t-price-l">{formatNumber(n)}</span>
                 <span className="t-small muted">{plural(n, ['karta', 'karty', 'karet'])}</span>
@@ -188,7 +194,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
         <ShopSection title={blockTitle(b)}>
           <div className={styles.tiles}>
             {p.config.collections.map((c) => (
-              <Link key={c.id} href={`${base}?kolekce=${c.id}#nabidka`} className={styles.tile}>
+              <Link key={c.id} href={`${base}?kolekce=${c.id}`} className={styles.tile}>
                 <span className={styles.tileTitle}>{c.name}</span>
                 <span className="t-small muted">{collectionLabel(c)}</span>
               </Link>
@@ -315,43 +321,62 @@ export function collectionLabel(c: ShopCollection): string {
   ].filter(Boolean).join(' · ') || 'Celý sklad';
 }
 
-async function Stock({ p, base, query }: { p: ShopProfile; base: string; query: StockQuery }) {
-  const collection = p.config.collections.find((c) => c.id === query.kolekce);
-  const q = (query.q ?? collection?.q ?? '').slice(0, 60) || undefined;
-  const game = (GAMES.find((g) => g.id === query.hra)?.id ?? (collection?.game || undefined)) as GameId | undefined;
+/** Celá nabídka nebo kolekce s hledáním; na Přehledu jen náhled prvních karet. */
+async function Stock({ p, base, query, preview }: { p: ShopProfile; base: string; query: StockQuery; preview?: boolean }) {
+  const collection = preview ? undefined : p.config.collections.find((c) => c.id === query.kolekce);
+  const q = preview ? undefined : (query.q ?? collection?.q ?? '').slice(0, 60) || undefined;
+  const game = preview ? undefined : (GAMES.find((g) => g.id === query.hra)?.id ?? (collection?.game || undefined)) as GameId | undefined;
   const n = Number(query.strana);
-  const page = Number.isInteger(n) && n > 1 ? n : 1;
+  const page = !preview && Number.isInteger(n) && n > 1 ? n : 1;
   const { cards, total } = await searchCards({
     sellerId: p.seller.id, q, game, page,
+    pageSize: preview ? 12 : PAGE_SIZE,
     condition: (collection?.condition || undefined) as Condition | undefined,
     language: (collection?.language || undefined) as Language | undefined,
   });
+
+  if (preview) {
+    if (!cards.length) return null;
+    return (
+      <ShopSection title="Z nabídky" note={plural(total, ['karta', 'karty', 'karet'])}>
+        <div className="card-grid">{cards.map((c) => <CardSummaryTile key={c.id} card={c} />)}</div>
+        {total > cards.length ? (
+          <div className={styles.pager}>
+            <ButtonLink href={`${base}?zalozka=nabidka`} variant="secondary">Zobrazit celou nabídku</ButtonLink>
+          </div>
+        ) : null}
+      </ShopSection>
+    );
+  }
+
   const pages = Math.ceil(total / PAGE_SIZE);
+  const view = collection ? { kolekce: collection.id } : { zalozka: 'nabidka' };
   const href = (params: Record<string, string | undefined>) => {
     const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
-    const s = sp.toString();
-    return `${base}${s ? `?${s}` : ''}#nabidka`;
+    for (const [k, v] of Object.entries({ ...view, ...params })) if (v) sp.set(k, v);
+    return `${base}?${sp.toString()}`;
   };
-  const keep = { q: query.q, hra: query.hra, kolekce: query.kolekce };
+  const keep = { q: query.q, hra: query.hra };
   const counts = await getGameCounts(p.seller.id);
 
   return (
     <ShopSection id="nabidka" title={collection ? collection.name : 'Celá nabídka'} note={plural(total, ['karta', 'karty', 'karet'])}>
-      <form action={`${base}#nabidka`} className={styles.stockBar} role="search">
-        {query.kolekce ? <input type="hidden" name="kolekce" value={query.kolekce} /> : null}
+      <form action={base} className={styles.stockBar} role="search">
+        {collection ? <input type="hidden" name="kolekce" value={collection.id} /> : <input type="hidden" name="zalozka" value="nabidka" />}
         {query.hra ? <input type="hidden" name="hra" value={query.hra} /> : null}
         <div className={styles.stockSearch}>
           <input type="search" name="q" defaultValue={query.q ?? ''} placeholder={`Hledat v nabídce prodejce ${p.seller.name}`} aria-label="Hledat v nabídce prodejce" />
           <button type="submit" className="tz-btn tz-btn-secondary tz-btn-md">Hledat</button>
         </div>
       </form>
-      <div className={styles.stockBar}>
-        <ChipLink href={href({ q: query.q, kolekce: query.kolekce })} selected={!query.hra}>Vše</ChipLink>
-        {GAMES.filter((g) => counts.some((c) => c.game === g.id)).map((g) => (
-          <ChipLink key={g.id} href={href({ ...keep, hra: g.id })} selected={query.hra === g.id} dot={g.dot}>{g.name}</ChipLink>
-        ))}
-      </div>
+      {!collection?.game ? (
+        <div className={styles.stockBar}>
+          <ChipLink href={href({ q: query.q })} selected={!query.hra}>Vše</ChipLink>
+          {GAMES.filter((g) => counts.some((c) => c.game === g.id)).map((g) => (
+            <ChipLink key={g.id} href={href({ ...keep, hra: g.id })} selected={query.hra === g.id} dot={g.dot}>{g.name}</ChipLink>
+          ))}
+        </div>
+      ) : null}
       {cards.length ? (
         <>
           <div className="card-grid">{cards.map((c) => <CardSummaryTile key={c.id} card={c} />)}</div>
@@ -370,11 +395,6 @@ async function Stock({ p, base, query }: { p: ShopProfile; base: string; query: 
   );
 }
 
-function hasSidebar(p: ShopProfile): boolean {
-  const c = p.config;
-  return !!(c.about || c.store.address || c.store.hours.length || Object.values(c.contact).some(Boolean));
-}
-
 function contactHref(kind: string, v: string): string | null {
   if (kind === 'email') return `mailto:${v}`;
   if (kind === 'phone') return `tel:${v.replace(/\s/g, '')}`;
@@ -384,11 +404,12 @@ function contactHref(kind: string, v: string): string | null {
 
 const CONTACT_LABELS: Record<string, string> = { web: 'Web', instagram: 'Instagram', facebook: 'Facebook', discord: 'Discord', email: 'E-mail', phone: 'Telefon' };
 
-function Sidebar({ p }: { p: ShopProfile }) {
+function Sidebar({ p, wide }: { p: ShopProfile; wide?: boolean }) {
   const c = p.config;
   const contacts = Object.entries(c.contact).filter(([, v]) => v);
+  if (!c.about && !c.store.address && !c.store.hours.length && !contacts.length) return null;
   return (
-    <aside className={styles.aside} id="onas">
+    <aside className={wide ? styles.aboutView : styles.aside}>
       {c.about ? (
         <section className={styles.panel}>
           <h2 className="t-heading-m" style={{ fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never }}>O nás</h2>
@@ -431,11 +452,19 @@ export async function ShopPageView({ p, query, preview }: { p: ShopProfile; quer
   const base = shopHref(p.seller.kind, c.slug);
   const { total } = await searchCards({ sellerId: p.seller.id, pageSize: 1 });
   const fontUrl = FONT_URLS[c.design.font];
-  const tabs = [
-    { label: 'Přehled', href: base, current: !query.kolekce && !query.hra && !query.q },
-    { label: 'Celá nabídka', href: `${base}#nabidka` },
-    ...c.collections.map((col) => ({ label: col.name, href: `${base}?kolekce=${col.id}#nabidka`, current: query.kolekce === col.id })),
-    ...(hasSidebar(p) ? [{ label: 'O nás', href: `${base}#onas` }] : []),
+  const tabs = visibleTabs(c);
+  const collection = c.collections.find((col) => col.id === query.kolekce);
+  const view = collection ? 'collection'
+    : query.zalozka === 'onas' ? 'about'
+    : query.zalozka === 'nabidka' || query.q || query.hra ? 'stock'
+    : 'overview';
+  const tabLinks = [
+    { label: 'Přehled', href: base, current: view === 'overview' },
+    ...tabs.map((t) => ({
+      label: t.label,
+      href: t.id === 'nabidka' ? `${base}?zalozka=nabidka` : t.id === 'onas' ? `${base}?zalozka=onas` : `${base}?kolekce=${t.id.slice(2)}`,
+      current: t.id === 'nabidka' ? view === 'stock' : t.id === 'onas' ? view === 'about' : view === 'collection' && t.id === `c:${collection?.id}`,
+    })),
   ];
 
   return (
@@ -459,19 +488,25 @@ export async function ShopPageView({ p, query, preview }: { p: ShopProfile; quer
           name={p.seller.name}
           logo={mediaUrl(c.logoPath)}
           bannerImage={c.design.banner === 'photo' ? mediaUrl(c.bannerPath) : null}
-          bannerStyle={c.design.banner === 'solid' ? 'solid' : 'pattern'}
+          bannerStyle={c.design.banner === 'photo' ? 'pattern' : c.design.banner}
           meta={sellerMeta(p, total)}
           tagline={c.tagline || undefined}
           badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
-          tabs={tabs}
+          tabs={tabLinks}
         />
-        <div className={styles.columns}>
-          <div className={styles.main}>
-            {c.blocks.map((b) => <Block key={b.id} b={b} p={p} base={base} />)}
-            <Stock p={p} base={base} query={query} />
+        {view === 'overview' ? (
+          <div className={styles.columns}>
+            <div className={styles.main}>
+              {c.blocks.map((b) => <Block key={b.id} b={b} p={p} base={base} />)}
+              <Stock p={p} base={base} query={query} preview />
+            </div>
+            <Sidebar p={p} />
           </div>
-          {hasSidebar(p) ? <Sidebar p={p} /> : null}
-        </div>
+        ) : view === 'about' ? (
+          <Sidebar p={p} wide />
+        ) : (
+          <Stock p={p} base={base} query={query} />
+        )}
       </div>
     </div>
   );

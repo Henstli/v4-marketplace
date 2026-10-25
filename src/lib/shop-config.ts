@@ -40,10 +40,19 @@ export const SHOP_FONTS = [
 ] as const;
 export type ShopFont = (typeof SHOP_FONTS)[number]['id'];
 
+/** Vzory banneru = třídy tz-shop-banner-* z design systému, všechny z barvy obchodu */
 export const SHOP_BANNERS = [
-  { id: 'pattern', name: 'Vzor' },
-  { id: 'solid', name: 'Barva' },
-  { id: 'photo', name: 'Vlastní obrázek' },
+  { id: 'pattern', name: 'Proužky', pro: false },
+  { id: 'solid', name: 'Barva', pro: false },
+  { id: 'gradient', name: 'Přechod', pro: false },
+  { id: 'dots', name: 'Puntíky', pro: false },
+  { id: 'grid', name: 'Mřížka', pro: true },
+  { id: 'checks', name: 'Šachovnice', pro: true },
+  { id: 'waves', name: 'Vlny', pro: true },
+  { id: 'rays', name: 'Paprsky', pro: true },
+  { id: 'holo', name: 'Holo', pro: true },
+  { id: 'sparkle', name: 'Třpyt', pro: true },
+  { id: 'photo', name: 'Vlastní obrázek', pro: false },
 ] as const;
 export type ShopBanner = (typeof SHOP_BANNERS)[number]['id'];
 
@@ -54,9 +63,13 @@ export interface ShopDesign {
   font: ShopFont;
   corners: 'round' | 'sharp';
   banner: ShopBanner;
+  /** Pořadí záložek za Přehledem: 'nabidka', 'onas', 'c:<id kolekce>' */
+  tabs: string[];
+  /** Skryté záložky (stejná id) */
+  hiddenTabs: string[];
 }
 
-export const DEFAULT_DESIGN: ShopDesign = { color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'pattern' };
+export const DEFAULT_DESIGN: ShopDesign = { color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'pattern', tabs: [], hiddenTabs: [] };
 
 export type BlockType =
   | 'notice' | 'spotlight' | 'featured' | 'games' | 'collections' | 'newest' | 'cheap'
@@ -96,6 +109,8 @@ export interface NoticeData { title: string; text: string; until: string }
 export interface SpotlightData { listingId: string; story: string }
 export interface FeaturedData { listingIds: string[] }
 export interface CheapData { maxPrice: number }
+/** Které hry ukázat; prázdné = všechny, které má prodejce v nabídce */
+export interface GamesData { games: GameId[] }
 export interface EventItem { date: string; title: string; info: string }
 export interface FaqItem { q: string; a: string }
 export interface ShowcaseItem { cardId: string; grade: string; note: string }
@@ -113,6 +128,7 @@ export interface ShopBlock {
     spotlight?: SpotlightData;
     featured?: FeaturedData;
     cheap?: CheapData;
+    games?: GamesData;
     events?: EventItem[];
     photos?: string[];
     faq?: FaqItem[];
@@ -205,6 +221,8 @@ function mediaPath(v: unknown, owner: string): string {
   return s && new RegExp(`^${owner}/[a-z0-9-]+\\.(jpe?g|png|webp)$`).test(s) ? s : '';
 }
 
+const TAB_RE = /^(nabidka|onas|c:[a-z0-9]{1,12})$/i;
+
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
 export function slugify(s: string): string {
@@ -231,6 +249,11 @@ function sanitizeBlock(raw: unknown, owner: string): ShopBlock | null {
     case 'featured':
       data.featured = { listingIds: [...new Set(arr(obj(d.featured).listingIds, 12).map(uuid).filter(Boolean))] };
       break;
+    case 'games': {
+      const picked = arr(obj(d.games).games, GAMES.length).filter((g): g is GameId => GAMES.some((x) => x.id === g));
+      data.games = { games: GAMES.map((g) => g.id).filter((id) => picked.includes(id)) };
+      break;
+    }
     case 'cheap':
       data.cheap = { maxPrice: price(obj(d.cheap).maxPrice) ?? 100 };
       break;
@@ -287,6 +310,8 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
       font: oneOf(d.font, ids(SHOP_FONTS), 'modern'),
       corners: oneOf(d.corners, ['round', 'sharp'] as const, 'round'),
       banner: oneOf(d.banner, ids(SHOP_BANNERS), 'pattern'),
+      tabs: [...new Set(arr(d.tabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
+      hiddenTabs: [...new Set(arr(d.hiddenTabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
     },
     blocks: Array.isArray(r.blocks) ? blocks : base.blocks,
     collections: arr(r.collections, 20).map((x) => obj(x)).map((x) => ({
@@ -312,7 +337,10 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
 /** Co z nastavení se smí ukázat při daném tarifu. Uložené nastavení se nemění, jen zobrazení. */
 export function effectiveConfig(config: ShopPageConfig, plan: Plan): ShopPageConfig {
   const info: PlanInfo = PLANS[plan];
-  const design: ShopDesign = info.fullDesign ? config.design : { ...config.design, layout: 'banner', font: 'modern', corners: 'round' };
+  const proBanner = SHOP_BANNERS.find((b) => b.id === config.design.banner)?.pro;
+  const design: ShopDesign = info.fullDesign
+    ? config.design
+    : { ...config.design, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner };
   const blocks = config.blocks
     .filter((b) => b.enabled && (info.proBlocks || !blockInfo(b.type)?.pro))
     .slice(0, info.maxBlocks);
@@ -335,4 +363,30 @@ export function hasVerifiedBadge(plan: Plan, verified: boolean, rating: number |
 /** Veřejná adresa stránky prodejce */
 export function shopHref(kind: 'shop' | 'private', slug: string): string {
   return `/${kind === 'shop' ? 'obchod' : 'sberatel'}/${slug}`;
+}
+
+export interface ShopTab {
+  /** 'nabidka', 'onas' nebo 'c:<id kolekce>' */
+  id: string;
+  label: string;
+}
+
+/** Možné záložky za Přehledem v uloženém pořadí (nové na konec). Přehled je vždy první a v seznamu není. */
+export function allTabs(config: ShopPageConfig): ShopTab[] {
+  const known: ShopTab[] = [
+    { id: 'nabidka', label: 'Celá nabídka' },
+    ...config.collections.map((c) => ({ id: `c:${c.id}`, label: c.name })),
+    { id: 'onas', label: 'O nás' },
+  ];
+  const at = new Map(config.design.tabs.map((id, i) => [id, i]));
+  return known
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (at.get(a.t.id) ?? 100 + a.i) - (at.get(b.t.id) ?? 100 + b.i))
+    .map((x) => x.t);
+}
+
+/** Záložky, které se opravdu ukážou: bez skrytých a bez O nás, když není co ukázat. */
+export function visibleTabs(config: ShopPageConfig): ShopTab[] {
+  const hasAbout = !!(config.about || config.store.address || config.store.hours.length || Object.values(config.contact).some(Boolean));
+  return allTabs(config).filter((t) => !config.design.hiddenTabs.includes(t.id) && (t.id !== 'onas' || hasAbout));
 }
