@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import styles from '@/components/auth/auth.module.css';
 import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { identityMethod } from '@/lib/identity';
 import { createClient } from '@/lib/supabase/server';
 import { NewPasswordForm } from './NewPasswordForm';
 
@@ -14,11 +15,9 @@ export default async function NewPasswordPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/zapomenute-heslo');
   const supabase = await createClient();
-  const [{ data: recovery }, { data: hasPassword }] = await Promise.all([
-    supabase.rpc('recent_password_recovery'),
-    supabase.rpc('has_password'),
-  ]);
-  const askCurrent = hasPassword === true && recovery !== true;
+  const { data: recovery } = await supabase.rpc('recent_password_recovery');
+  const check = recovery === true ? null : await identityMethod(supabase);
+  const askCurrent = check === 'password';
 
   return (
     <div className="container section">
@@ -27,9 +26,10 @@ export default async function NewPasswordPage() {
           <h1 className="t-heading-l">{askCurrent ? 'Změna hesla' : 'Nové heslo'}</h1>
           <p className="muted">
             {askCurrent ? `Účet ${user.email}. Pro jistotu zadejte i současné heslo.` : `Nastavte si heslo pro účet ${user.email}.`}
+            {check && !askCurrent ? ' Nejdřív potvrďte, že jste to vy.' : null}
           </p>
         </div>
-        <NewPasswordForm email={user.email} askCurrent={askCurrent} />
+        <NewPasswordForm email={user.email} check={check} />
         <p className="t-small muted">
           {askCurrent ? <><Link href="/zapomenute-heslo">Nepamatujete si současné heslo?</Link> · </> : null}
           <Link href="/ucet">Zpět na účet</Link>

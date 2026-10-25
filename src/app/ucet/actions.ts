@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { authErrorMessage } from '@/lib/auth-helpers';
+import { verifyIdentity } from '@/lib/identity';
 import { createClient } from '@/lib/supabase/server';
 
 export interface ProfileState {
@@ -58,9 +59,17 @@ export async function confirmMfa(_prev: MfaState, form: FormData): Promise<MfaSt
   return { done: 'enabled' };
 }
 
-export async function disableMfa(): Promise<MfaState> {
+/** Vypnutí dvoufázového ověření: pro jistotu chce aktuální kód z aplikace. */
+export async function disableMfa(_prev: MfaState, form: FormData): Promise<MfaState> {
+  const code = String(form.get('code') ?? '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(code)) return { error: 'Zadejte šestimístný kód z aplikace.' };
   const supabase = await createClient();
   const { data: factors } = await supabase.auth.mfa.listFactors();
+  const factor = factors?.totp[0];
+  if (factor) {
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    if (error) return { error: authErrorMessage(error) };
+  }
   for (const f of factors?.totp ?? []) {
     const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
     if (error) return { error: authErrorMessage(error) };
@@ -68,4 +77,25 @@ export async function disableMfa(): Promise<MfaState> {
   await supabase.auth.refreshSession();
   revalidatePath('/ucet');
   return { done: 'disabled' };
+}
+
+export interface EmailChangeState {
+  error?: string;
+  sentTo?: string;
+}
+
+/** Změna e-mailu: potvrdí se heslem nebo kódem a pak odkazem z e-mailu. */
+export async function changeEmail(_prev: EmailChangeState, form: FormData): Promise<EmailChangeState> {
+  const newEmail = String(form.get('newEmail') ?? '').trim().toLowerCase();
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user?.email) return { error: 'Nejste přihlášeni.' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) return { error: 'Zadejte platný e-mail.' };
+  if (newEmail === auth.user.email.toLowerCase()) return { error: 'Tohle je váš současný e-mail.' };
+
+  const problem = await verifyIdentity(supabase, auth.user.email, form);
+  if (problem) return { error: problem };
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+  if (error) return { error: authErrorMessage(error) };
+  return { sentTo: newEmail };
 }

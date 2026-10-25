@@ -49,6 +49,9 @@ export function authErrorMessage(error: { code?: string; message?: string } | nu
       return 'Kód nesedí nebo už vypršel. Zadejte aktuální kód z aplikace.';
     case 'insufficient_aal':
       return 'Nejdřív dokončete dvoufázové ověření.';
+    case 'otp_expired':
+      return 'Kód nebo odkaz už vypršel. Pošlete si nový.';
+    case 'otp_disabled':
     case 'provider_disabled':
       return 'Tento způsob přihlášení zatím není zapnutý.';
     default:

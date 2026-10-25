@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeNext } from '@/lib/auth-helpers';
+import { sendWelcomeEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 
-// Sem vede odkaz z e-mailu (ověření registrace, nové heslo) a návrat z přihlášení přes Google.
+// Sem se vrací přihlášení přes Google (a starší odkazy z e-mailů; nové vedou na /auth/confirm).
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -11,7 +12,10 @@ export async function GET(request: NextRequest) {
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    if (!error) {
+      await sendWelcomeEmail(supabase, origin);
+      return NextResponse.redirect(`${origin}${next}`);
+    }
   }
   return NextResponse.redirect(`${origin}/prihlaseni?chyba=odkaz`);
 }

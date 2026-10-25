@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { authErrorMessage, safeNext, siteOrigin } from '@/lib/auth-helpers';
+import { isTrustedDevice, setPendingLogin } from '@/lib/devices';
 import { createClient } from '@/lib/supabase/server';
 
 export interface LoginState {
@@ -27,6 +28,15 @@ export async function signInWithPassword(_prev: LoginState, form: FormData): Pro
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.currentLevel === 'aal1' && aal.nextLevel === 'aal2') {
     redirect(`/prihlaseni/overeni?dalsi=${encodeURIComponent(next)}`);
+  }
+
+  // Nové zařízení a bez ověřovací aplikace: samotné heslo nestačí, pošleme ještě kód na e-mail.
+  if (!(await isTrustedDevice(supabase))) {
+    await supabase.auth.signOut({ scope: 'local' });
+    const { error: otpError } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    if (otpError && otpError.code !== 'over_email_send_rate_limit') return { error: authErrorMessage(otpError) };
+    await setPendingLogin(email);
+    redirect(`/prihlaseni/kod?dalsi=${encodeURIComponent(next)}`);
   }
   redirect(next);
 }

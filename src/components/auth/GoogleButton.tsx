@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { signInWithGoogle } from '@/app/prihlaseni/actions';
 import styles from './auth.module.css';
 
@@ -14,6 +15,11 @@ export function GoogleButton({ next, label = 'Pokračovat přes Google' }: { nex
           {label}
         </button>
       </form>
+      {/* U Googlu se účet založí rovnou, souhlas proto uvádíme tady (u e-mailu je to zaškrtávací políčko). */}
+      <p className="t-small muted">
+        Pokračováním přes Google souhlasíte s obchodními podmínkami a berete na vědomí{' '}
+        <Link href="/ochrana-osobnich-udaju" target="_blank">zásady ochrany osobních údajů</Link>.
+      </p>
       <div className={`t-small ${styles.divider}`}>nebo e-mailem</div>
     </>
   );
