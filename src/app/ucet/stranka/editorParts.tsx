@@ -3,7 +3,7 @@
 // Společné ovládací prvky editoru stránky: pole, nahrávání obrázků, výběr nabídek a karet.
 import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Button, SellerBadge } from '@/components/trezor';
+import { Button, CardThumb, SellerBadge } from '@/components/trezor';
 import { createClient } from '@/lib/supabase/browser';
 import { SUPABASE_URL } from '@/lib/supabase/config';
 import { formatNumber } from '@/lib/format';
@@ -17,6 +17,9 @@ export interface ListingOption {
   sub: string;
   price: number;
   image?: string;
+  game?: string;
+  setCode?: string;
+  setName?: string;
 }
 
 const MAX_IMAGE = 3 * 1024 * 1024;
@@ -158,6 +161,7 @@ export function ListingPicker({ listings, selected, onPick, max }: { listings: L
       <div className={styles.pickList}>
         {found.map((l) => (
           <button key={l.id} type="button" className={styles.pickRow} onClick={() => onPick(l.id)}>
+            <CardThumb image={l.image} size="sm" preview={l.image} />
             <span className={styles.pickText}><strong>{l.name}</strong><span className="code muted">{l.sub}</span></span>
             <span className="t-price">{formatNumber(l.price)} Kč</span>
             <span className={styles.add} aria-hidden="true">+</span>
@@ -178,6 +182,7 @@ export function PickedListings({ ids, onChange, listingById }: { ids: string[]; 
         const l = listingById.get(id);
         return (
           <div key={id} className={styles.picked}>
+            <CardThumb image={l?.image} size="sm" preview={l?.image} />
             <span className={styles.pickText}><strong>{l?.name ?? 'Nabídka už není v prodeji'}</strong>{l ? <span className="code muted">{l.sub} · {formatNumber(l.price)} Kč</span> : null}</span>
             <RowActions
               onUp={i > 0 ? () => onChange(move(ids, i, -1)) : undefined}
@@ -214,6 +219,7 @@ export function CardPicker({ onPick }: { onPick: (c: PickerCard) => void }) {
         <div className={styles.pickList}>
           {found.map((c) => (
             <button key={c.id} type="button" className={styles.pickRow} onClick={() => onPick(c)}>
+              <CardThumb image={c.image} size="sm" preview={c.image} />
               <span className={styles.pickText}><strong>{c.name}</strong><span className="code muted">{c.setCode} {c.number}</span></span>
               <span className={styles.add} aria-hidden="true">+</span>
             </button>

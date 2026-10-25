@@ -4,13 +4,13 @@
 // Změny se průběžně ukládají jako koncept, kupující je uvidí až po „Zveřejnit změny“.
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Button, Chip, SellerBadge, ShopDivider, shopStyle } from '@/components/trezor';
+import { Button, ButtonLink, Chip, SellerBadge, ShopDivider, shopStyle } from '@/components/trezor';
 import { plural } from '@/lib/format';
 import { GAMES } from '@/lib/games';
 import { PLANS, type Plan } from '@/lib/plans';
 import {
   allTabs, visibleTabs, BLOCKS, blockInfo, effectiveConfig, newBlock, shopHref, slugify,
-  SHOP_BACKGROUNDS, SHOP_BANNERS, SHOP_COLORS, SHOP_DIVIDERS, SHOP_FONTS, SHOP_ICONS, SHOP_LAYOUTS, SHOP_SEASONS, SLUG_RE,
+  SHOP_BACKGROUNDS, SHOP_BANNERS, SHOP_COLORS, SHOP_DIVIDERS, SHOP_FONTS, SHOP_ICONS, SHOP_LAYOUTS, SHOP_TYPES, SLUG_RE, emptyCollection, COLLECTION_SORTS,
   type BlockInfo, type BlockType, type BlockWidth, type ShopBlock, type ShopCollection, type ShopDesign, type ShopPageConfig,
 } from '@/lib/shop-config';
 import { CONDITIONS, LANGUAGE_NAMES, type Language } from '@/lib/types';
@@ -62,25 +62,6 @@ const WIDTHS: { id: BlockWidth; name: string }[] = [
   { id: 'full', name: 'Celá šířka' },
   { id: 'half', name: 'Polovina' },
   { id: 'third', name: 'Třetina' },
-];
-
-/** Hotové šablony: rozvržení a bloky na začátek, texty a obrázky zůstanou. */
-const TEMPLATES: { id: string; name: string; desc: string; blocks: BlockType[]; design: Partial<ShopDesign> }[] = [
-  {
-    id: 'store', name: 'Kamenný obchod', desc: 'Akce, turnaje, mapa a fotky prodejny',
-    blocks: ['notice', 'window', 'featured', 'countdown', 'events', 'games', 'reviews', 'photos', 'map', 'faq'],
-    design: { sidebar: 'right', stickyTabs: true, icon: 'star', divider: 'line', background: 'glow' },
-  },
-  {
-    id: 'online', name: 'Online obchod', desc: 'Doporučené, novinky, levné karty a recenze',
-    blocks: ['notice', 'featured', 'newest', 'cheap', 'games', 'reviews', 'faq'],
-    design: { sidebar: 'right', stickyTabs: true, icon: 'bolt', divider: 'none', background: 'dots' },
-  },
-  {
-    id: 'collector', name: 'Sběratel', desc: 'Vitrína sbírky, co prodávám a co hledám',
-    blocks: ['window', 'showcase', 'featured', 'wanted', 'reviews'],
-    design: { sidebar: 'right', stickyTabs: false, icon: 'diamond', divider: 'dots', background: 'stripes', holo: true },
-  },
 ];
 
 const PREVIEW = '/ucet/stranka/nahled';
@@ -208,10 +189,32 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     railBody.current?.scrollTo({ top: 0 });
   }, []);
 
-  // Klik na část náhledu otevře její nastavení.
+  /** Blok přetažený v náhledu: nad, pod, nebo vedle jiného bloku (vedle = oba na polovinu, jen Pro). */
+  const moveBlock = useCallback((id: string, target: string, pos: string) => {
+    update((x) => {
+      const moving = x.blocks.find((b) => b.id === id);
+      if (!moving || id === target || !x.blocks.some((b) => b.id === target)) return x;
+      const side = (pos === 'left' || pos === 'right') && pro;
+      const rest = x.blocks.filter((b) => b.id !== id);
+      const at = rest.findIndex((b) => b.id === target);
+      const after = pos === 'after' || pos === 'right';
+      const tw = rest[at].width === 'full' ? 'half' : rest[at].width;
+      const moved = side ? { ...moving, width: tw } : moving;
+      const next = rest.map((b, i) => (side && i === at ? { ...b, width: tw } : b));
+      next.splice(after ? at + 1 : at, 0, moved);
+      return { ...x, blocks: next };
+    });
+  }, [update, pro]);
+
+  // Klik na část náhledu otevře její nastavení, přetažení bloku ho přesune.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin || e.data?.type !== 'v4-shop-edit') return;
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'v4-shop-move') {
+        moveBlock(String(e.data.id ?? ''), String(e.data.target ?? ''), String(e.data.pos ?? ''));
+        return;
+      }
+      if (e.data?.type !== 'v4-shop-edit') return;
       const target = String(e.data.target ?? '');
       if (target.startsWith('block:')) {
         setSection('blocks');
@@ -224,7 +227,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [goTo]);
+  }, [goTo, moveBlock]);
 
   useEffect(() => {
     // Posouvá jen levý panel, ne celou stránku.
@@ -303,18 +306,6 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     { done: published.published, label: 'Zveřejněte stránku', to: 'publish' },
   ];
 
-  const applyTemplate = (t: (typeof TEMPLATES)[number]) => {
-    const types = t.blocks.filter((type) => info.proBlocks || !blockInfo(type)?.pro);
-    update((x) => ({
-      ...x,
-      design: { ...x.design, ...t.design, ...(pro ? {} : { holo: false }) },
-      blocks: types.map((type) => {
-        const old = x.blocks.find((b) => b.type === type);
-        return old ? { ...old, enabled: true } : newBlock(type);
-      }),
-    }));
-  };
-
   const startSection = (
     <div className={styles.stack}>
       <div className={styles.progress}>
@@ -330,14 +321,9 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
           </button>
         ))}
       </div>
-      <Group label="HOTOVÉ ŠABLONY" hint="Nastaví rozvržení a bloky, texty a obrázky zůstanou. Vrátit jde tlačítkem Zpět.">
-        <div className={styles.rows}>
-          {TEMPLATES.map((t) => (
-            <button key={t.id} type="button" className={styles.template} onClick={() => applyTemplate(t)}>
-              <strong>{t.name}</strong>
-              <span className="t-small muted">{t.desc}</span>
-            </button>
-          ))}
+      <Group label="TYP OBCHODU" hint="Ukáže se kupujícím v hlavičce stránky.">
+        <div className={styles.chips}>
+          {SHOP_TYPES.map((t) => <Chip key={t.id || 'none'} selected={c.design.shopType === t.id} onClick={() => setDesign({ shopType: t.id })}>{t.name}</Chip>)}
         </div>
       </Group>
       <p className="t-small muted" style={{ margin: 0 }}>
@@ -357,7 +343,13 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
 
   const brandSection = (
     <div className={styles.stack}>
-      <ImageInput label="LOGO" path={c.logoPath} onPath={(p) => set('logoPath', p)} uid={uid} prefix="logo" />
+      <ImageInput label="LOGO" path={c.logoPath} onPath={(p) => set('logoPath', p)} uid={uid} prefix="logo" round={c.design.logo === 'round'} />
+      <Group label="TVAR LOGA">
+        <div className={styles.chips}>
+          <Chip selected={c.design.logo === 'square'} onClick={() => setDesign({ logo: 'square' })}>Čtvercové</Chip>
+          <Chip selected={c.design.logo === 'round'} onClick={() => setDesign({ logo: 'round' })}>Kulaté</Chip>
+        </div>
+      </Group>
       <Group label="HLAVNÍ BARVA" hint="Barví banner, tlačítka, záložky a nadpisy.">
         {swatches(c.design.color, (id) => setDesign({ color: id as ShopDesign['color'] }))}
       </Group>
@@ -415,25 +407,9 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
       />
       {c.bannerPath && c.design.banner !== 'photo' ? <Button variant="secondary" onClick={() => setDesign({ banner: 'photo' })}>Použít vlastní obrázek</Button> : null}
       <Toggle checked={c.design.liveBanner} onChange={(liveBanner) => setDesign({ liveBanner })} hint={<>Vzor banneru se pomalu posouvá. Jen u vzorů, ne u obrázku.{locked ? <ProTag /> : null}</>}>Živý banner</Toggle>
-      <Group label="SEZÓNNÍ MOTIV" pro locked={locked} hint="Ozdoba přes banner, sama zmizí po zvoleném dni.">
-        <div className={styles.chips}>
-          {SHOP_SEASONS.map((x) => <Chip key={x.id} selected={c.design.season === x.id} onClick={() => setDesign({ season: x.id })}>{x.name}</Chip>)}
-        </div>
-        {c.design.season !== 'none' ? (
-          <input type="date" className={sell.input} value={c.design.seasonUntil} aria-label="Motiv platí do" onChange={(e) => setDesign({ seasonUntil: e.target.value })} />
-        ) : null}
-      </Group>
-      <Group label="BĚŽÍCÍ PRUH NOVINEK" hint="Krátké zprávy nad hlavičkou, až 6. Prázdný pruh se neukáže.">
-        <div className={styles.rows}>
-          {c.design.ticker.map((t, i) => (
-            <div key={i} className={styles.inline}>
-              <input className={sell.input} value={t} maxLength={60} placeholder="Např. Nová sada skladem" aria-label={`Zpráva ${i + 1}`} onChange={(e) => setDesign({ ticker: c.design.ticker.map((x, j) => (j === i ? e.target.value : x)) })} />
-              <RowActions onRemove={() => setDesign({ ticker: c.design.ticker.filter((_, j) => j !== i) })} />
-            </div>
-          ))}
-        </div>
-        {c.design.ticker.length < 6 ? <div><Button variant="secondary" onClick={() => setDesign({ ticker: [...c.design.ticker, ''] })}>Přidat zprávu</Button></div> : null}
-      </Group>
+      <Field label="BĚŽÍCÍ PRUH" hint="Jedna krátká zpráva nad hlavičkou, opakuje se pořád dokola. Prázdná = pruh se neukáže.">
+        <input className={sell.input} value={c.design.ticker} maxLength={80} placeholder="Např. Nová sada Surging Sparks skladem" onChange={(e) => setDesign({ ticker: e.target.value })} />
+      </Field>
     </div>
   );
 
@@ -456,7 +432,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
       </Group>
       <Group label="IKONA U NADPISŮ">
         <div className={styles.chips}>
-          {SHOP_ICONS.map((x) => <Chip key={x.id} selected={c.design.icon === x.id} onClick={() => setDesign({ icon: x.id })}><span aria-hidden="true" style={{ color: `var(--shop-${c.design.color})` }}>{x.char}</span> {x.name}</Chip>)}
+          {SHOP_ICONS.map((x) => <Chip key={x.id} selected={c.design.icon === x.id} onClick={() => setDesign({ icon: x.id })}>{x.name}</Chip>)}
         </div>
       </Group>
       <Group label="ODDĚLOVAČE MEZI BLOKY">
@@ -513,6 +489,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
             cards={cards}
             rememberCard={rememberCard}
             storeAddress={c.store.address}
+            setStoreAddress={(address) => set('store', { ...c.store, address })}
             goTo={goTo}
           />
         )}
@@ -521,7 +498,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     </div>
   );
 
-  const tabsSection = <TabsEditor c={c} locked={!info.proBlocks} setDesign={setDesign} setCollections={(cols) => set('collections', cols)} />;
+  const tabsSection = <TabsEditor c={c} locked={!info.proBlocks} setDesign={setDesign} setCollections={(cols) => set('collections', cols)} listings={listings} listingById={listingById} />;
 
   const aboutSection = (
     <div className={styles.stack}>
@@ -619,8 +596,15 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
           <button type="button" aria-pressed={pane === 'edit'} onClick={() => setPane('edit')}>Nastavení</button>
           <button type="button" aria-pressed={pane === 'preview'} onClick={() => setPane('preview')}>Náhled</button>
         </div>
-        <Button variant="ghost" onClick={undo} disabled={!undoCount} title="Zpět (Ctrl+Z)">↶ Zpět</Button>
-        <Button variant="secondary" onClick={discard} disabled={!changes}>Zahodit změny</Button>
+        <Button variant="ghost" onClick={undo} disabled={!undoCount} title="Vrátit poslední změnu (Ctrl+Z)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
+          Zpět
+        </Button>
+        <ButtonLink href={publicHref} target="_blank" variant="secondary" title="Otevře stránku tak, jak ji vidí kupující">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+          Zobrazit stránku
+        </ButtonLink>
+        <Button variant="ghost" onClick={discard} disabled={!changes}>Zahodit změny</Button>
         <Button onClick={publish} disabled={publishing || !changes}>
           {publishing ? 'Zveřejňuji…' : 'Zveřejnit změny'}
         </Button>
@@ -799,8 +783,10 @@ function BlockGallery({ locked, onPick, onClose }: { locked: boolean; onPick: (t
 // ---------- Záložky a kolekce ----------
 
 /** Záložky pod hlavičkou: Přehled je vždy první, ostatní jde přeřadit a skrýt. Kolekce = uložené výběry skladu. */
-function TabsEditor({ c, locked, setDesign, setCollections }: {
+function TabsEditor({ c, locked, setDesign, setCollections, listings, listingById }: {
   c: ShopPageConfig;
+  listings: ListingOption[];
+  listingById: Map<string, ListingOption>;
   locked: boolean;
   setDesign: (patch: Partial<ShopDesign>) => void;
   setCollections: (cols: ShopCollection[]) => void;
@@ -849,34 +835,86 @@ function TabsEditor({ c, locked, setDesign, setCollections }: {
                 onRemove={() => setCollections(c.collections.filter((x) => x.id !== col.id))}
               />
             </div>
-            <CollectionFilters col={col} onChange={(next) => setCollections(c.collections.map((x) => (x.id === col.id ? next : x)))} />
+            <CollectionFilters col={col} listings={listings} listingById={listingById} onChange={(next) => setCollections(c.collections.map((x) => (x.id === col.id ? next : x)))} />
           </div>
         ))}
       </div>
       {c.collections.length < 20 ? (
-        <div><Button variant="secondary" onClick={() => setCollections([...c.collections, { id: rid(), name: '', q: '', game: '', condition: '', language: '' }])}>Přidat kolekci</Button></div>
+        <div><Button variant="secondary" onClick={() => setCollections([...c.collections, emptyCollection(rid())])}>Přidat kolekci</Button></div>
       ) : null}
     </div>
   );
 }
 
-function CollectionFilters({ col, onChange }: { col: ShopCollection; onChange: (c: ShopCollection) => void }) {
+function CollectionFilters({ col, onChange, listings, listingById }: {
+  col: ShopCollection;
+  onChange: (c: ShopCollection) => void;
+  listings: ListingOption[];
+  listingById: Map<string, ListingOption>;
+}) {
+  const [manual, setManual] = useState(col.listingIds.length > 0);
+  // Sady jen z vlastních nabídek (a jen vybrané hry), seřazené podle názvu.
+  const sets = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of listings) if (l.setCode && (!col.game || l.game === col.game)) m.set(l.setCode, l.setName || l.setCode);
+    return [...m].sort((a, b) => a[1].localeCompare(b[1], 'cs'));
+  }, [listings, col.game]);
+  const price = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.round(Number(v))) || 0);
+  const matching = useMemo(() => {
+    if (manual) return null;
+    const t = col.q.trim().toLowerCase();
+    return listings.filter((l) => (!t || l.name.toLowerCase().includes(t))
+      && (!col.game || l.game === col.game) && (!col.set || l.setCode === col.set)
+      && (col.priceMin == null || l.price >= col.priceMin) && (col.priceMax == null || l.price <= col.priceMax)).length;
+  }, [manual, listings, col]);
   return (
     <>
-      <input className={sell.input} value={col.q} maxLength={60} placeholder="Hledaný text (nepovinné)" aria-label="Hledaný text" onChange={(e) => onChange({ ...col, q: e.target.value })} />
+      <div className={styles.chips} role="group" aria-label="Jak vybrat karty">
+        <Chip selected={!manual} onClick={() => { setManual(false); onChange({ ...col, listingIds: [] }); }}>Podle filtrů</Chip>
+        <Chip selected={manual} onClick={() => setManual(true)}>Vybrat ručně</Chip>
+      </div>
+      {manual ? (
+        <>
+          <PickedListings ids={col.listingIds} onChange={(ids) => onChange({ ...col, listingIds: ids })} listingById={listingById} />
+          <span className="t-small muted">{col.listingIds.length} z 60 nabídek{!col.listingIds.length ? ' · bez vybraných karet se kolekce řídí filtry' : ''}</span>
+          <ListingPicker listings={listings} selected={col.listingIds} max={60} onPick={(id) => onChange({ ...col, listingIds: [...col.listingIds, id] })} />
+        </>
+      ) : (
+        <>
+          <input className={sell.input} value={col.q} maxLength={60} placeholder="Název karty obsahuje (nepovinné)" aria-label="Hledaný text" onChange={(e) => onChange({ ...col, q: e.target.value })} />
+          <div className={styles.inline}>
+            <select className={sell.input} value={col.game} aria-label="Hra" onChange={(e) => onChange({ ...col, game: e.target.value as ShopCollection['game'], set: '' })}>
+              <option value="">Všechny hry</option>
+              {GAMES.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+            <select className={sell.input} value={col.set} aria-label="Sada" onChange={(e) => onChange({ ...col, set: e.target.value })}>
+              <option value="">Všechny sady</option>
+              {col.set && !sets.some(([code]) => code === col.set) ? <option value={col.set}>{col.set}</option> : null}
+              {sets.map(([code, name]) => <option key={code} value={code}>{name} ({code.toUpperCase()})</option>)}
+            </select>
+          </div>
+          <div className={styles.inline}>
+            <input type="number" min={0} className={sell.input} value={col.priceMin ?? ''} placeholder="Cena od Kč" aria-label="Cena od" onChange={(e) => onChange({ ...col, priceMin: price(e.target.value) })} />
+            <input type="number" min={0} className={sell.input} value={col.priceMax ?? ''} placeholder="Cena do Kč" aria-label="Cena do" onChange={(e) => onChange({ ...col, priceMax: price(e.target.value) })} />
+          </div>
+          <div className={styles.inline}>
+            <select className={sell.input} value={col.condition} aria-label="Stav" onChange={(e) => onChange({ ...col, condition: e.target.value as ShopCollection['condition'] })}>
+              <option value="">Jakýkoli stav</option>
+              {CONDITIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+            <select className={sell.input} value={col.language} aria-label="Jazyk" onChange={(e) => onChange({ ...col, language: e.target.value as ShopCollection['language'] })}>
+              <option value="">Jakýkoli jazyk</option>
+              {(Object.keys(LANGUAGE_NAMES) as Language[]).map((x) => <option key={x} value={x}>{LANGUAGE_NAMES[x]}</option>)}
+            </select>
+          </div>
+          {matching != null ? <span className="t-small muted">Teď odpovídá {plural(matching, ['nabídka', 'nabídky', 'nabídek'])}.</span> : null}
+        </>
+      )}
       <div className={styles.inline}>
-        <select className={sell.input} value={col.game} aria-label="Hra" onChange={(e) => onChange({ ...col, game: e.target.value as ShopCollection['game'] })}>
-          <option value="">Všechny hry</option>
-          {GAMES.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
-        <select className={sell.input} value={col.condition} aria-label="Stav" onChange={(e) => onChange({ ...col, condition: e.target.value as ShopCollection['condition'] })}>
-          <option value="">Jakýkoli stav</option>
-          {CONDITIONS.map((x) => <option key={x} value={x}>{x}</option>)}
-        </select>
-        <select className={sell.input} value={col.language} aria-label="Jazyk" onChange={(e) => onChange({ ...col, language: e.target.value as ShopCollection['language'] })}>
-          <option value="">Jakýkoli jazyk</option>
-          {(Object.keys(LANGUAGE_NAMES) as Language[]).map((x) => <option key={x} value={x}>{LANGUAGE_NAMES[x]}</option>)}
-        </select>
+        <span className="t-label muted">ŘAZENÍ</span>
+        <div className={styles.chips}>
+          {COLLECTION_SORTS.map((o) => <Chip key={o.id} selected={col.sort === o.id} onClick={() => onChange({ ...col, sort: o.id })}>{o.name}</Chip>)}
+        </div>
       </div>
     </>
   );

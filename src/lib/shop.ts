@@ -200,6 +200,48 @@ export async function getShopListings(sellerId: string, opts: { ids?: string[]; 
   return rows;
 }
 
+export interface ListingFilter {
+  q?: string;
+  game?: GameId;
+  /** Kód sady */
+  set?: string;
+  condition?: Condition;
+  language?: Language;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  /** Jen tyto nabídky (ruční kolekce, Doporučujeme) */
+  ids?: string[];
+  sort?: 'new' | 'cheap' | 'expensive';
+  page?: number;
+  pageSize?: number;
+}
+
+/** Nabídka prodejce po jednotlivých nabídkách (s cenou, stavem a štítky) pro Celou nabídku, kolekce a bloky. */
+export async function searchShopListings(sellerId: string, f: ListingFilter): Promise<{ items: ShopListing[]; total: number }> {
+  if (!isSupabaseConfigured()) return { items: [], total: 0 };
+  if (f.ids && !f.ids.length) return { items: [], total: 0 };
+  const text = (f.q ?? '').replace(/[%_,()*\\]/g, ' ').trim().slice(0, 60);
+  // Filtry na kartu a sadu potřebují vnitřní spojení, jinak by vracely nabídky bez karty.
+  const inner = text || f.game || f.set;
+  const cols = inner
+    ? 'id, price_czk, condition, language, quantity, graded, created_at, cards!inner(id, slug, name, number, image_url, card_sets!inner(game_id, code, name))'
+    : LISTING_COLUMNS;
+  let q = createPublicClient().from('listings').select(cols, { count: 'exact' }).eq('seller_id', sellerId).gt('quantity', 0);
+  if (f.ids) q = q.in('id', f.ids.slice(0, 60));
+  if (text) q = q.ilike('cards.name', `%${text}%`);
+  if (f.game) q = q.eq('cards.card_sets.game_id', f.game);
+  if (f.set) q = q.eq('cards.card_sets.code', f.set);
+  if (f.condition) q = q.eq('condition', f.condition);
+  if (f.language) q = q.eq('language', f.language);
+  if (f.priceMin) q = q.gte('price_czk', f.priceMin);
+  if (f.priceMax) q = q.lte('price_czk', f.priceMax);
+  q = f.sort === 'cheap' ? q.order('price_czk') : f.sort === 'expensive' ? q.order('price_czk', { ascending: false }) : q.order('created_at', { ascending: false });
+  const size = f.pageSize ?? 24;
+  const page = Math.max(1, f.page ?? 1);
+  const { data, count } = await q.range((page - 1) * size, page * size - 1);
+  return { items: ((data ?? []) as unknown as ListingRow[]).map(fromListingRow), total: count ?? 0 };
+}
+
 export interface CatalogCardRef {
   id: string; slug: string; name: string; number: string; image?: string; game: GameId; setCode: string; setName: string;
 }

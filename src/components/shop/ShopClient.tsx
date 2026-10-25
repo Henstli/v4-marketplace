@@ -2,7 +2,7 @@
 
 // Drobné interaktivní části stránky obchodu: holo lesk, odpočet, video a mapa po kliknutí,
 // výška hlavičky webu pro lepkavé záložky a propojení náhledu s editorem.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** Holo lesk: karty s třídou tz-holo se natáčí za kurzorem (jen zařízení s myší). */
 export function HoloEffect() {
@@ -63,11 +63,11 @@ export function Countdown({ at }: { at: string }) {
   );
 }
 
-/** Video z YouTube: načte se až po kliknutí (soukromí a rychlost). */
+/** Video z YouTube: náhled hned, samotné video se načte až po kliknutí (soukromí a rychlost). */
 export function VideoEmbed({ id, title }: { id: string; title: string }) {
   const [on, setOn] = useState(false);
   return (
-    <div className="tz-embed">
+    <div className="tz-embed" data-thumb="" style={on ? undefined : { backgroundImage: `url(https://i.ytimg.com/vi/${id}/hqdefault.jpg)` }}>
       {on ? (
         <iframe
           src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
@@ -79,29 +79,82 @@ export function VideoEmbed({ id, title }: { id: string; title: string }) {
         <button type="button" className="tz-embed-play" onClick={() => setOn(true)}>
           <span aria-hidden="true">▶</span>
           <span>Přehrát video</span>
-          <span className="t-small muted">Načte se z YouTube</span>
         </button>
       )}
     </div>
   );
 }
 
-/** Mapa prodejny: Google mapa po kliknutí, odkazy na navigaci vždy. */
+/** Pás nabídek, který jede sám dokola; stojí při najetí myší, dotyku, posunu nebo fokusu. */
+export function AutoStrip({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [loop, setLoop] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!loop) {
+      // Kopie obsahu jen tehdy, když se pás nevejde; jinak by se karty opakovaly vedle sebe.
+      if (el.scrollWidth > el.clientWidth + 8) setLoop(true);
+      return;
+    }
+    let paused = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    const step = (t: number) => {
+      const dt = Math.min(64, t - last);
+      last = t;
+      if (!paused) {
+        acc += dt * 0.035;
+        if (acc >= 1) {
+          const px = Math.floor(acc);
+          acc -= px;
+          el.scrollLeft += px;
+        }
+      }
+      const half = el.scrollWidth / 2;
+      if (el.scrollLeft >= half) el.scrollLeft -= half;
+      raf = requestAnimationFrame(step);
+    };
+    const pause = () => { paused = true; clearTimeout(timer); };
+    const resume = () => { clearTimeout(timer); timer = setTimeout(() => { paused = false; }, 2500); };
+    const nudge = () => { pause(); resume(); };
+    el.addEventListener('pointerenter', pause);
+    el.addEventListener('pointerleave', resume);
+    el.addEventListener('touchstart', pause, { passive: true });
+    el.addEventListener('touchend', resume);
+    el.addEventListener('wheel', nudge, { passive: true });
+    el.addEventListener('focusin', pause);
+    el.addEventListener('focusout', resume);
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      el.removeEventListener('pointerenter', pause);
+      el.removeEventListener('pointerleave', resume);
+      el.removeEventListener('touchstart', pause);
+      el.removeEventListener('touchend', resume);
+      el.removeEventListener('wheel', nudge);
+      el.removeEventListener('focusin', pause);
+      el.removeEventListener('focusout', resume);
+    };
+  }, [loop]);
+  return (
+    <div ref={ref} className="tz-strip-auto">
+      {children}
+      {loop ? <div style={{ display: 'contents' }} aria-hidden="true" inert>{children}</div> : null}
+    </div>
+  );
+}
+
+/** Mapa prodejny: Google mapa se načte až při doscrollování, odkazy na navigaci vždy. */
 export function MapEmbed({ address }: { address: string }) {
-  const [on, setOn] = useState(false);
-  const q = encodeURIComponent(address.replace(/\s+/g, ' '));
+  const q = encodeURIComponent(address.replace(/\s+/g, ' ').trim());
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
       <div className="tz-embed tz-embed-map">
-        {on ? (
-          <iframe src={`https://www.google.com/maps?q=${q}&output=embed`} title={`Mapa: ${address}`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-        ) : (
-          <button type="button" className="tz-embed-play" onClick={() => setOn(true)}>
-            <span aria-hidden="true">📍</span>
-            <span>Zobrazit mapu</span>
-            <span className="t-small muted">{address}</span>
-          </button>
-        )}
+        <iframe src={`https://maps.google.com/maps?q=${q}&z=16&output=embed`} title={`Mapa: ${address}`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
       </div>
       <p className="t-small" style={{ margin: 0 }}>
         Navigovat: <a href={`https://mapy.cz/zakladni?q=${q}`} target="_blank" rel="noopener noreferrer">Mapy.cz</a>
@@ -126,11 +179,12 @@ export function SiteHeaderHeight() {
 }
 
 /**
- * Náhled v editoru: klik na část stránky s data-edit pošle editoru, co upravit,
- * a pozice posunu přežije znovunačtení náhledu po každé změně.
+ * Náhled v editoru: klik na část stránky s data-edit pošle editoru, co upravit, bloky jde přetáhnout
+ * nad, pod nebo vedle jiného bloku, a pozice posunu přežije znovunačtení náhledu po každé změně.
  */
 export function PreviewBridge() {
   useEffect(() => {
+    if (window.parent === window) return;
     const key = 'v4-shop-preview-scroll';
     try {
       const y = Number(sessionStorage.getItem(key));
@@ -139,26 +193,77 @@ export function PreviewBridge() {
     const save = () => {
       try { sessionStorage.setItem(key, String(window.scrollY)); } catch {}
     };
+    const send = (msg: Record<string, unknown>) => window.parent.postMessage(msg, window.location.origin);
     const click = (e: MouseEvent) => {
-      if (window.parent === window) return;
       const target = e.target as Element | null;
-      // Záložky, filtry a stránkování náhledu fungují normálně.
+      // Záložky, filtry, stránkování, video a mapa fungují normálně.
       const a = target?.closest<HTMLAnchorElement>('a[href]');
       if (a && a.pathname === window.location.pathname) return;
-      if (target?.closest('form')) return;
+      if (target?.closest('form, .tz-embed')) return;
       const el = target?.closest<HTMLElement>('[data-edit]');
-      if (el) window.parent.postMessage({ type: 'v4-shop-edit', target: el.dataset.edit }, window.location.origin);
+      if (el) send({ type: 'v4-shop-edit', target: el.dataset.edit });
       // Jinam se z náhledu neodchází a nic se nekupuje.
       if (el || a || target?.closest('button')) {
         e.preventDefault();
         e.stopPropagation();
       }
     };
+
+    // Přetahování bloků
+    const blocks = () => [...document.querySelectorAll<HTMLElement>('[data-block-id]')];
+    for (const b of blocks()) b.draggable = true;
+    let dragged: HTMLElement | null = null;
+    let over: HTMLElement | null = null;
+    const clear = () => {
+      for (const b of blocks()) { b.removeAttribute('data-drop'); b.removeAttribute('data-dragging'); }
+    };
+    const where = (el: HTMLElement, e: DragEvent) => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width;
+      if (x < 0.22) return 'left';
+      if (x > 0.78) return 'right';
+      return e.clientY < r.top + r.height / 2 ? 'before' : 'after';
+    };
+    const dragstart = (e: DragEvent) => {
+      const el = (e.target as Element | null)?.closest<HTMLElement>('[data-block-id]');
+      if (!el || !e.dataTransfer) return;
+      dragged = el;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.dataset.blockId ?? '');
+      el.setAttribute('data-dragging', '');
+    };
+    const dragover = (e: DragEvent) => {
+      if (!dragged) return;
+      const el = (e.target as Element | null)?.closest<HTMLElement>('[data-block-id]');
+      if (over && over !== el) over.removeAttribute('data-drop');
+      over = el && el !== dragged ? el : null;
+      if (!over) return;
+      e.preventDefault();
+      over.setAttribute('data-drop', where(over, e));
+    };
+    const drop = (e: DragEvent) => {
+      if (!dragged || !over) return;
+      e.preventDefault();
+      send({ type: 'v4-shop-move', id: dragged.dataset.blockId, target: over.dataset.blockId, pos: over.getAttribute('data-drop') });
+      dragged = null;
+      over = null;
+      clear();
+    };
+    const dragend = () => { dragged = null; over = null; clear(); };
+
     window.addEventListener('scroll', save, { passive: true });
     document.addEventListener('click', click, true);
+    document.addEventListener('dragstart', dragstart);
+    document.addEventListener('dragover', dragover);
+    document.addEventListener('drop', drop);
+    document.addEventListener('dragend', dragend);
     return () => {
       window.removeEventListener('scroll', save);
       document.removeEventListener('click', click, true);
+      document.removeEventListener('dragstart', dragstart);
+      document.removeEventListener('dragover', dragover);
+      document.removeEventListener('drop', drop);
+      document.removeEventListener('dragend', dragend);
     };
   }, []);
   return null;

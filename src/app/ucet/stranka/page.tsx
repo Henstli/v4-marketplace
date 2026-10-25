@@ -11,7 +11,8 @@ import type { PickerCard } from './actions';
 
 export const metadata: Metadata = { title: 'Moje stránka' };
 
-type CardRow = { name: string; number: string; image_url: string | null; card_sets: { code: string } | { code: string }[] | null };
+type SetRow = { code: string; name: string; game_id: string };
+type CardRow = { name: string; number: string; image_url: string | null; card_sets: SetRow | SetRow[] | null };
 
 // Editor vlastní stránky obchodu nebo sběratele. Co se z nastavení ukáže, určuje tarif.
 export default async function ShopEditorPage() {
@@ -24,7 +25,7 @@ export default async function ShopEditorPage() {
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from('listings')
-    .select('id, price_czk, condition, cards(name, number, image_url, card_sets(code))')
+    .select('id, price_czk, condition, cards(name, number, image_url, card_sets(code, name, game_id))')
     .eq('seller_id', user.id)
     .gt('quantity', 0)
     .order('created_at', { ascending: false })
@@ -32,7 +33,7 @@ export default async function ShopEditorPage() {
   const listings: ListingOption[] = (rows ?? []).map((l) => {
     const c = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as CardRow | null;
     const s = Array.isArray(c?.card_sets) ? c.card_sets[0] : c?.card_sets;
-    return { id: l.id, name: c?.name ?? 'Karta', sub: `${s?.code ?? ''} ${c?.number ?? ''} · ${l.condition}`, price: l.price_czk, image: c?.image_url ?? undefined };
+    return { id: l.id, name: c?.name ?? 'Karta', sub: `${s?.code ?? ''} ${c?.number ?? ''} · ${l.condition}`, price: l.price_czk, image: c?.image_url ?? undefined, game: s?.game_id, setCode: s?.code, setName: s?.name };
   });
 
   const { data: draftRow } = await supabase.from('shop_page_drafts').select('draft').eq('user_id', user.id).maybeSingle();
