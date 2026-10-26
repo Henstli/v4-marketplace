@@ -5,12 +5,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { identityMethod } from '@/lib/identity';
-import { PLANS, toPlan } from '@/lib/plans';
-import { EmailSettings } from './EmailSettings';
-import { MfaSettings } from './MfaSettings';
-import { ProfileForm } from './ProfileForm';
+import { EmailSettings } from '../../EmailSettings';
+import { MfaSettings } from '../../MfaSettings';
+import { ProfileForm } from '../../ProfileForm';
 
-export const metadata: Metadata = { title: 'Účet' };
+export const metadata: Metadata = { title: 'Nastavení účtu' };
 
 type Props = { searchParams: Promise<{ heslo?: string; email?: string }> };
 
@@ -22,35 +21,21 @@ const EMAIL_NOTICES: Record<string, string> = {
 export default async function AccountPage({ searchParams }: Props) {
   if (!isSupabaseConfigured()) redirect('/');
   const user = await getCurrentUser();
-  if (!user) redirect('/prihlaseni?dalsi=/ucet');
+  if (!user) redirect('/prihlaseni?dalsi=/ucet/nastaveni');
   const supabase = await createClient();
-  const [{ data: profile }, { data: factors }, method, { heslo, email }, { data: plan }] = await Promise.all([
+  const [{ data: profile }, { data: factors }, method, { heslo, email }] = await Promise.all([
     supabase.from('profiles').select('display_name, kind, country').eq('id', user.id).single(),
     supabase.auth.mfa.listFactors(),
     identityMethod(supabase),
     searchParams,
-    supabase.rpc('current_plan'),
   ]);
   const mfaEnabled = (factors?.totp.length ?? 0) > 0;
 
   return (
-    <div className="container section" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <div>
-        <h1 className="t-heading-l">Účet</h1>
+        <h1 className="t-heading-l">Nastavení účtu</h1>
         <p className="muted">Přihlášeni jako {user.email}</p>
-        <p className="t-small">
-          <Link href="/ucet/stranka">Moje stránka</Link> · <Link href="/prodat/nova-karta">Moje návrhy karet</Link>
-          {user.isAdmin ? <> · <Link href="/sprava/karty">Schvalování karet</Link> · <Link href="/sprava/predplatne">Předplatné prodejců</Link></> : null}
-        </p>
-        <p className="t-small muted">
-          Tarif: {PLANS[toPlan(plan)].name}.{' '}
-          {PLANS[toPlan(plan)].bulkImport
-            ? <><Link href="/prodat/import">Hromadné nahrávání</Link> nabídek bez omezení.</>
-            : 'Hromadné nahrávání nabídek je součástí tarifu Pro.'}{' '}
-          {PLANS[toPlan(plan)].shopPage
-            ? <><Link href="/ucet/stranka">Vlastní stránka</Link> s vaším vzhledem a bloky.</>
-            : 'Vlastní stránka s bannerem, barvou a bloky je v tarifech Plus a Pro.'}
-        </p>
       </div>
       <section className="panel">
         <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Profil prodejce</h2>

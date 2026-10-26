@@ -32,7 +32,7 @@ export default async function NewPasswordPage() {
         <NewPasswordForm email={user.email} check={check} />
         <p className="t-small muted">
           {askCurrent ? <><Link href="/zapomenute-heslo">Nepamatujete si současné heslo?</Link> · </> : null}
-          <Link href="/ucet">Zpět na účet</Link>
+          <Link href="/ucet/nastaveni">Zpět na nastavení účtu</Link>
         </p>
       </div>
     </div>

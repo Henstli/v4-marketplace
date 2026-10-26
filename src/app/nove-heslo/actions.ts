@@ -37,5 +37,5 @@ export async function setNewPassword(_prev: NewPasswordState, form: FormData): P
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: authErrorMessage(error) };
-  redirect('/ucet?heslo=zmeneno');
+  redirect('/ucet/nastaveni?heslo=zmeneno');
 }

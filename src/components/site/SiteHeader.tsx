@@ -1,10 +1,11 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { ButtonLink } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { GAMES } from '@/lib/games';
 import { CartLink } from '@/components/cart/CartLink';
 import { getSignedInUser } from '@/lib/auth';
-import { signOut } from '@/app/prihlaseni/actions';
+import { HeaderAccount, HeaderAccountFallback } from '@/components/account/AccountShell';
 import { Logo } from './Logo';
 import styles from './site.module.css';
 
@@ -19,13 +20,9 @@ export async function SiteHeader() {
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
           <CartLink />
           {user ? (
-            <>
-            <ButtonLink href="/objednavky" variant="ghost">Objednávky</ButtonLink>
-            <ButtonLink href="/ucet" variant="ghost">Účet</ButtonLink>
-            <form action={signOut}>
-              <button type="submit" className="tz-btn tz-btn-danger tz-btn-md" title={user.email}>Odhlásit</button>
-            </form>
-            </>
+            <Suspense fallback={<HeaderAccountFallback />}>
+              <HeaderAccount />
+            </Suspense>
           ) : (
             <ButtonLink href="/prihlaseni">Přihlásit</ButtonLink>
           )}
