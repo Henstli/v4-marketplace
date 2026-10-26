@@ -214,7 +214,8 @@ export interface GamesData { games: GameId[] }
 export interface EventItem { date: string; title: string; info: string }
 export interface FaqItem { q: string; a: string }
 export interface ShowcaseItem { cardId: string; grade: string; note: string }
-export interface WantedItem { cardId: string; maxPrice: number | null }
+/** Hledaná karta: za maxPrice ji kdokoli může obchodu rovnou prodat, nejvýš qty kusů (key počítá prodeje). */
+export interface WantedItem { cardId: string; maxPrice: number | null; qty: number; key: string }
 export interface WindowData { listingIds: string[] }
 export interface CountdownData { title: string; text: string; at: string }
 export interface TeamPerson { name: string; role: string; photo: string; note: string }
@@ -434,7 +435,7 @@ function sanitizeBlock(raw: unknown, owner: string): ShopBlock | null {
       data.video = { youtube: youtubeId(obj(d.video).youtube) };
       break;
     case 'wanted':
-      data.wanted = arr(d.wanted, 20).map((e) => obj(e)).map((e) => ({ cardId: uuid(e.cardId), maxPrice: price(e.maxPrice) })).filter((e) => e.cardId);
+      data.wanted = arr(d.wanted, 20).map((e) => obj(e)).map((e) => ({ cardId: uuid(e.cardId), maxPrice: price(e.maxPrice), qty: Math.min(99, Math.max(1, Math.round(Number(e.qty)) || 1)), key: str(e.key, 12).replace(/[^a-z0-9]/gi, '') })).filter((e) => e.cardId).map((e) => ({ ...e, key: e.key || e.cardId }));
       break;
   }
   return {

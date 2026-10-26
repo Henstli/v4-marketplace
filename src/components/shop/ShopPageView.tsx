@@ -9,10 +9,10 @@ import {
   type CollectionSort, type ShopBlock, type ShopCollection, type ShopDesign,
 } from '@/lib/shop-config';
 import {
-  getCardsByIds, getGameCounts, getShopListings, getShopReviews, mediaUrl, searchShopListings,
+  getCardsByIds, getGameCounts, getShopListings, getShopReviews, mediaImage, searchShopListings,
   type ListingFilter, type ShopListing, type ShopProfile,
 } from '@/lib/shop';
-import { AutoStrip, Countdown, HoloEffect, MapEmbed, PreviewBridge, SiteHeaderHeight, VideoEmbed } from './ShopClient';
+import { AutoStrip, Countdown, HoloEffect, MapEmbed, MessageSeller, PreviewBridge, SiteHeaderHeight, VideoEmbed } from './ShopClient';
 import { CONDITION_NAMES, LANGUAGE_NAMES, type Language } from '@/lib/types';
 import type { GameId } from '@/lib/games';
 import styles from './shop.module.css';
@@ -117,14 +117,14 @@ function ListingTile({ l, d, p }: { l: ShopListing; d: ShopDesign; p?: ShopProfi
 }
 
 /** Nabídky v bloku: mřížka na dva řádky s odkazem na celý výběr, nebo pás, který jede sám. */
-function Listings({ items, variant, d, more }: { items: ShopListing[]; variant: string; d: ShopDesign; more?: string }) {
+function Listings({ items, variant, d, p, more }: { items: ShopListing[]; variant: string; d: ShopDesign; p?: ShopProfile; more?: string }) {
   if (variant === 'strip') {
-    return <AutoStrip>{items.map((l) => <ListingTile key={l.id} l={l} d={d} />)}</AutoStrip>;
+    return <AutoStrip>{items.map((l) => <ListingTile key={l.id} l={l} d={d} p={p} />)}</AutoStrip>;
   }
   return (
     <>
       <div className={`${styles.grid} tz-grid-2rows`}>
-        {items.map((l) => <ListingTile key={l.id} l={l} d={d} />)}
+        {items.map((l) => <ListingTile key={l.id} l={l} d={d} p={p} />)}
       </div>
       {more && items.length > 4 ? (
         <div className={styles.pager}><ButtonLink href={more} variant="secondary">Zobrazit vše</ButtonLink></div>
@@ -212,8 +212,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
             {s.story ? <p className="muted" style={{ margin: 0, whiteSpace: 'pre-line', maxWidth: 560 }}>{s.story}</p> : null}
             <div className={styles.spotBuy}>
               <Price amount={l.price} size="lg" />
-              <AddToCartButton item={cartItem(l, p)} variant="primary" />
-              <Link href={`/karty/${l.card.slug}`}>Detail karty</Link>
+              <ButtonLink href={`/karty/${l.card.slug}`} variant="secondary">Detail karty</ButtonLink>
             </div>
           </div>
         </section>
@@ -222,18 +221,18 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
     case 'featured': {
       const items = await getShopListings(sid, { ids: b.data.featured?.listingIds ?? [] });
       if (!items.length) return null;
-      return <ShopSection title={blockTitle(b)} note="Vybírá prodejce"><Listings items={items} variant={b.variant} d={d} more={more} /></ShopSection>;
+      return <ShopSection title={blockTitle(b)} note="Vybírá prodejce"><Listings items={items} variant={b.variant} d={d} p={p} more={more} /></ShopSection>;
     }
     case 'newest': {
       const items = await getShopListings(sid, { order: 'new', limit: 16 });
       if (!items.length) return null;
-      return <ShopSection title={blockTitle(b)} note="Poslední přidané nabídky"><Listings items={items} variant={b.variant} d={d} more={more} /></ShopSection>;
+      return <ShopSection title={blockTitle(b)} note="Poslední přidané nabídky"><Listings items={items} variant={b.variant} d={d} p={p} more={more} /></ShopSection>;
     }
     case 'cheap': {
       const max = b.data.cheap?.maxPrice ?? 100;
       const items = await getShopListings(sid, { order: 'cheap', maxPrice: max, limit: 16 });
       if (!items.length) return null;
-      return <ShopSection title={blockTitle(b)} note={`Do ${formatNumber(max)} Kč`}><Listings items={items} variant={b.variant} d={d} more={more} /></ShopSection>;
+      return <ShopSection title={blockTitle(b)} note={`Do ${formatNumber(max)} Kč`}><Listings items={items} variant={b.variant} d={d} p={p} more={more} /></ShopSection>;
     }
     case 'games': {
       const counts = await getGameCounts(sid);
@@ -346,7 +345,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
         <ShopSection title={blockTitle(b)}>
           <div className="tz-photos" data-n={photos.length}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {photos.map((ph) => <img key={ph} src={mediaUrl(ph)!} alt="" loading="lazy" />)}
+            {photos.map((ph) => <img key={ph} src={mediaImage(ph, 1080)!} alt="" loading="lazy" />)}
           </div>
         </ShopSection>
       );
@@ -454,7 +453,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
             {people.map((m, i) => (
               <div key={i} className="tz-team-person">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {m.photo ? <img className="tz-team-photo" src={mediaUrl(m.photo)!} alt="" /> : <span className="tz-team-photo" aria-hidden="true" />}
+                {m.photo ? <img className="tz-team-photo" src={mediaImage(m.photo, 256)!} alt="" /> : <span className="tz-team-photo" aria-hidden="true" />}
                 <strong>{m.name}</strong>
                 {m.role ? <span className="t-small muted">{m.role}</span> : null}
                 {m.note ? <span className="t-small">{m.note}</span> : null}
@@ -479,23 +478,28 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
       const cards = await getCardsByIds(items.map((x) => x.cardId));
       const shown = items.filter((x) => cards.has(x.cardId));
       if (!shown.length) return null;
+      const contacts = shopContacts(p);
       return (
-        <ShopSection title={blockTitle(b)} note="Máte některou? Napište prodejci">
+        <ShopSection title={blockTitle(b)} note="Máte některou? Nabídněte ji prodejci">
           <div className="tz-wanted">
             {shown.map((x) => {
               const c = cards.get(x.cardId)!;
               return (
-                <Link key={x.cardId} href={`/karty/${c.slug}`} className="tz-wanted-item">
-                  {c.image
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img className="tz-wanted-art" src={c.image} alt={c.name} loading="lazy" />
-                    : <span className="tz-wanted-art" style={{ background: `var(--game-${c.game}-art, var(--surface-sunken))` }} />}
-                  <span>
-                    <strong style={{ display: 'block' }}>{c.name}</strong>
-                    <span className="code muted">{c.setCode} {c.number}</span>
-                  </span>
-                  {x.maxPrice ? <span className="tz-wanted-price">do {formatNumber(x.maxPrice)} Kč</span> : null}
-                </Link>
+                <div key={x.cardId} className="tz-wanted-item">
+                  <Link href={`/karty/${c.slug}`} className="tz-wanted-link">
+                    {c.image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img className="tz-wanted-art" src={c.image} alt={c.name} loading="lazy" />
+                      : <span className="tz-wanted-art" style={{ background: `var(--game-${c.game}-art, var(--surface-sunken))` }} />}
+                    <span>
+                      <strong style={{ display: 'block' }}>{c.name}</strong>
+                      <span className="code muted">{c.setCode} {c.number}</span>
+                    </span>
+                  </Link>
+                  {x.maxPrice ? <span className="tz-wanted-price">{formatNumber(x.maxPrice)} Kč{x.qty > 1 ? ` · ${x.qty} ks` : ''}</span> : null}
+                  {/* Návrh prodeje půjde přes zprávy, až budou; zatím kontakt na prodejce. */}
+                  <MessageSeller small name={p.seller.name} contacts={contacts} label={x.maxPrice ? `Nabídnout za ${formatNumber(x.maxPrice)} Kč` : 'Nabídnout'} intro="Návrh prodeje půjde poslat ve zprávách, které připravujeme. Zatím se s prodejcem domluvte přímo:" />
+                </div>
               );
             })}
           </div>
@@ -602,6 +606,10 @@ function contactHref(kind: string, v: string): string | null {
 }
 
 const CONTACT_LABELS: Record<string, string> = { web: 'Web', instagram: 'Instagram', facebook: 'Facebook', discord: 'Discord', email: 'E-mail', phone: 'Telefon' };
+
+function shopContacts(p: ShopProfile) {
+  return Object.entries(p.config.contact).filter(([, v]) => v).map(([k, v]) => ({ label: CONTACT_LABELS[k], value: v, href: contactHref(k, v) }));
+}
 
 type AboutPart = 'about' | 'contact' | 'store';
 const PANEL_HEADING = { fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never };
@@ -811,15 +819,16 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
           <ShopHeader
             layout={d.layout}
             name={p.seller.name}
-            logo={mediaUrl(c.logoPath)}
+            logo={mediaImage(c.logoPath, 256)}
             logoRound={d.logo === 'round'}
-            bannerImage={d.banner === 'photo' ? mediaUrl(c.bannerPath) : null}
+            bannerImage={d.banner === 'photo' ? mediaImage(c.bannerPath, 1920) : null}
             bannerStyle={d.banner === 'photo' ? 'pattern' : d.banner}
             bannerLive={d.liveBanner}
             meta={sellerMeta(p, total)}
             tagline={c.tagline || undefined}
             badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
             extra={p.achievements.length ? <Achievements items={p.achievements} /> : undefined}
+            actions={<MessageSeller name={p.seller.name} contacts={shopContacts(p)} />}
             tabs={sticky ? undefined : tabLinks}
           />
         </div>
