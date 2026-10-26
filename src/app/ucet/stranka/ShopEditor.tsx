@@ -445,20 +445,20 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
             value={c.design.banner}
             onChange={(banner) => setDesign({ banner })}
             locked={locked}
-            render={(id) => <span className={`tz-shop-banner tz-shop-banner-${id} ${styles.bannerSample}`} />}
+            render={(id) => <span className={`tz-shop-banner tz-shop-banner-${id} tz-shop-banner-live ${styles.bannerSample}`}><span className="tz-shop-banner-art" /></span>}
           />
         </div>
       </Group>
       <ImageInput
         label="VLASTNÍ OBRÁZEK BANNERU"
         path={c.bannerPath}
-        onPath={(path) => update((x) => ({ ...x, bannerPath: path, design: { ...x.design, banner: path ? 'photo' : x.design.banner === 'photo' ? 'pattern' : x.design.banner } }))}
+        onPath={(path) => update((x) => ({ ...x, bannerPath: path, design: { ...x.design, banner: path ? 'photo' : x.design.banner === 'photo' ? 'gradient' : x.design.banner } }))}
         uid={uid}
         prefix="banner"
         wide
       />
       {c.bannerPath && c.design.banner !== 'photo' ? <Button variant="secondary" onClick={() => setDesign({ banner: 'photo' })}>Použít vlastní obrázek</Button> : null}
-      <Toggle checked={c.design.liveBanner} onChange={(liveBanner) => setDesign({ liveBanner })} hint={<>Vzor banneru se pomalu posouvá. Jen u vzorů, ne u obrázku.{locked ? <ProTag /> : null}</>}>Živý banner</Toggle>
+      <Toggle checked={c.design.liveBanner} onChange={(liveBanner) => setDesign({ liveBanner })} hint={<>Banner se pomalu a plynule pohybuje. Jen u vzorů, ne u obrázku.{locked ? <ProTag /> : null}</>}>Živý banner</Toggle>
       <Field label="BĚŽÍCÍ PRUH" hint="Jedna krátká zpráva nad hlavičkou, opakuje se pořád dokola. Prázdná = pruh se neukáže.">
         <input className={sell.input} value={c.design.ticker} maxLength={80} placeholder="Např. Nová sada Surging Sparks skladem" onChange={(e) => setDesign({ ticker: e.target.value })} />
       </Field>
