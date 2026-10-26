@@ -23,7 +23,7 @@ export const SHOP_COLORS = [
   { id: 'pearl', name: 'Perleť' },
   { id: 'holo', name: 'Holografická' },
   { id: 'whitemarble', name: 'Bílý mramor' },
-  { id: 'blackmarble', name: 'Černý mramor' },
+  { id: 'sapphire', name: 'Safírová metalíza' },
   { id: 'greenmarble', name: 'Zelený mramor' },
 ] as const;
 export type ShopColor = (typeof SHOP_COLORS)[number]['id'];
@@ -31,7 +31,7 @@ export type ShopColor = (typeof SHOP_COLORS)[number]['id'];
 /** Efektní barvy (metalízy, perleť, holo, mramory) jsou jen v Pro; nižší tarif dostane nejbližší obyčejnou barvu. */
 export const FANCY_COLOR_FALLBACK: Partial<Record<ShopColor, ShopColor>> = {
   gold: 'yellow', silver: 'blue', rosegold: 'pink', pearl: 'violet',
-  holo: 'violet', whitemarble: 'blue', blackmarble: 'blue', greenmarble: 'teal',
+  holo: 'violet', whitemarble: 'blue', sapphire: 'blue', greenmarble: 'teal',
 };
 export const isFancyColor = (c: string) => c in FANCY_COLOR_FALLBACK;
 
@@ -160,6 +160,7 @@ export type ShopIcon = (typeof SHOP_ICONS)[number]['id'];
 export const SHOP_DIVIDERS = [
   { id: 'none', name: 'Žádný' },
   { id: 'line', name: 'Linka' },
+  { id: 'fade', name: 'Linka do ztracena' },
   { id: 'wave', name: 'Vlnka' },
   { id: 'zigzag', name: 'Zubatý' },
   { id: 'dots', name: 'Tečky' },
@@ -491,7 +492,8 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
     logoPath: mediaPath(r.logoPath, owner),
     bannerPath: mediaPath(r.bannerPath, owner),
     design: {
-      color: oneOf(d.color, ids(SHOP_COLORS), base.design.color),
+      // Černý mramor nahradila Safírová metalíza (26. 10.)
+      color: oneOf(d.color === 'blackmarble' ? 'sapphire' : d.color, ids(SHOP_COLORS), base.design.color),
       mode: oneOf(d.mode, ['dark', 'light'] as const, 'dark'),
       layout: oneOf(d.layout, ids(SHOP_LAYOUTS), 'banner'),
       font: oneOf(d.font, ids(SHOP_FONTS), 'modern'),
@@ -512,7 +514,7 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
       customTags: customTags(d),
       dividerAt: Object.fromEntries(Object.entries(obj(d.dividerAt)).filter(([k, v]) => /^[a-z0-9]{1,12}$/i.test(k) && typeof v === 'boolean').slice(0, 60)) as Record<string, boolean>,
       holo: d.holo === true,
-      color2: oneOf(d.color2, ['', ...ids(SHOP_COLORS)] as const, ''),
+      color2: oneOf(d.color2 === 'blackmarble' ? 'sapphire' : d.color2, ['', ...ids(SHOP_COLORS)] as const, ''),
       liveBanner: d.liveBanner === true,
     },
     blocks: Array.isArray(r.blocks) ? blocks : base.blocks,
