@@ -472,11 +472,11 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
       <Toggle checked={c.design.stickyTabs} onChange={(stickyTabs) => setDesign({ stickyTabs })} hint="Při posouvání zůstanou záložky nahoře.">Záložky drží nahoře</Toggle>
       <Group label="POZADÍ STRÁNKY">
         <div className="tz-shop" style={shopVars}>
-          <Tiles options={SHOP_BACKGROUNDS.filter((x) => !x.own)} value={c.design.background} onChange={(background) => setDesign({ background })} cols={3} render={(id) => <span className={`tz-shop-bg tz-shop-bg-sample ${styles.bgSample}`} data-bg={id === 'none' ? undefined : id} />} />
+          <Tiles options={SHOP_BACKGROUNDS.filter((x) => !x.own)} value={c.design.background} onChange={(background) => setDesign({ background })} cols={3} render={(id) => <span className={`tz-shop-bg tz-shop-bg-sample ${styles.bgSample}`} data-bg={id === 'none' ? undefined : id} data-theme={c.design.mode === 'light' ? 'light' : undefined} />} />
         </div>
-        <span className="t-small muted">Tato pozadí berou barvy obchodu. Prémiová pozadí mají vlastní barvy a stránku vždy ukážou v tmavém režimu:</span>
+        <span className="t-small muted">Tato pozadí berou barvy obchodu. Prémiová pozadí mají vlastní barvy a hodí se ke světlému i tmavému režimu:</span>
         <div className="tz-shop" style={shopVars}>
-          <Tiles options={SHOP_BACKGROUNDS.filter((x) => x.own)} value={c.design.background} onChange={(background) => setDesign({ background })} cols={3} render={(id) => <span className={`tz-shop-bg tz-shop-bg-sample ${styles.bgSample}`} data-bg={id} />} />
+          <Tiles options={SHOP_BACKGROUNDS.filter((x) => x.own)} value={c.design.background} onChange={(background) => setDesign({ background })} cols={3} render={(id) => <span className={`tz-shop-bg tz-shop-bg-sample ${styles.bgSample}`} data-bg={id} data-theme={c.design.mode === 'light' ? 'light' : undefined} />} />
         </div>
       </Group>
       <Group label="IKONA U NADPISŮ">
@@ -556,27 +556,24 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
           <input className={sell.input} value={c.contact[k]} maxLength={k === 'phone' ? 30 : 120} onChange={(e) => set('contact', { ...c.contact, [k]: e.target.value })} />
         </Field>
       ))}
-      {kind === 'shop' ? (
-        <>
-          <h3 className={styles.subhead}>Kamenná prodejna</h3>
-          <Field label="ADRESA" hint="Ukáže se v panelu a v bloku Mapa prodejny.">
-            <AddressInput value={c.store.address} onChange={(address) => set('store', { ...c.store, address })} />
-          </Field>
-          <Toggle checked={c.store.pickup} onChange={(pickup) => set('store', { ...c.store, pickup })}>Osobní odběr objednávek v prodejně</Toggle>
-          <Group label="OTEVÍRACÍ DOBA">
-            <div className={styles.rows}>
-              {c.store.hours.map((h, i) => (
-                <div key={i} className={styles.inline}>
-                  <input className={`${sell.input} ${styles.narrow}`} value={h.day} maxLength={20} placeholder="Po–Pá" aria-label="Dny" onChange={(e) => set('store', { ...c.store, hours: c.store.hours.map((x, j) => (j === i ? { ...x, day: e.target.value } : x)) })} />
-                  <input className={sell.input} value={h.time} maxLength={40} placeholder="10:00–18:00" aria-label="Čas" onChange={(e) => set('store', { ...c.store, hours: c.store.hours.map((x, j) => (j === i ? { ...x, time: e.target.value } : x)) })} />
-                  <RowActions onRemove={() => set('store', { ...c.store, hours: c.store.hours.filter((_, j) => j !== i) })} />
-                </div>
-              ))}
+      <h3 className={styles.subhead}>Kamenná prodejna</h3>
+      <p className="t-small muted" style={{ margin: 0 }}>Vyplňte, jen pokud máte prodejnu nebo místo, kde kupující mohou karty vyzvednout. Prázdné se na stránce neukáže.</p>
+      <Field label="ADRESA" hint="Ukáže se v panelu a v bloku Mapa prodejny.">
+        <AddressInput value={c.store.address} onChange={(address) => set('store', { ...c.store, address })} />
+      </Field>
+      <Toggle checked={c.store.pickup} onChange={(pickup) => set('store', { ...c.store, pickup })}>Osobní odběr objednávek v prodejně</Toggle>
+      <Group label="OTEVÍRACÍ DOBA">
+        <div className={styles.rows}>
+          {c.store.hours.map((h, i) => (
+            <div key={i} className={styles.inline}>
+              <input className={`${sell.input} ${styles.narrow}`} value={h.day} maxLength={20} placeholder="Po–Pá" aria-label="Dny" onChange={(e) => set('store', { ...c.store, hours: c.store.hours.map((x, j) => (j === i ? { ...x, day: e.target.value } : x)) })} />
+              <input className={sell.input} value={h.time} maxLength={40} placeholder="10:00–18:00" aria-label="Čas" onChange={(e) => set('store', { ...c.store, hours: c.store.hours.map((x, j) => (j === i ? { ...x, time: e.target.value } : x)) })} />
+              <RowActions onRemove={() => set('store', { ...c.store, hours: c.store.hours.filter((_, j) => j !== i) })} />
             </div>
-            {c.store.hours.length < 7 ? <div><Button variant="secondary" onClick={() => set('store', { ...c.store, hours: [...c.store.hours, { day: '', time: '' }] })}>Přidat řádek</Button></div> : null}
-          </Group>
-        </>
-      ) : null}
+          ))}
+        </div>
+        {c.store.hours.length < 7 ? <div><Button variant="secondary" onClick={() => set('store', { ...c.store, hours: [...c.store.hours, { day: '', time: '' }] })}>{c.store.hours.length ? 'Přidat řádek' : 'Přidat otevírací dobu'}</Button></div> : null}
+      </Group>
     </div>
   );
 

@@ -9,11 +9,13 @@ export function AddToCartButton({
   label = 'Do košíku',
   variant = 'secondary',
   size = 'md',
+  className,
 }: {
   item: Omit<CartItem, 'quantity'>;
   label?: string;
   variant?: 'primary' | 'secondary';
   size?: 'md' | 'lg';
+  className?: string;
 }) {
   const { items, add } = useCart();
   const [added, setAdded] = useState(false);
@@ -24,6 +26,7 @@ export function AddToCartButton({
     <Button
       variant={variant}
       size={size}
+      className={className}
       disabled={full}
       onClick={() => {
         add(item);
