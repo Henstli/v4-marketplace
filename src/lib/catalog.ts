@@ -396,12 +396,15 @@ export async function suggestCards(q: string, game?: GameId): Promise<Suggestion
   }));
 }
 
-// Našeptávač: karty, sady (název nebo kód) a prodejci, kteří něco prodávají.
+// Kolik sad ukáže našeptávač (katalog nad výsledky ukáže všechny, které databáze vrátí).
+const SUGGEST_SETS = 4;
+
+// Našeptávač: karty, sady (název, kód nebo rok) a prodejci, kteří něco prodávají.
 export async function suggestGroups(q: string, game?: GameId): Promise<SuggestGroups> {
   if (normalize(q.trim()).length < 2) return { cards: [], sets: [], sellers: [] };
   if (isSupabaseConfigured()) {
     const [cards, groups] = await Promise.all([dbSuggest(q, game), dbSuggestGroups(q, game)]);
-    return { cards, ...groups };
+    return { cards, ...groups, sets: groups.sets.slice(0, SUGGEST_SETS) };
   }
   const n = normalize(q.trim());
   const words = (s: string) => normalize(s).split(/[^a-z0-9]+/);
@@ -415,7 +418,7 @@ export async function suggestGroups(q: string, game?: GameId): Promise<SuggestGr
   }
   return {
     cards: await suggestCards(q, game),
-    sets: [...sets.values()].slice(0, 3),
+    sets: [...sets.values()].slice(0, SUGGEST_SETS),
     sellers: SELLERS.filter((s) => words(s.name).some((w) => w.startsWith(n)))
       .slice(0, 3)
       .map((s) => ({ ...s, offers: LISTINGS.filter((l) => l.sellerId === s.id).length })),
