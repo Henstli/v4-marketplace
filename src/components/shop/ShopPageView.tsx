@@ -787,7 +787,7 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
   ];
   const sticky = d.stickyTabs && tabLinks.length > 1;
   const sidebar = d.sidebar !== 'none' ? <Sidebar p={p} /> : null;
-  const style = { ...shopStyle(safeColor(d.color)), ...(d.color2 ? { '--shop-2': `var(--shop-${safeColor(d.color2)})` } : {}) } as React.CSSProperties;
+  const style = shopStyle(safeColor(d.color), d.color2 ? safeColor(d.color2) : '');
 
   return (
     <div
