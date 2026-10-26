@@ -27,7 +27,7 @@ export function AddToCartButton({
     return (
       <div className={['tz-qty', `tz-qty-${size}`, className].filter(Boolean).join(' ')} role="group" aria-label="Počet v košíku">
         <button type="button" aria-label={inCart.quantity > 1 ? 'Odebrat kus' : 'Odebrat z košíku'} onClick={() => (inCart.quantity > 1 ? setQuantity(item.listingId, inCart.quantity - 1) : remove(item.listingId))}>−</button>
-        <span aria-live="polite"><b>{inCart.quantity}</b> {added ? 'přidáno' : 'v košíku'}</span>
+        <span aria-live="polite"><b>{inCart.quantity}</b> <span className="tz-qty-label">{added ? 'přidáno' : 'v košíku'}</span></span>
         <button type="button" aria-label="Přidat kus" disabled={full} title={full ? 'Víc kusů prodejce nemá' : undefined} onClick={() => add(item)}>+</button>
       </div>
     );

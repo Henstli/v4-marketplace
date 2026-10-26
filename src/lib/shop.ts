@@ -16,7 +16,7 @@ export function mediaUrl(path: string | null | undefined): string | null {
 /** Zmenšený obrázek přes optimalizaci Next.js, aby se velké nahrané fotky nenačítaly celé (šířka z images.imageSizes/deviceSizes). */
 export function mediaImage(path: string | null | undefined, width: 256 | 1080 | 1920): string | null {
   const url = mediaUrl(path);
-  return url ? `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=80` : null;
+  return url ? `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=75` : null;
 }
 
 interface PageRow {
@@ -314,6 +314,24 @@ export async function getOfferBrands(sellers: Seller[]): Promise<Map<string, Off
     });
   }
   return out;
+}
+
+/** Profilovka, odznaky a odkaz pro prodejce v našeptávači. */
+export async function getSuggestBrands(ids: string[]): Promise<Map<string, { logo: string | null; color: string; href: string; verified: boolean; pro: boolean }>> {
+  if (!ids.length) return new Map();
+  const sellers = (await Promise.all(ids.map((id) => getSeller(id)))).filter((s): s is Seller => !!s);
+  const [plans, verified, brands] = await Promise.all([getSellerPlans(ids), getVerified(ids), getSellerBrands(ids)]);
+  return new Map(sellers.map((s) => {
+    const plan = plans.get(s.id) ?? 'free';
+    const b = brands.get(s.id);
+    return [s.id, {
+      logo: b?.logo ?? null,
+      color: b?.color ?? 'blue',
+      href: PLANS[plan].shopPage && b?.published && b.slug ? shopHref(s.kind, b.slug) : `/prodejci/${s.id}`,
+      verified: hasVerifiedBadge(plan, verified.has(s.id), s.rating, s.sales),
+      pro: plan === 'pro',
+    }];
+  }));
 }
 
 const CONDITION_RANK = new Map(CONDITIONS.map((c, i) => [c, i]));

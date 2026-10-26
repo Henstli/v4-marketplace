@@ -2,6 +2,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { Price } from './Price';
 import { cx } from './cx';
+import { initials, SellerBadge } from './Shop';
 
 export interface SearchSuggestItem {
   href: string;
@@ -23,6 +24,10 @@ export interface SearchSuggestItem {
   color?: string;
   /** Nejnižší cena v Kč; null = nikdo neprodává */
   price?: number | null;
+  /** Profilovka prodejce místo ikony: obrázek, nebo iniciály na barvě obchodu (např. "var(--shop-pink)") */
+  avatar?: { image: string | null; color: string };
+  /** Odznaky za jménem prodejce */
+  badges?: ('verified' | 'pro')[];
 }
 
 export interface SearchSuggestGroup {
@@ -122,6 +127,11 @@ export function SearchSuggest({ id, query, groups, activeIndex = -1, allHref, on
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {it.image ? <img src={it.image} alt="" loading="lazy" decoding="async" /> : null}
               </span>
+            ) : it.avatar ? (
+              <span className="tz-suggest-avatar" style={{ background: it.avatar.color }} aria-hidden="true">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {it.avatar.image ? <img src={it.avatar.image} alt="" loading="lazy" decoding="async" /> : initials(it.name)}
+              </span>
             ) : (
               <span className="tz-suggest-icon" aria-hidden="true">
                 <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -130,7 +140,14 @@ export function SearchSuggest({ id, query, groups, activeIndex = -1, allHref, on
               </span>
             )}
             <span className="tz-suggest-text">
-              <span className="tz-suggest-name" style={{ display: 'block' }}>{highlight(it.name, query)}</span>
+              {it.badges?.length ? (
+                <span className="tz-suggest-namerow">
+                  <span className="tz-suggest-name">{highlight(it.name, query)}</span>
+                  {it.badges.map((b) => <SellerBadge key={b} type={b} />)}
+                </span>
+              ) : (
+                <span className="tz-suggest-name" style={{ display: 'block' }}>{highlight(it.name, query)}</span>
+              )}
               <span className="tz-suggest-meta">
                 {it.dot ? <span className="tz-chip-dot" style={{ background: it.dot }} aria-hidden="true" /> : null}
                 {it.meta ?? [it.set, it.number].filter(Boolean).join(' · ')}

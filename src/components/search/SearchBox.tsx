@@ -63,7 +63,9 @@ function setItem(s: CardSet): SearchSuggestItem {
 function sellerItem(s: SellerSuggestion): SearchSuggestItem {
   return {
     kind: 'seller',
-    href: `/prodejci/${s.id}`,
+    href: s.href ?? `/prodejci/${s.id}`,
+    avatar: s.color ? { image: s.logo ?? null, color: `var(--shop-${s.color})` } : undefined,
+    badges: [...(s.verified ? ['verified' as const] : []), ...(s.pro ? ['pro' as const] : [])],
     name: s.name,
     meta: [s.kind === 'shop' ? 'Obchod' : 'Sběratel', s.country, s.rating != null ? `${Math.round(s.rating)} % kladných` : null]
       .filter(Boolean)
