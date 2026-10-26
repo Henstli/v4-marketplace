@@ -498,7 +498,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
                   </Link>
                   {x.maxPrice ? <span className="tz-wanted-price">{formatNumber(x.maxPrice)} Kč{x.qty > 1 ? ` · ${x.qty} ks` : ''}</span> : null}
                   {/* Návrh prodeje půjde přes zprávy, až budou; zatím kontakt na prodejce. */}
-                  <MessageSeller small name={p.seller.name} contacts={contacts} label={x.maxPrice ? `Nabídnout za ${formatNumber(x.maxPrice)} Kč` : 'Nabídnout'} intro="Návrh prodeje půjde poslat ve zprávách, které připravujeme. Zatím se s prodejcem domluvte přímo:" />
+                  <MessageSeller small name={p.seller.name} contacts={contacts} label="Nabídnout" intro="Návrh prodeje půjde poslat ve zprávách, které připravujeme. Zatím se s prodejcem domluvte přímo:" />
                 </div>
               );
             })}

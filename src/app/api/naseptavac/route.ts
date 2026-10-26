@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { suggestCards, suggestGroups } from '@/lib/catalog';
 import { getGame, type GameId } from '@/lib/games';
+import { getSuggestBrands } from '@/lib/shop';
 
 // Návrhy pro našeptávač ve vyhledávání. Odpověď je pro všechny stejná, takže ji drží
 // CDN Vercelu: časté začátky slov („char“, „pika“) se vůbec nedostanou do databáze.
@@ -11,7 +12,15 @@ export async function GET(request: NextRequest) {
   const hra = params.get('hra');
   const game = hra && getGame(hra) ? (hra as GameId) : undefined;
   try {
-    const body = params.get('skupiny') === '1' ? await suggestGroups(q, game) : await suggestCards(q, game);
+    let body;
+    if (params.get('skupiny') === '1') {
+      const groups = await suggestGroups(q, game);
+      // Prodejci s profilovkou a odznaky; když se značky nenačtou, zůstanou bez nich.
+      const brands = await getSuggestBrands(groups.sellers.map((s) => s.id)).catch(() => new Map());
+      body = { ...groups, sellers: groups.sellers.map((s) => ({ ...s, ...brands.get(s.id) })) };
+    } else {
+      body = await suggestCards(q, game);
+    }
     return Response.json(body, {
       headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600' },
     });

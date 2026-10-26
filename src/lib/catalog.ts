@@ -68,6 +68,12 @@ export interface SellerSuggestion {
   /** Podíl kladných hodnocení v %, null bez hodnocení */
   rating: number | null;
   offers: number;
+  /** Doplní našeptávač ze stránky prodejce (src/lib/shop.ts, getSuggestBrands) */
+  logo?: string | null;
+  color?: string;
+  href?: string;
+  verified?: boolean;
+  pro?: boolean;
 }
 
 export interface SuggestGroups {
