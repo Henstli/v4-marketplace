@@ -67,13 +67,15 @@ export interface ShopHeaderProps {
 }
 
 /** Hlavička stránky obchodu ve čtyřech šablonách; patří do obalu .tz-shop. */
-export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerStyle = 'pattern', meta, tagline, badges, actions, tabs, bannerLive, logoRound, extra, className }: ShopHeaderProps) {
+export function ShopHeader({ layout = 'banner', name, logo, bannerImage, bannerStyle = 'gradient', meta, tagline, badges, actions, tabs, bannerLive, logoRound, extra, className }: ShopHeaderProps) {
   const banner = layout === 'minimal' ? null : (
     <div
       className={cx('tz-shop-banner', !bannerImage && `tz-shop-banner-${bannerStyle}`, bannerLive && !bannerImage && 'tz-shop-banner-live')}
       style={bannerImage ? { backgroundImage: `url(${JSON.stringify(bannerImage)})` } : undefined}
       aria-hidden="true"
-    />
+    >
+      {bannerImage ? null : <span className="tz-shop-banner-art" />}
+    </div>
   );
   const id = (
     <div className="tz-shop-id">

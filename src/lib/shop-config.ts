@@ -63,22 +63,22 @@ export type ShopFont = (typeof SHOP_FONTS)[number]['id'];
 
 /** Vzory banneru = třídy tz-shop-banner-* z design systému, všechny z barev obchodu (hlavní i druhé) */
 export const SHOP_BANNERS = [
-  { id: 'pattern', name: 'Proužky', pro: false },
-  { id: 'solid', name: 'Barva', pro: false },
   { id: 'gradient', name: 'Přechod', pro: false },
+  { id: 'solid', name: 'Barva', pro: false },
   { id: 'dots', name: 'Puntíky', pro: false },
-  { id: 'aurora', name: 'Polární záře', pro: true },
-  { id: 'mesh', name: 'Mlhovina', pro: true },
   { id: 'holo', name: 'Holo', pro: true },
-  { id: 'waves', name: 'Vlny', pro: true },
-  { id: 'rays', name: 'Paprsky', pro: true },
   { id: 'sparkle', name: 'Hvězdy', pro: true },
-  { id: 'grid', name: 'Mřížka', pro: true },
-  { id: 'checks', name: 'Šachovnice', pro: true },
-  { id: 'carbon', name: 'Karbon', pro: true },
+  { id: 'silk', name: 'Hedvábí', pro: true },
+  { id: 'bokeh', name: 'Bokeh', pro: true },
+  { id: 'vitrine', name: 'Vitrína', pro: true },
   { id: 'photo', name: 'Vlastní obrázek', pro: false },
 ] as const;
 export type ShopBanner = (typeof SHOP_BANNERS)[number]['id'];
+
+/** Bannery vyřazené 26. 10. → nejbližší nový */
+const LEGACY_BANNERS: Record<string, ShopBanner> = {
+  pattern: 'gradient', aurora: 'silk', mesh: 'bokeh', waves: 'silk', rays: 'sparkle', grid: 'dots', checks: 'dots', carbon: 'solid',
+};
 
 export interface ShopDesign {
   color: ShopColor;
@@ -178,7 +178,7 @@ export const SHOP_TYPES = [
 export type ShopType = (typeof SHOP_TYPES)[number]['id'];
 
 export const DEFAULT_DESIGN: ShopDesign = {
-  color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'pattern', tabs: [], hiddenTabs: [],
+  color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'gradient', tabs: [], hiddenTabs: [],
   sidebar: 'right', stickyTabs: false, background: 'none', icon: 'bar', logo: 'square', shopType: '', divider: 'none', ticker: '', tagsAuto: true,
   customTags: [], dividerAt: {}, holo: false, color2: '', liveBanner: false,
 };
@@ -498,7 +498,7 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
       layout: oneOf(d.layout, ids(SHOP_LAYOUTS), 'banner'),
       font: oneOf(d.font, ids(SHOP_FONTS), 'modern'),
       corners: oneOf(d.corners, ['round', 'sharp'] as const, 'round'),
-      banner: oneOf(d.banner, ids(SHOP_BANNERS), 'pattern'),
+      banner: oneOf(LEGACY_BANNERS[d.banner as string] ?? d.banner, ids(SHOP_BANNERS), 'gradient'),
       tabs: [...new Set(arr(d.tabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
       hiddenTabs: [...new Set(arr(d.hiddenTabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
       sidebar: oneOf(d.sidebar, ['right', 'left', 'none'] as const, 'right'),
@@ -551,7 +551,7 @@ export function effectiveConfig(config: ShopPageConfig, plan: Plan): ShopPageCon
   const design: ShopDesign = info.fullDesign
     ? config.design
     : {
-        ...config.design, color: FANCY_COLOR_FALLBACK[config.design.color] ?? config.design.color, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner,
+        ...config.design, color: FANCY_COLOR_FALLBACK[config.design.color] ?? config.design.color, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'gradient' : config.design.banner,
         holo: false, color2: '', liveBanner: false, customTags: config.design.customTags.slice(0, 1),
       };
   const blocks = config.blocks

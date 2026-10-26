@@ -822,7 +822,7 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
             logo={mediaImage(c.logoPath, 256)}
             logoRound={d.logo === 'round'}
             bannerImage={d.banner === 'photo' ? mediaImage(c.bannerPath, 1920) : null}
-            bannerStyle={d.banner === 'photo' ? 'pattern' : d.banner}
+            bannerStyle={d.banner === 'photo' ? 'solid' : d.banner}
             bannerLive={d.liveBanner}
             meta={sellerMeta(p, total)}
             tagline={c.tagline || undefined}
