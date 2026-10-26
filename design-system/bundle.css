@@ -182,8 +182,8 @@
 @keyframes tz-bn-flow{to{background-position:100% 0}}
 /* Banner: Holo */
 .tz-shop-banner-holo{background:linear-gradient(115deg,color-mix(in srgb,var(--shop) 75%,#fff),color-mix(in srgb,var(--shop-2) 75%,#fff) 50%,color-mix(in srgb,var(--shop) 75%,#fff)) 0 0/200% 100%}
-.tz-shop-banner-holo .tz-shop-banner-art::before{inset:0 -50%;background:repeating-linear-gradient(115deg,rgba(255,90,170,.32) 0,rgba(255,210,90,.28) 9%,rgba(90,255,190,.3) 18%,rgba(90,170,255,.32) 27%,rgba(190,110,255,.3) 36%,rgba(255,90,170,.32) 45%)}
-.tz-shop-banner-holo .tz-shop-banner-art::after{inset:-40% -60%;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.55) 47%,rgba(255,255,255,.75) 50%,rgba(255,255,255,.55) 53%,transparent 62%),repeating-linear-gradient(25deg,rgba(255,255,255,.08) 0 1px,transparent 1px 6px);transform:translateX(-35%)}
+.tz-shop-banner-holo .tz-shop-banner-art::before{inset:0 -50%;background:repeating-linear-gradient(25deg,rgba(255,255,255,.08) 0 1px,transparent 1px 6px),repeating-linear-gradient(115deg,rgba(255,90,170,.32) 0,rgba(255,210,90,.28) 9%,rgba(90,255,190,.3) 18%,rgba(90,170,255,.32) 27%,rgba(190,110,255,.3) 36%,rgba(255,90,170,.32) 45%)}
+.tz-shop-banner-holo .tz-shop-banner-art::after{inset:-40% -60%;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.55) 47%,rgba(255,255,255,.75) 50%,rgba(255,255,255,.55) 53%,transparent 62%);transform:translateX(-35%)}
 .tz-shop-banner-live.tz-shop-banner-holo .tz-shop-banner-art::before{animation:tz-bn-holoband 16s ease-in-out infinite alternate}
 .tz-shop-banner-live.tz-shop-banner-holo .tz-shop-banner-art::after{animation:tz-bn-holo 6s ease-in-out infinite alternate}
 @keyframes tz-bn-holoband{to{transform:translateX(20%)}}
@@ -204,7 +204,7 @@
 @keyframes tz-bn-dots{to{transform:translate(16px,16px)}}
 /* Banner: Vitrína */
 .tz-shop-banner-vitrine{background:radial-gradient(80% 120% at 85% 50%,color-mix(in srgb,var(--shop-2) 45%,transparent),transparent 70%),linear-gradient(120deg,var(--shop),color-mix(in srgb,var(--shop) 40%,var(--b-dark)) 75%)}
-.tz-shop-banner-vitrine .tz-shop-banner-art::before{inset:-176px -132px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='132' height='176'%3E%3Cg fill='white' fill-opacity='.07' stroke='white' stroke-opacity='.22' stroke-width='1.2'%3E%3Crect x='8' y='8' width='54' height='76' rx='5'/%3E%3Crect x='74' y='96' width='54' height='76' rx='5'/%3E%3C/g%3E%3Cg fill='none' stroke='white' stroke-opacity='.12'%3E%3Crect x='14' y='14' width='42' height='30' rx='2'/%3E%3Crect x='80' y='102' width='42' height='30' rx='2'/%3E%3C/g%3E%3C/svg%3E") 0 0/132px 176px;transform:rotate(-14deg);-webkit-mask:linear-gradient(90deg,transparent 15%,#000 60%);mask:linear-gradient(90deg,transparent 15%,#000 60%)}
+.tz-shop-banner-vitrine .tz-shop-banner-art::before{inset:-352px -264px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='132' height='176'%3E%3Cg fill='white' fill-opacity='.07' stroke='white' stroke-opacity='.22' stroke-width='1.2'%3E%3Crect x='8' y='8' width='54' height='76' rx='5'/%3E%3Crect x='74' y='96' width='54' height='76' rx='5'/%3E%3C/g%3E%3Cg fill='none' stroke='white' stroke-opacity='.12'%3E%3Crect x='14' y='14' width='42' height='30' rx='2'/%3E%3Crect x='80' y='102' width='42' height='30' rx='2'/%3E%3C/g%3E%3C/svg%3E") 0 0/132px 176px;transform:rotate(-14deg);-webkit-mask:linear-gradient(90deg,transparent 15%,#000 60%);mask:linear-gradient(90deg,transparent 15%,#000 60%)}
 .tz-shop-banner-live.tz-shop-banner-vitrine .tz-shop-banner-art::before{animation:tz-bn-vit 24s linear infinite}
 @keyframes tz-bn-vit{from{transform:rotate(-14deg) translateY(0)}to{transform:rotate(-14deg) translateY(-176px)}}
 /* Banner: Bokeh */
