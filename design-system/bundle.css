@@ -84,7 +84,8 @@
 .tz-suggest-avatar{flex:none;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-md);overflow:hidden;color:#fff;font:700 12px/1 var(--font-sans);text-shadow:0 1px 2px rgba(0,0,0,.35)}.tz-suggest-avatar img{width:100%;height:100%;object-fit:cover}
 .tz-suggest-namerow{display:flex;align-items:center;gap:6px;min-width:0}.tz-suggest-namerow .tz-suggest-name{min-width:0}
 .tz-suggest-namerow .tz-badge{flex:none;height:20px;padding:0 7px;font-size:11px;gap:4px}.tz-suggest-namerow .tz-badge svg{width:12px;height:12px}.tz-suggest-namerow .tz-badge-pro{height:18px;padding:0 6px}
-.tz-suggest-item-compact{min-height:48px}
+.tz-suggest-item-compact{min-height:52px;padding-top:8px;padding-bottom:8px}
+.tz-suggest>li:last-child>.tz-suggest-item:not(.tz-suggest-all){margin-bottom:4px}
 .tz-suggest-tag{flex:none;font-size:13px;color:var(--ink-muted);white-space:nowrap}
 @media (max-width:640px){.tz-suggest{max-height:60vh}.tz-suggest-item{min-height:60px}.tz-suggest-item-compact{min-height:52px}}
 @media (hover:none){.tz-suggest-all .tz-kbd{display:none}}
