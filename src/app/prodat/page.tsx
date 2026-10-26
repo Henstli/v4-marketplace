@@ -72,7 +72,7 @@ export default async function SellPage({ searchParams }: Props) {
     <div className={`container ${styles.page}`}>
       <div>
         <h1 className="t-heading-l">Prodat karty</h1>
-        <p className="muted">Vystavujete jako {user.displayName}. Profil upravíte v <Link href="/ucet">nastavení účtu</Link>.</p>
+        <p className="muted">Vystavujete jako {user.displayName}. Profil upravíte v <Link href="/ucet/nastaveni">nastavení účtu</Link>.</p>
       </div>
 
       <section className="panel">

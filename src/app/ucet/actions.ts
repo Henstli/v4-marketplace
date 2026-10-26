@@ -55,7 +55,7 @@ export async function confirmMfa(_prev: MfaState, form: FormData): Promise<MfaSt
   const supabase = await createClient();
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
   if (error) return { error: authErrorMessage(error) };
-  revalidatePath('/ucet');
+  revalidatePath('/ucet', 'layout');
   return { done: 'enabled' };
 }
 
@@ -75,7 +75,7 @@ export async function disableMfa(_prev: MfaState, form: FormData): Promise<MfaSt
     if (error) return { error: authErrorMessage(error) };
   }
   await supabase.auth.refreshSession();
-  revalidatePath('/ucet');
+  revalidatePath('/ucet', 'layout');
   return { done: 'disabled' };
 }
 

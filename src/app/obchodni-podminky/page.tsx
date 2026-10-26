@@ -59,7 +59,7 @@ export default function TermsPage() {
             Přihlašovací údaje chraňte a nikomu je nesdělujte. Doporučujeme zapnout dvoufázové ověření. Za činnost na účtu
             odpovídá jeho držitel. Podezření na zneužití nám hned napište.
           </li>
-          <li>Účet můžete kdykoli zrušit na stránce <Link href="/ucet">Účet</Link>. Rozpracované objednávky je potřeba nejdřív dokončit.</li>
+          <li>Účet můžete kdykoli zrušit na stránce <Link href="/ucet/nastaveni">Nastavení účtu</Link>. Rozpracované objednávky je potřeba nejdřív dokončit.</li>
         </ul>
 
         <h2 className="t-heading-m">5. Prodej karet</h2>

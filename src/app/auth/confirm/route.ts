@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   let next = safeNext(searchParams.get('dalsi'));
   if (type === 'recovery') next = '/nove-heslo';
-  else if (type === 'email_change') next = data.user?.new_email ? '/ucet?email=druhy' : '/ucet?email=zmenen';
+  else if (type === 'email_change') next = data.user?.new_email ? '/ucet/nastaveni?email=druhy' : '/ucet/nastaveni?email=zmenen';
   else await sendWelcomeEmail(supabase, origin);
   return NextResponse.redirect(`${origin}${next}`);
 }
