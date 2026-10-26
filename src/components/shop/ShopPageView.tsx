@@ -5,7 +5,7 @@ import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame } from '@/lib/games';
 import { PLANS } from '@/lib/plans';
 import {
-  blockInfo, safeColor, shopHref, visibleTabs, COLLECTION_SORTS, SHOP_BACKGROUNDS, SHOP_TYPES,
+  blockInfo, safeColor, shopHref, visibleTabs, COLLECTION_SORTS, SHOP_TYPES,
   type CollectionSort, type ShopBlock, type ShopCollection, type ShopDesign,
 } from '@/lib/shop-config';
 import {
@@ -92,9 +92,9 @@ function listingTag(l: ShopListing, d: ShopDesign) {
   return null;
 }
 
-function ListingTile({ l, d }: { l: ShopListing; d: ShopDesign }) {
-  return (
-    <Link className="tz-tile" href={`/karty/${l.card.slug}`}>
+function ListingTile({ l, d, p }: { l: ShopListing; d: ShopDesign; p?: ShopProfile }) {
+  const body = (
+    <>
       <Art image={l.card.image} game={l.card.game} name={l.card.name} holo={d.holo} tag={listingTag(l, d)} />
       <div>
         <div className="tz-tile-name">{l.card.name}</div>
@@ -104,7 +104,15 @@ function ListingTile({ l, d }: { l: ShopListing; d: ShopDesign }) {
         <Price amount={l.price} />
         <span className="code" title={CONDITION_NAMES[l.condition]}>{l.condition}{l.graded ? ` · ${l.graded}` : ''}</span>
       </div>
-    </Link>
+    </>
+  );
+  if (!p) return <Link className="tz-tile" href={`/karty/${l.card.slug}`}>{body}</Link>;
+  // S košíkem: odkaz a tlačítko vedle sebe, tlačítko nesmí být uvnitř odkazu.
+  return (
+    <div className="tz-tile">
+      <Link className="tz-tile-link" href={`/karty/${l.card.slug}`}>{body}</Link>
+      <AddToCartButton item={cartItem(l, p)} className="tz-tile-buy" />
+    </div>
   );
 }
 
@@ -570,7 +578,7 @@ async function Stock({ p, base, query, mode }: { p: ShopProfile; base: string; q
       </div>
       {items.length ? (
         <>
-          <div className={styles.grid}>{items.map((l) => <ListingTile key={l.id} l={l} d={d} />)}</div>
+          <div className={styles.grid}>{items.map((l) => <ListingTile key={l.id} l={l} d={d} p={p} />)}</div>
           {pages > 1 ? (
             <nav className={styles.pager} aria-label="Stránky">
               {page > 1 ? <ChipLink href={href({ ...keep, strana: String(page - 1) })}>← Předchozí</ChipLink> : null}
@@ -780,7 +788,7 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
       data-corners={d.corners}
       data-bg={d.background !== 'none' ? d.background : undefined}
       data-icon={d.icon !== 'bar' ? d.icon : undefined}
-      data-theme={d.mode === 'light' && !SHOP_BACKGROUNDS.find((x) => x.id === d.background)?.own ? 'light' : undefined}
+      data-theme={d.mode === 'light' ? 'light' : undefined}
       style={style}
     >
       {fontUrl ? <link rel="stylesheet" href={fontUrl} precedence="default" /> : null}

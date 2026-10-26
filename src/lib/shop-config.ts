@@ -106,21 +106,23 @@ export interface CustomTag { id: string; label: string; ids: string[] }
 export const SHOP_BACKGROUNDS = [
   { id: 'none', name: 'Žádné', own: false },
   { id: 'glow', name: 'Záře', own: false },
-  { id: 'aurora', name: 'Polární záře', own: false },
-  { id: 'spotlight', name: 'Reflektor', own: false },
-  { id: 'grain', name: 'Zrno', own: false },
   { id: 'dots', name: 'Puntíky', own: false },
   { id: 'grid', name: 'Mřížka', own: false },
   { id: 'lines', name: 'Linky', own: false },
   { id: 'topo', name: 'Vrstevnice', own: false },
   { id: 'onyx', name: 'Onyx', own: true },
   { id: 'gold', name: 'Zlatý prach', own: true },
-  { id: 'velvet', name: 'Samet', own: true },
   { id: 'midnight', name: 'Půlnoc', own: true },
   { id: 'felt', name: 'Herní stůl', own: true },
   { id: 'marble', name: 'Mramor', own: true },
+  { id: 'baize', name: 'Modré sukno', own: true },
+  { id: 'leather', name: 'Kůže', own: true },
+  { id: 'wood', name: 'Ořech', own: true },
+  { id: 'granite', name: 'Žula', own: true },
 ] as const;
 export type ShopBackground = (typeof SHOP_BACKGROUNDS)[number]['id'];
+// Pozadí, která jsme nahradili; uložené stránky dostanou nejbližší náhradu.
+const LEGACY_BACKGROUNDS: Record<string, ShopBackground> = { aurora: 'glow', spotlight: 'glow', grain: 'glow', velvet: 'leather' };
 
 export const SHOP_ICONS = [
   { id: 'none', name: 'Bez ikony' },
@@ -477,7 +479,7 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
       hiddenTabs: [...new Set(arr(d.hiddenTabs, 24).map((t) => str(t, 20)).filter((t) => TAB_RE.test(t)))],
       sidebar: oneOf(d.sidebar, ['right', 'left', 'none'] as const, 'right'),
       stickyTabs: d.stickyTabs === true,
-      background: oneOf(d.background, ids(SHOP_BACKGROUNDS), 'none'),
+      background: oneOf(LEGACY_BACKGROUNDS[String(d.background)] ?? d.background, ids(SHOP_BACKGROUNDS), 'none'),
       icon: oneOf(d.icon, ids(SHOP_ICONS), 'bar'),
       logo: oneOf(d.logo, ['square', 'round'] as const, 'square'),
       shopType: oneOf(d.shopType, ids(SHOP_TYPES), ''),
