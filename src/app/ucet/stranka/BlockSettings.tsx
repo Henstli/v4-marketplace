@@ -6,7 +6,7 @@ import { Button, CardThumb, Chip } from '@/components/trezor';
 import { GAMES } from '@/lib/games';
 import { youtubeId, type ShopBlock } from '@/lib/shop-config';
 import type { PickerCard } from './actions';
-import { CardPicker, Field, ImageInput, ListingPicker, PickedListings, RowActions, mediaUrl, move, uploadImage, type ListingOption } from './editorParts';
+import { AddressInput, CardPicker, Field, ImageInput, ListingPicker, PickedListings, RowActions, mediaUrl, move, uploadImage, type ListingOption } from './editorParts';
 import sell from '../../prodat/sell.module.css';
 import styles from './editor.module.css';
 
@@ -264,7 +264,7 @@ export function BlockSettings({ b, setData, uid, listings, listingById, cards, r
       return (
         <div className={styles.stack}>
           <Field label="ADRESA NA MAPĚ" hint="Ulice, číslo, město. Stejná adresa se ukáže i v části O nás.">
-            <textarea className={`${sell.input} ${styles.textareaSmall}`} value={storeAddress} maxLength={200} placeholder={'Např. Vodičkova 12\n110 00 Praha 1'} onChange={(e) => setStoreAddress(e.target.value)} />
+            <AddressInput value={storeAddress} onChange={setStoreAddress} />
           </Field>
           {!storeAddress.trim() ? <span className="t-small muted">Bez adresy se mapa na stránce neukáže.</span> : null}
           <span className="t-small muted">Otevírací dobu nastavíte v části <button type="button" className={styles.linkButton} onClick={() => goTo('about')}>O nás</button>.</span>

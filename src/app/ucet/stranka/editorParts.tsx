@@ -1,7 +1,7 @@
 'use client';
 
 // Společné ovládací prvky editoru stránky: pole, nahrávání obrázků, výběr nabídek a karet.
-import { useMemo, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Button, CardThumb, SellerBadge } from '@/components/trezor';
 import { createClient } from '@/lib/supabase/browser';
@@ -258,6 +258,82 @@ export function Tiles<T extends string>({ options, value, onChange, locked, rend
           <span className={styles.tileName}>{o.name}{o.pro && locked ? <ProTag /> : null}</span>
         </button>
       ))}
+    </div>
+  );
+}
+
+type PhotonProps = { name?: string; street?: string; housenumber?: string; postcode?: string; city?: string; town?: string; village?: string; district?: string; countrycode?: string };
+
+/** Řádky adresy z výsledku Photonu: „Ulice 12“ a „110 00 Praha“. */
+function addressLines(p: PhotonProps): string {
+  const place = p.city || p.town || p.village || p.district || '';
+  const street = p.street ? `${p.street}${p.housenumber ? ` ${p.housenumber}` : ''}` : p.name && p.name !== place ? `${p.name}${p.housenumber ? ` ${p.housenumber}` : ''}` : '';
+  const city = [p.postcode, place].filter(Boolean).join(' ');
+  return [street, city].filter(Boolean).join('\n');
+}
+
+/**
+ * Adresa s našeptávačem (OpenStreetMap přes veřejné API Photon, jen Česko a Slovensko).
+ * Jde i psát ručně; návrh se jen doplní.
+ */
+export function AddressInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [items, setItems] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const typed = useRef(false);
+  useEffect(() => {
+    const q = value.replace(/\s+/g, ' ').trim();
+    if (!typed.current || q.length < 3) { setItems([]); return; }
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=de&bbox=12.09,47.73,22.57,51.06`, { signal: ctrl.signal });
+        const j = (await r.json()) as { features?: { properties: PhotonProps }[] };
+        const list = [...new Set((j.features ?? []).filter((f) => ['CZ', 'SK'].includes(f.properties.countrycode ?? '')).map((f) => addressLines(f.properties)).filter((x) => x.includes('\n') || x.length > 2))];
+        setItems(list);
+        setActive(-1);
+        setOpen(true);
+      } catch {}
+    }, 300);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [value]);
+  const pick = (v: string) => {
+    typed.current = false;
+    onChange(v);
+    setOpen(false);
+    setItems([]);
+  };
+  return (
+    <div className={styles.suggestWrap}>
+      <textarea
+        className={`${sell.input} ${styles.textareaSmall}`}
+        value={value}
+        maxLength={200}
+        placeholder={'Začněte psát ulici a město, např. Vodičkova 12 Praha'}
+        aria-autocomplete="list"
+        aria-expanded={open && items.length > 0}
+        onChange={(e) => { typed.current = true; onChange(e.target.value); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => items.length && setOpen(true)}
+        onKeyDown={(e) => {
+          if (!open || !items.length) return;
+          if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(items.length - 1, i + 1)); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+          else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(items[active]); }
+          else if (e.key === 'Escape') setOpen(false);
+        }}
+      />
+      {open && items.length ? (
+        <div className={styles.suggestList} role="listbox" aria-label="Návrhy adres">
+          {items.map((x, i) => (
+            <button key={x} type="button" role="option" aria-selected={i === active} className={styles.suggestRow} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(x)}>
+              <span aria-hidden="true">📍</span>
+              <span className={styles.pickText}><strong>{x.split('\n')[0]}</strong>{x.includes('\n') ? <span className="t-small muted">{x.split('\n')[1]}</span> : null}</span>
+            </button>
+          ))}
+          <span className={styles.suggestNote}>© OpenStreetMap</span>
+        </div>
+      ) : null}
     </div>
   );
 }

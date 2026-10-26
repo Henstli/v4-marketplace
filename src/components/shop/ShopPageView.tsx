@@ -5,7 +5,7 @@ import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame } from '@/lib/games';
 import { PLANS } from '@/lib/plans';
 import {
-  blockInfo, safeColor, shopHref, visibleTabs, COLLECTION_SORTS, SHOP_TYPES,
+  blockInfo, safeColor, shopHref, visibleTabs, COLLECTION_SORTS, SHOP_BACKGROUNDS, SHOP_TYPES,
   type CollectionSort, type ShopBlock, type ShopCollection, type ShopDesign,
 } from '@/lib/shop-config';
 import {
@@ -84,7 +84,8 @@ const WEEK = 7 * 24 * 3600 * 1000;
 
 /** Štítek nabídky: vlastní štítek obchodu, jinak automaticky Poslední kus nebo Novinka. */
 function listingTag(l: ShopListing, d: ShopDesign) {
-  if (d.customTag && d.customTagIds.includes(l.id)) return <CardTag kind="custom">{d.customTag}</CardTag>;
+  const i = d.customTags.findIndex((t) => t.ids.includes(l.id));
+  if (i >= 0) return <span className="tz-card-tag tz-card-tag-custom" data-i={i}>{d.customTags[i].label}</span>;
   if (!d.tagsAuto) return null;
   if (l.quantity === 1) return <CardTag kind="last">Poslední kus</CardTag>;
   if (Date.now() - new Date(l.createdAt).getTime() < WEEK) return <CardTag kind="new">Novinka</CardTag>;
@@ -234,11 +235,39 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
         .map((g) => ({ g, n: counts.find((c) => c.game === g.id)?.cards ?? 0 }))
         .filter((x) => x.n > 0);
       if (!ordered.length) return null;
+      const href = (id: string) => `${base}?zalozka=nabidka&hra=${id}`;
+      if (b.variant === 'chips') {
+        return (
+          <ShopSection title={blockTitle(b)}>
+            <div className="tz-coll-chips">
+              {ordered.map(({ g, n }) => (
+                <Link key={g.id} href={href(g.id)} className="tz-coll-chip">
+                  <span className={styles.dot} style={{ background: g.dot }} aria-hidden="true" />{g.name}<span className="muted" style={{ fontWeight: 500 }}>{formatNumber(n)}</span>
+                </Link>
+              ))}
+            </div>
+          </ShopSection>
+        );
+      }
+      if (b.variant === 'cards') {
+        return (
+          <ShopSection title={blockTitle(b)}>
+            <div className="tz-coll-cards">
+              {ordered.map(({ g, n }) => (
+                <Link key={g.id} href={href(g.id)} className="tz-coll-card" style={{ background: `linear-gradient(135deg, ${g.dot}, color-mix(in srgb, ${g.dot} 40%, #0b0d12))` }}>
+                  <strong>{g.name}</strong>
+                  <span>{plural(n, ['karta', 'karty', 'karet'])}</span>
+                </Link>
+              ))}
+            </div>
+          </ShopSection>
+        );
+      }
       return (
         <ShopSection title={blockTitle(b)}>
           <div className={styles.tiles}>
             {ordered.map(({ g, n }) => (
-              <Link key={g.id} href={`${base}?zalozka=nabidka&hra=${g.id}`} className={styles.tile}>
+              <Link key={g.id} href={href(g.id)} className={styles.tile}>
                 <span className={styles.tileTitle}><span className={styles.dot} style={{ background: g.dot }} aria-hidden="true" />{g.name}</span>
                 <span className="t-price-l">{formatNumber(n)}</span>
                 <span className="t-small muted">{plural(n, ['karta', 'karty', 'karet'])}</span>
@@ -266,7 +295,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
             {cols.map((c) => (
               <Link key={c.id} href={`${base}?kolekce=${c.id}`} className={b.variant === 'cards' ? 'tz-coll-card' : styles.tile}>
                 {b.variant === 'cards' ? <strong>{c.name}</strong> : <span className={styles.tileTitle}>{c.name}</span>}
-                <span className={b.variant === 'cards' ? undefined : 't-small muted'}>{collectionLabel(c)}</span>
+                <span className={b.variant === 'cards' ? undefined : 't-small muted'}>{c.desc || collectionLabel(c)}</span>
               </Link>
             ))}
           </div>
@@ -382,8 +411,12 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
       if (!c?.at) return null;
       return (
         <ShopSection title={c.title || blockTitle(b)}>
-          {c.text ? <p className="tz-countdown-text">{c.text}</p> : null}
-          <Countdown at={c.at} />
+          <div className="tz-countdown-box">
+            <div className="tz-countdown-row">
+              {c.text ? <p className="tz-countdown-text">{c.text}</p> : null}
+              <Countdown at={c.at} />
+            </div>
+          </div>
         </ShopSection>
       );
     }
@@ -479,26 +512,13 @@ export function collectionLabel(c: ShopCollection): string {
 }
 
 type StockMode =
-  | { kind: 'preview' }
   | { kind: 'all' }
   | { kind: 'collection'; c: ShopCollection }
   | { kind: 'block'; b: ShopBlock; f: ListingFilter };
 
-/** Nabídka po jednotlivých nabídkách: Celá nabídka, kolekce, celý obsah bloku, nebo ukázka na Přehledu. */
+/** Nabídka po jednotlivých nabídkách: Celá nabídka, kolekce nebo celý obsah bloku. */
 async function Stock({ p, base, query, mode }: { p: ShopProfile; base: string; query: StockQuery; mode: StockMode }) {
   const d = p.config.design;
-  if (mode.kind === 'preview') {
-    const { items, total } = await searchShopListings(p.seller.id, { sort: 'new', pageSize: 12 });
-    if (!items.length) return null;
-    return (
-      <ShopSection title="Z nabídky" note={plural(total, ['karta', 'karty', 'karet'])}>
-        <div className={`${styles.grid} tz-grid-2rows`}>{items.map((l) => <ListingTile key={l.id} l={l} d={d} />)}</div>
-        <div className={styles.pager}>
-          <ButtonLink href={`${base}?zalozka=nabidka`} variant="secondary">Zobrazit celou nabídku</ButtonLink>
-        </div>
-      </ShopSection>
-    );
-  }
 
   const fixed: ListingFilter = mode.kind === 'collection' ? collectionFilter(mode.c) : mode.kind === 'block' ? mode.f : {};
   const q = (query.q ?? '').slice(0, 60) || undefined;
@@ -524,6 +544,7 @@ async function Stock({ p, base, query, mode }: { p: ShopProfile; base: string; q
   return (
     <ShopSection id="nabidka" title={title} note={plural(total, ['karta', 'karty', 'karet'])}>
       {mode.kind !== 'all' ? <p className="t-small" style={{ margin: 0 }}><Link href={base}>← Zpět na přehled</Link></p> : null}
+      {mode.kind === 'collection' && mode.c.desc ? <p className="muted" style={{ margin: 0 }}>{mode.c.desc}</p> : null}
       <form action={base} className={styles.stockBar} role="search">
         {Object.entries(view).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
         {query.hra ? <input type="hidden" name="hra" value={query.hra} /> : null}
@@ -574,33 +595,26 @@ function contactHref(kind: string, v: string): string | null {
 
 const CONTACT_LABELS: Record<string, string> = { web: 'Web', instagram: 'Instagram', facebook: 'Facebook', discord: 'Discord', email: 'E-mail', phone: 'Telefon' };
 
-function Sidebar({ p, wide }: { p: ShopProfile; wide?: boolean }) {
+type AboutPart = 'about' | 'contact' | 'store';
+const PANEL_HEADING = { fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never };
+
+/** Části O nás vždy v pořadí, v jakém přijdou (O nás, kontakt, prodejna); prázdné vynechá. */
+function AboutPanels({ p, parts }: { p: ShopProfile; parts: AboutPart[] }) {
   const c = p.config;
   const contacts = Object.entries(c.contact).filter(([, v]) => v);
-  if (!c.about && !c.store.address && !c.store.hours.length && !contacts.length) return null;
-  return (
-    <aside className={wide ? styles.aboutView : styles.aside}>
-      {c.about ? (
-        <section className={styles.panel}>
-          <h2 className="t-heading-m" style={{ fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never }}>O nás</h2>
+  return parts.map((part) => {
+    if (part === 'about') {
+      return c.about ? (
+        <section key={part} className={styles.panel}>
+          <h2 className="t-heading-m" style={PANEL_HEADING}>O nás</h2>
           <p className={styles.about}>{c.about}</p>
         </section>
-      ) : null}
-      {c.store.address || c.store.hours.length ? (
-        <section className={styles.panel}>
-          <h2 className="t-heading-m" style={{ fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never }}>Kamenná prodejna</h2>
-          {c.store.address ? <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{c.store.address}</p> : null}
-          {c.store.pickup ? <p className="t-small muted" style={{ margin: 0 }}>Osobní odběr objednávek v prodejně</p> : null}
-          {c.store.hours.length ? (
-            <div className={styles.hours}>
-              {c.store.hours.map((h, i) => <div key={i}><span className="muted">{h.day}</span><span className="t-price" style={{ fontSize: 13 }}>{h.time}</span></div>)}
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-      {contacts.length ? (
-        <section className={styles.panel}>
-          <h2 className="t-heading-m" style={{ fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never }}>Kontakt</h2>
+      ) : null;
+    }
+    if (part === 'contact') {
+      return contacts.length ? (
+        <section key={part} className={styles.panel}>
+          <h2 className="t-heading-m" style={PANEL_HEADING}>Kontakt</h2>
           {contacts.map(([k, v]) => {
             const href = contactHref(k, v);
             return (
@@ -611,24 +625,104 @@ function Sidebar({ p, wide }: { p: ShopProfile; wide?: boolean }) {
             );
           })}
         </section>
-      ) : null}
-    </aside>
+      ) : null;
+    }
+    return c.store.address || c.store.hours.length ? (
+      <section key={part} className={styles.panel}>
+        <h2 className="t-heading-m" style={PANEL_HEADING}>Kamenná prodejna</h2>
+        {c.store.address ? <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{c.store.address}</p> : null}
+        {c.store.pickup ? <p className="t-small muted" style={{ margin: 0 }}>Osobní odběr objednávek v prodejně</p> : null}
+        {c.store.hours.length ? (
+          <div className={styles.hours}>
+            {c.store.hours.map((h, i) => <div key={i}><span className="muted">{h.day}</span><span className="t-price" style={{ fontSize: 13 }}>{h.time}</span></div>)}
+          </div>
+        ) : null}
+      </section>
+    ) : null;
+  });
+}
+
+function hasAboutPart(p: ShopProfile, parts: AboutPart[]): boolean {
+  const c = p.config;
+  return parts.some((x) => (x === 'about' ? !!c.about : x === 'contact' ? Object.values(c.contact).some(Boolean) : !!(c.store.address || c.store.hours.length)));
+}
+
+/** Postranní panel Přehledu: O nás, kontakt, prodejna. */
+function Sidebar({ p }: { p: ShopProfile }) {
+  const parts: AboutPart[] = ['about', 'contact', 'store'];
+  if (!hasAboutPart(p, parts)) return null;
+  return <aside className={styles.aside}><AboutPanels p={p} parts={parts} /></aside>;
+}
+
+/** Záložka O nás: s panelem jsou kontakt a prodejna v něm (vlevo/vpravo jako na Přehledu), bez panelu vše pod sebou. */
+function AboutView({ p }: { p: ShopProfile }) {
+  const side = p.config.design.sidebar;
+  const about = p.config.about ? <AboutPanels p={p} parts={['about']} /> : (
+    <section className={styles.panel}>
+      <h2 className="t-heading-m" style={PANEL_HEADING}>O nás</h2>
+      <p className="muted" style={{ margin: 0 }}>Prodejce o sobě zatím nic nenapsal.</p>
+    </section>
+  );
+  if (side === 'none') return <div className={styles.aboutStack}>{about}<AboutPanels p={p} parts={['contact', 'store']} /></div>;
+  const rest = hasAboutPart(p, ['contact', 'store']);
+  return (
+    <div className={styles.columns} data-sidebar={side}>
+      <div className={styles.main}>{about}</div>
+      {rest ? <div className={styles.asideWrap}><aside className={styles.aside}><AboutPanels p={p} parts={['contact', 'store']} /></aside></div> : null}
+    </div>
   );
 }
 
-/** Bloky přehledu: mřížka, ve které mohou bloky Pro stát vedle sebe, s oddělovači mezi celými řádky. */
-function Blocks({ p, base, edit }: { p: ShopProfile; base: string; edit?: boolean }) {
+/** Mezera mezi bloky, kde smí být oddělovač: aspoň jeden ze sousedů je přes celou šířku. Výchozí = oba. */
+function dividerSlot(blocks: ShopBlock[], i: number, d: ShopDesign): { allowed: boolean; on: boolean } {
+  const prev = blocks[i - 1];
+  const b = blocks[i];
+  if (!prev || d.divider === 'none') return { allowed: false, on: false };
+  const allowed = prev.width === 'full' || b.width === 'full';
+  const on = allowed && (d.dividerAt[b.id] ?? (prev.width === 'full' && b.width === 'full'));
+  return { allowed, on };
+}
+
+/** Proč se blok v náhledu editoru neukazuje (jen pro majitele) */
+function emptyHint(b: ShopBlock): string {
+  const info = blockInfo(b.type);
+  const until = b.data.notice?.until;
+  if (b.type === 'notice' && until && until < new Date().toISOString().slice(0, 10)) {
+    return `${info?.emoji} Oznámení platilo do ${until.split('-').reverse().map(Number).join('. ')}, proto se už neukazuje. Změňte datum Platí do.`;
+  }
+  return `${info?.emoji ?? ''} ${info?.name ?? 'Blok'}: zatím se neukáže, klikněte a doplňte obsah.`;
+}
+
+/**
+ * Bloky přehledu: mřížka, ve které mohou bloky Pro stát vedle sebe.
+ * Oddělovač patří do bloku přes celou šířku (nahoru, nebo dolů u předchozího), aby se při přetahování stěhoval s ním.
+ */
+async function Blocks({ p, base, edit }: { p: ShopProfile; base: string; edit?: boolean }) {
   const d = p.config.design;
-  const blocks = p.config.blocks;
+  // Blok bez obsahu se veřejně vůbec nevykreslí (ani s oddělovačem); v editoru ukáže, proč chybí.
+  const rendered = await Promise.all(p.config.blocks.map(async (b) => ({ b, node: await Block({ b, p, base }) })));
+  const shown = edit ? rendered : rendered.filter((x) => x.node);
+  const blocks = shown.map((x) => x.b);
+  const slots = blocks.map((_, i) => dividerSlot(blocks, i, d));
+  const gap = (i: number, at: 'top' | 'bottom') => {
+    const slot = slots[i];
+    if (!slot?.allowed || (!slot.on && !edit)) return null;
+    return (
+      <div key={`g-${at}`} className={`tz-shop-gap ${edit ? styles.gap : ''}`} data-at={at} data-on={slot.on || undefined}>
+        {slot.on ? <ShopDivider style={d.divider} /> : null}
+        {edit ? (
+          <button type="button" className={styles.gapToggle} data-gap={blocks[i].id} data-on={slot.on ? '1' : '0'}>
+            {slot.on ? '× Odebrat oddělovač' : '+ Přidat oddělovač'}
+          </button>
+        ) : null}
+      </div>
+    );
+  };
   return (
-    <div className="tz-shop-blocks">
-      {blocks.flatMap((b, i) => {
-        const prev = blocks[i - 1];
-        const out = [];
-        if (d.divider !== 'none' && prev && prev.width === 'full' && b.width === 'full') {
-          out.push(<ShopDivider key={`d-${b.id}`} style={d.divider} />);
-        }
-        out.push(
+    <div className="tz-shop-blocks" data-order={edit ? blocks.map((b) => b.id).join(',') : undefined}>
+      {blocks.map((b, i) => {
+        const next = blocks[i + 1];
+        return (
           <div
             key={b.id}
             data-w={b.width !== 'full' ? b.width : undefined}
@@ -636,10 +730,13 @@ function Blocks({ p, base, edit }: { p: ShopProfile; base: string; edit?: boolea
             data-block-id={edit ? b.id : undefined}
             className={edit ? styles.editable : undefined}
           >
-            <Block b={b} p={p} base={base} />
-          </div>,
+            {b.width === 'full' ? gap(i, 'top') : null}
+            <div className={edit ? styles.blockBody : undefined} data-empty={edit ? emptyHint(b) : undefined}>
+              {shown[i].node}
+            </div>
+            {b.width === 'full' && next && next.width !== 'full' ? gap(i + 1, 'bottom') : null}
+          </div>
         );
-        return out;
       })}
     </div>
   );
@@ -683,13 +780,13 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
       data-corners={d.corners}
       data-bg={d.background !== 'none' ? d.background : undefined}
       data-icon={d.icon !== 'bar' ? d.icon : undefined}
-      data-theme={d.mode === 'light' ? 'light' : undefined}
+      data-theme={d.mode === 'light' && !SHOP_BACKGROUNDS.find((x) => x.id === d.background)?.own ? 'light' : undefined}
       style={style}
     >
       {fontUrl ? <link rel="stylesheet" href={fontUrl} precedence="default" /> : null}
       {d.holo ? <HoloEffect /> : null}
       {sticky ? <SiteHeaderHeight /> : null}
-      {edit ? <PreviewBridge /> : null}
+      {edit ? <PreviewBridge sideDrop={PLANS[p.plan].fullDesign} /> : null}
       <div className={`container ${styles.page}`}>
         {preview && !edit ? (
           <div className={styles.notice} role="status">
@@ -727,14 +824,11 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
           <div className={styles.columns} data-sidebar={d.sidebar}>
             <div className={styles.main}>
               {c.blocks.length ? <Blocks p={p} base={base} edit={edit} /> : null}
-              <div data-edit={edit ? 'tabs' : undefined}>
-                <Stock p={p} base={base} query={query} mode={{ kind: 'preview' }} />
-              </div>
             </div>
             {sidebar ? <div data-edit={edit ? 'about' : undefined} className={`${styles.asideWrap} ${edit ? styles.editable : ''}`}>{sidebar}</div> : null}
           </div>
         ) : view === 'about' ? (
-          <Sidebar p={p} wide />
+          <AboutView p={p} />
         ) : view === 'collection' && collection ? (
           <Stock p={p} base={base} query={query} mode={{ kind: 'collection', c: collection }} />
         ) : view === 'block' && block && blockF ? (
