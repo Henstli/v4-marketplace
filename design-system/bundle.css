@@ -77,6 +77,7 @@
 .tz-suggest-price{flex:none;text-align:right}
 .tz-suggest-none{font-size:13px;color:var(--ink-muted);white-space:nowrap}
 .tz-suggest-all{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);min-height:44px;margin-top:var(--space-1);padding:0 var(--space-2);border-top:1px solid var(--line);border-radius:0 0 var(--radius-md) var(--radius-md);font-size:14px;font-weight:600;color:var(--ink)}
+.tz-suggest>li:last-child>.tz-suggest-all{min-height:52px;margin-bottom:calc(-1 * var(--space-2))}
 .tz-suggest-empty{padding:var(--space-3) var(--space-2);font-size:14px;color:var(--ink-muted)}
 .tz-suggest-group{padding:var(--space-2) var(--space-2) var(--space-1);font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--ink-muted)}
 .tz-suggest-group:not(:first-child){margin-top:var(--space-1);border-top:1px solid var(--line);padding-top:var(--space-3)}
