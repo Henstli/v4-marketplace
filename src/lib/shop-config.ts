@@ -88,9 +88,10 @@ export interface ShopDesign {
   ticker: string;
   /** Automatické štítky Novinka a Poslední kus */
   tagsAuto: boolean;
-  /** Vlastní štítek a nabídky, na kterých je */
-  customTag: string;
-  customTagIds: string[];
+  /** Vlastní štítky (Pro až 5) a nabídky, na kterých jsou */
+  customTags: CustomTag[];
+  /** Oddělovače u konkrétních mezer: id bloku pod mezerou → ukázat / skrýt (jinak výchozí) */
+  dividerAt: Record<string, boolean>;
   /** Holo lesk na kartách (Pro) */
   holo: boolean;
   /** Druhá barva obchodu (Pro), prázdná = jen hlavní */
@@ -99,16 +100,25 @@ export interface ShopDesign {
   liveBanner: boolean;
 }
 
+export interface CustomTag { id: string; label: string; ids: string[] }
+
+/** Pozadí stránky: první část z barev obchodu, druhá (own) má vlastní prémiové barvy */
 export const SHOP_BACKGROUNDS = [
-  { id: 'none', name: 'Žádné' },
-  { id: 'glow', name: 'Záře' },
-  { id: 'aurora', name: 'Polární záře' },
-  { id: 'spotlight', name: 'Reflektor' },
-  { id: 'grain', name: 'Zrno' },
-  { id: 'dots', name: 'Puntíky' },
-  { id: 'grid', name: 'Mřížka' },
-  { id: 'lines', name: 'Linky' },
-  { id: 'topo', name: 'Vrstevnice' },
+  { id: 'none', name: 'Žádné', own: false },
+  { id: 'glow', name: 'Záře', own: false },
+  { id: 'aurora', name: 'Polární záře', own: false },
+  { id: 'spotlight', name: 'Reflektor', own: false },
+  { id: 'grain', name: 'Zrno', own: false },
+  { id: 'dots', name: 'Puntíky', own: false },
+  { id: 'grid', name: 'Mřížka', own: false },
+  { id: 'lines', name: 'Linky', own: false },
+  { id: 'topo', name: 'Vrstevnice', own: false },
+  { id: 'onyx', name: 'Onyx', own: true },
+  { id: 'gold', name: 'Zlatý prach', own: true },
+  { id: 'velvet', name: 'Samet', own: true },
+  { id: 'midnight', name: 'Půlnoc', own: true },
+  { id: 'felt', name: 'Herní stůl', own: true },
+  { id: 'marble', name: 'Mramor', own: true },
 ] as const;
 export type ShopBackground = (typeof SHOP_BACKGROUNDS)[number]['id'];
 
@@ -146,7 +156,7 @@ export type ShopType = (typeof SHOP_TYPES)[number]['id'];
 export const DEFAULT_DESIGN: ShopDesign = {
   color: 'blue', mode: 'dark', layout: 'banner', font: 'modern', corners: 'round', banner: 'pattern', tabs: [], hiddenTabs: [],
   sidebar: 'right', stickyTabs: false, background: 'none', icon: 'bar', logo: 'square', shopType: '', divider: 'none', ticker: '', tagsAuto: true,
-  customTag: '', customTagIds: [], holo: false, color2: '', liveBanner: false,
+  customTags: [], dividerAt: {}, holo: false, color2: '', liveBanner: false,
 };
 
 export type BlockType =
@@ -172,7 +182,7 @@ export const BLOCKS: BlockInfo[] = [
   { type: 'notice', name: 'Oznámení', desc: 'Turnaj, dovolená nebo sleva, s datem platnosti', pro: false, group: 'shop', emoji: '📣', variants: [{ id: 'card', name: 'Karta' }, { id: 'bar', name: 'Pruh' }] },
   { type: 'spotlight', name: 'Karta týdne', desc: 'Jedna vaše nabídka velká, s příběhem', pro: true, group: 'offer', emoji: '⭐', variants: [{ id: 'left', name: 'Obrázek vlevo' }, { id: 'right', name: 'Obrázek vpravo' }] },
   { type: 'featured', name: 'Doporučujeme', desc: 'Až 12 nabídek, které vyberete', pro: false, group: 'offer', emoji: '👍', variants: GRID },
-  { type: 'games', name: 'Kolekce podle hry', desc: 'Dlaždice s počtem karet pro každou hru', pro: false, group: 'offer', emoji: '🎮', variants: [{ id: 'tiles', name: 'Dlaždice' }] },
+  { type: 'games', name: 'Kolekce podle hry', desc: 'Dlaždice s počtem karet pro každou hru', pro: false, group: 'offer', emoji: '🎮', variants: [{ id: 'tiles', name: 'Dlaždice' }, { id: 'cards', name: 'Barevné karty' }, { id: 'chips', name: 'Štítky v řadě' }] },
   { type: 'collections', name: 'Vlastní kolekce', desc: 'Vaše uložené výběry skladu, i jako záložky', pro: true, group: 'offer', emoji: '🗂', variants: [{ id: 'tiles', name: 'Dlaždice' }, { id: 'cards', name: 'Barevné karty' }, { id: 'chips', name: 'Štítky v řadě' }] },
   { type: 'newest', name: 'Novinky ve skladu', desc: 'Plní se samo z posledních nabídek', pro: false, group: 'offer', emoji: '🆕', variants: GRID },
   { type: 'cheap', name: 'Nejlevnější', desc: 'Karty do zvolené ceny, plní se samo', pro: false, group: 'offer', emoji: '💸', variants: GRID },
@@ -240,6 +250,9 @@ export interface ShopBlock {
 export interface ShopCollection {
   id: string;
   name: string;
+  /** Krátký popisek pod názvem, např. „Vše ze světa Pokémon“ */
+  desc: string;
+  /** Text, který musí být v názvu karty */
   q: string;
   game: GameId | '';
   /** Kód sady, např. OBF */
@@ -261,7 +274,7 @@ export const COLLECTION_SORTS = [
 export type CollectionSort = (typeof COLLECTION_SORTS)[number]['id'];
 
 export function emptyCollection(id: string): ShopCollection {
-  return { id, name: '', q: '', game: '', set: '', condition: '', language: '', priceMin: null, priceMax: null, sort: 'new', listingIds: [] };
+  return { id, name: '', desc: '', q: '', game: '', set: '', condition: '', language: '', priceMin: null, priceMax: null, sort: 'new', listingIds: [] };
 }
 
 export interface ShopContact { web: string; instagram: string; facebook: string; discord: string; email: string; phone: string }
@@ -298,7 +311,7 @@ export function defaultConfig(kind: 'shop' | 'private'): ShopPageConfig {
     logoPath: '',
     bannerPath: '',
     design: { ...DEFAULT_DESIGN, color: kind === 'shop' ? 'blue' : 'violet' },
-    blocks: types.map((t) => ({ ...newBlock(t), id: t, enabled: t !== 'notice' })),
+    blocks: types.map((t) => ({ ...newBlock(t), id: t })),
     collections: [],
     contact: { web: '', instagram: '', facebook: '', discord: '', email: '', phone: '' },
     store: { address: '', pickup: false, hours: [] },
@@ -328,6 +341,15 @@ function uuid(v: unknown): string {
 }
 function date(v: unknown): string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+}
+/** Vlastní štítky; dřív šel jen jeden (customTag + customTagIds). */
+function customTags(d: Record<string, unknown>): CustomTag[] {
+  const list = Array.isArray(d.customTags) ? d.customTags : d.customTag ? [{ id: 'tag1', label: d.customTag, ids: d.customTagIds }] : [];
+  return list.slice(0, 5).map((x) => obj(x)).map((x, i) => ({
+    id: str(x.id, 12).replace(/[^a-z0-9]/gi, '') || `tag${i + 1}`,
+    label: str(x.label, 20),
+    ids: [...new Set(arr(x.ids, 24).map(uuid).filter(Boolean))],
+  })).filter((x) => x.label);
 }
 function price(v: unknown): number | null {
   const n = Math.round(Number(v));
@@ -463,8 +485,8 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
       // Dřív šlo víc zpráv, zůstává první.
       ticker: str(Array.isArray(d.ticker) ? d.ticker[0] : d.ticker, 80),
       tagsAuto: d.tagsAuto !== false,
-      customTag: str(d.customTag, 20),
-      customTagIds: [...new Set(arr(d.customTagIds, 24).map(uuid).filter(Boolean))],
+      customTags: customTags(d),
+      dividerAt: Object.fromEntries(Object.entries(obj(d.dividerAt)).filter(([k, v]) => /^[a-z0-9]{1,12}$/i.test(k) && typeof v === 'boolean').slice(0, 60)) as Record<string, boolean>,
       holo: d.holo === true,
       color2: oneOf(d.color2, ['', ...ids(SHOP_COLORS)] as const, ''),
       liveBanner: d.liveBanner === true,
@@ -473,6 +495,7 @@ export function sanitizeConfig(raw: unknown, owner: string, kind: 'shop' | 'priv
     collections: arr(r.collections, 20).map((x) => obj(x)).map((x) => ({
       id: str(x.id, 12).replace(/[^a-z0-9]/gi, '') || Math.random().toString(36).slice(2, 10),
       name: str(x.name, 40),
+      desc: str(x.desc, 80),
       q: str(x.q, 60),
       game: oneOf(x.game, ['', ...GAMES.map((g) => g.id)] as const, ''),
       set: str(x.set, 12).toUpperCase().replace(/[^A-Z0-9-]/g, ''),
@@ -503,7 +526,7 @@ export function effectiveConfig(config: ShopPageConfig, plan: Plan): ShopPageCon
     ? config.design
     : {
         ...config.design, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner,
-        holo: false, color2: '', liveBanner: false,
+        holo: false, color2: '', liveBanner: false, customTags: config.design.customTags.slice(0, 1),
       };
   const blocks = config.blocks
     .filter((b) => b.enabled && (info.proBlocks || !blockInfo(b.type)?.pro))
@@ -541,7 +564,6 @@ export function allTabs(config: ShopPageConfig): ShopTab[] {
   const known: ShopTab[] = [
     { id: 'nabidka', label: 'Celá nabídka' },
     ...config.collections.map((c) => ({ id: `c:${c.id}`, label: c.name })),
-    { id: 'onas', label: 'O nás' },
   ];
   const at = new Map(config.design.tabs.map((id, i) => [id, i]));
   return known
@@ -550,8 +572,10 @@ export function allTabs(config: ShopPageConfig): ShopTab[] {
     .map((x) => x.t);
 }
 
-/** Záložky, které se opravdu ukážou: bez skrytých a bez O nás, když není co ukázat. */
+/** O nás je povinná záložka a stojí vždy úplně vpravo. */
+export const ABOUT_TAB: ShopTab = { id: 'onas', label: 'O nás' };
+
+/** Záložky, které se opravdu ukážou: bez skrytých, O nás vždy na konci. */
 export function visibleTabs(config: ShopPageConfig): ShopTab[] {
-  const hasAbout = !!(config.about || config.store.address || config.store.hours.length || Object.values(config.contact).some(Boolean));
-  return allTabs(config).filter((t) => !config.design.hiddenTabs.includes(t.id) && (t.id !== 'onas' || hasAbout));
+  return [...allTabs(config).filter((t) => !config.design.hiddenTabs.includes(t.id)), ABOUT_TAB];
 }

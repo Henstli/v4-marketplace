@@ -271,3 +271,11 @@
   background: var(--surface);
   box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.3));
 }
+
+/* Našeptávač adresy */
+.suggestWrap { position: relative; }
+.suggestList { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); display: flex; flex-direction: column; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface); box-shadow: 0 12px 32px rgba(0, 0, 0, .4); overflow: hidden; }
+.suggestRow { display: flex; gap: var(--space-3); align-items: center; padding: var(--space-2) var(--space-3); border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.suggestRow:first-child { border-top: 0; }
+.suggestRow:hover, .suggestRow[aria-selected='true'] { background: var(--surface-sunken); }
+.suggestNote { padding: 2px var(--space-3) 4px; font-size: 10px; color: var(--ink-muted); text-align: right; }
