@@ -396,8 +396,9 @@ export async function suggestCards(q: string, game?: GameId): Promise<Suggestion
   }));
 }
 
-// Kolik sad ukáže našeptávač (katalog nad výsledky ukáže všechny, které databáze vrátí).
+// Kolik sad ukáže našeptávač a kolik nejvýš vrátí databáze (katalog je umí ukázat všechny).
 const SUGGEST_SETS = 4;
+export const SETS_MAX = 40;
 
 // Našeptávač: karty, sady (název, kód nebo rok) a prodejci, kteří něco prodávají.
 export async function suggestGroups(q: string, game?: GameId): Promise<SuggestGroups> {
