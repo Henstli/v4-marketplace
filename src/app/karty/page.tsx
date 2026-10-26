@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ChipLink } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
-import { findSetsAndSellers, getSet, PAGE_SIZE, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
+import { findSetsAndSellers, getSet, PAGE_SIZE, SETS_MAX, searchCards, type CatalogQuery, type SortKey } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame, type GameId } from '@/lib/games';
 import { CONDITIONS, FILTER_LANGUAGES, LANGUAGE_NAMES, type Condition, type Language, type SellerKind } from '@/lib/types';
@@ -21,6 +21,7 @@ const SORTS: Array<{ id: SortKey; label: string }> = [
   { id: 'trend', label: 'Největší růst' },
 ];
 const SORT_PARAM: Record<SortKey, string> = { relevance: '', 'price-asc': 'cena', 'price-desc': 'cena-sestupne', trend: 'trend' };
+const RELATED_SETS = 3;
 const SELLER_KINDS: Array<{ id: SellerKind; label: string; param: string }> = [
   { id: 'shop', label: 'Obchody', param: 'obchod' },
   { id: 'private', label: 'Sběratelé', param: 'sberatel' },
@@ -79,6 +80,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     return `${base}${base.includes('?') ? '&' : '?'}strana=${n}`;
   };
   const game = query.game ? getGame(query.game) : undefined;
+  // Sad se stejným začátkem názvu bývá hodně (Duel Decks, Starter Deck): nejdřív tři, zbytek na požádání.
+  const allSets = one(params.sady) === 'vse';
+  const sets = related ? (allSets ? related.sets : related.sets.slice(0, RELATED_SETS)) : [];
   const sellerParam = SELLER_KINDS.find((k) => k.id === query.sellerKind)?.param;
 
   return (
@@ -155,16 +159,21 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           </nav>
         </div>
 
-        {related && (related.sets.length || related.sellers.length) ? (
+        {related && (sets.length || related.sellers.length) ? (
           <div className={styles.related}>
-            {related.sets.length ? (
+            {sets.length ? (
               <div className={styles.relatedRow}>
                 <span className="t-label muted">SADY</span>
-                {related.sets.map((s) => (
+                {sets.map((s) => (
                   <ChipLink key={s.id} href={`/karty?${new URLSearchParams({ hra: s.game, sada: s.code })}`} dot={getGame(s.game)?.dot}>
                     {s.name} · {plural(s.cards, ['karta', 'karty', 'karet'])}
                   </ChipLink>
                 ))}
+                {!allSets && related.sets.length > RELATED_SETS ? (
+                  <ChipLink href={href(params, 'sady', 'vse')}>
+                    Zobrazit {related.sets.length >= SETS_MAX ? 'další sady' : `všech ${related.sets.length} sad`} →
+                  </ChipLink>
+                ) : null}
               </div>
             ) : null}
             {related.sellers.length ? (
