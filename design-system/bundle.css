@@ -38,6 +38,13 @@
 .tz-tile-link{display:flex;flex:1;flex-direction:column;gap:var(--space-3);color:inherit;text-decoration:none;border-radius:var(--radius-md)}
 .tz-tile-link:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .tz-tile-buy{width:100%;height:36px;font-size:13px}
+.tz-qty{display:inline-flex;align-items:stretch;justify-content:space-between;height:44px;border-radius:var(--radius-md);border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--ink);font:600 14px/1 var(--font-sans);overflow:hidden}
+.tz-qty-lg{height:52px;font-size:16px;border-radius:var(--radius-lg)}
+.tz-qty>span{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 var(--space-2);white-space:nowrap}.tz-qty b{font-family:var(--font-mono)}
+.tz-qty>button{flex:none;width:44px;border:0;background:transparent;color:inherit;font:inherit;font-size:18px;cursor:pointer}
+.tz-qty>button:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 22%,transparent)}.tz-qty>button:disabled{opacity:.35;cursor:not-allowed}
+.tz-qty>button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tz-tile-buy.tz-qty>button{width:36px}
 .tz-tile-art{aspect-ratio:63/88;max-width:100%;border-radius:var(--radius-md);padding:8px;box-sizing:border-box;display:flex}
 .tz-tile-art-photo{padding:0;align-items:center;justify-content:center}
 .tz-tile-img{display:block;width:100%;height:auto;max-height:100%;object-fit:contain;border-radius:4.8%/3.45%}
@@ -196,7 +203,11 @@
 .tz-shop-titlerow{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
 .tz-shop-meta{margin:0;font-size:13px;line-height:18px;color:var(--ink-muted)}
 .tz-shop-tagline{margin:4px 0 0;max-width:640px}
-.tz-shop-actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.tz-shop-actions{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto}
+.tz-msg{position:relative}
+.tz-msg-pop{position:fixed;z-index:60;display:grid;gap:var(--space-2);padding:var(--space-4);border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--line-strong);box-shadow:0 12px 32px rgba(0,0,0,.35);color:var(--ink);font:400 14px/20px var(--font-sans)}
+.tz-msg-pop p{margin:0;color:var(--ink-muted)}
+.tz-msg-row{display:flex;justify-content:space-between;gap:var(--space-3);font-size:13px}.tz-msg-row>span:first-child{color:var(--ink-muted)}.tz-msg-row a{color:var(--ink);overflow-wrap:anywhere;text-align:right}
 .tz-shop-split-row{display:flex;flex-wrap:wrap}
 .tz-shop-head-split .tz-shop-id{flex:1 1 340px;flex-direction:column;align-items:flex-start;padding:var(--space-8)}
 .tz-shop-head-split .tz-shop-id>.tz-shop-logo{margin-top:0;border:0}
@@ -363,6 +374,10 @@
 .tz-wanted-item{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border-radius:var(--radius-lg);background:var(--surface);border:1px dashed color-mix(in srgb,var(--shop) 55%,var(--line));color:var(--ink);text-decoration:none}
 .tz-wanted-art{position:relative;display:block;width:100%;aspect-ratio:63/88;border-radius:4.8%/3.45%;object-fit:contain;filter:saturate(.85)}
 .tz-wanted-price{align-self:flex-start;padding:2px 8px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--shop),var(--shop-2));color:var(--on-shop);font:700 12px/18px var(--font-mono)}
+.tz-wanted-link{display:flex;flex:1;flex-direction:column;gap:var(--space-2);color:inherit;text-decoration:none;border-radius:var(--radius-md)}
+.tz-wanted-link:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.tz-wanted-sell{width:100%;height:36px;padding:0 var(--space-2);font-size:13px}
+
 /* Odpočet */
 .tz-countdown-box{container-type:inline-size}
 .tz-countdown-row{display:flex;flex-direction:column;gap:var(--space-4)}

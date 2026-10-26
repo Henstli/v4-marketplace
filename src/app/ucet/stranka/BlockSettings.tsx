@@ -6,7 +6,7 @@ import { Button, CardThumb, Chip } from '@/components/trezor';
 import { GAMES } from '@/lib/games';
 import { youtubeId, type ShopBlock } from '@/lib/shop-config';
 import type { PickerCard } from './actions';
-import { AddressInput, CardPicker, Field, ImageInput, ListingPicker, PickedListings, RowActions, mediaUrl, move, uploadImage, type ListingOption } from './editorParts';
+import { AddressInput, CardPicker, Field, ImageInput, ListingPicker, PickedListings, RowActions, mediaUrl, move, rid, uploadImage, type ListingOption } from './editorParts';
 import sell from '../../prodat/sell.module.css';
 import styles from './editor.module.css';
 
@@ -200,18 +200,20 @@ export function BlockSettings({ b, setData, uid, listings, listingById, cards, r
       const put = (next: typeof items) => setData({ wanted: next });
       return (
         <div className={styles.stack}>
+          <p className="t-small muted" style={{ margin: 0 }}>Ke každé kartě napište výkupní cenu a počet kusů, které sháníte. Kdo kartu má, uvidí tlačítko Nabídnout. Až budou na webu zprávy, pošle vám přes ně návrh prodeje k potvrzení.</p>
           {items.map((x, i) => {
             const card = cards.get(x.cardId);
             return (
               <div key={x.cardId} className={styles.picked}>
                 <CardThumb image={card?.image} size="sm" preview={card?.image} />
                 <span className={styles.pickText}><strong>{card?.name ?? 'Karta'}</strong>{card ? <span className="code muted">{card.setCode} {card.number}</span> : null}</span>
-                <input type="number" min={1} className={`${sell.input} ${styles.narrow}`} value={x.maxPrice ?? ''} placeholder="Do Kč" aria-label="Nejvyšší cena" onChange={(e) => put(items.map((y, j) => (j === i ? { ...y, maxPrice: Math.round(Number(e.target.value)) || null } : y)))} />
+                <input type="number" min={1} className={`${sell.input} ${styles.narrow}`} value={x.maxPrice ?? ''} placeholder="Kč" aria-label="Výkupní cena v Kč" title="Výkupní cena v Kč" onChange={(e) => put(items.map((y, j) => (j === i ? { ...y, maxPrice: Math.round(Number(e.target.value)) || null } : y)))} />
+                <input type="number" min={1} max={99} className={`${sell.input} ${styles.tiny}`} value={x.qty} aria-label="Počet kusů" title="Počet kusů" onChange={(e) => put(items.map((y, j) => (j === i ? { ...y, qty: Math.min(99, Math.max(1, Math.round(Number(e.target.value)) || 1)) } : y)))} />
                 <RowActions onRemove={() => put(items.filter((_, j) => j !== i))} />
               </div>
             );
           })}
-          {items.length < 20 ? <CardPicker onPick={(card) => { rememberCard(card); if (!items.some((y) => y.cardId === card.id)) put([...items, { cardId: card.id, maxPrice: null }]); }} /> : null}
+          {items.length < 20 ? <CardPicker onPick={(card) => { rememberCard(card); if (!items.some((y) => y.cardId === card.id)) put([...items, { cardId: card.id, maxPrice: null, qty: 1, key: rid() }]); }} /> : null}
         </div>
       );
     }

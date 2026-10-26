@@ -23,6 +23,7 @@ export interface ListingOption {
 }
 
 const MAX_IMAGE = 3 * 1024 * 1024;
+const MAX_SOURCE = 20 * 1024 * 1024;
 
 export function mediaUrl(path: string): string | null {
   return path ? `${SUPABASE_URL}/storage/v1/object/public/shop-media/${path}` : null;
@@ -40,11 +41,34 @@ export function move<T>(list: T[], i: number, d: number): T[] {
   return next;
 }
 
+// Nejdelší strana po zmenšení: logo a fotky týmu se ukazují malé, banner přes celou šířku.
+const MAX_SIDE: Record<string, number> = { logo: 512, tym: 512, foto: 1600, banner: 2400 };
+
+/** Zmenší obrázek v prohlížeči a uloží jako WebP (průhlednost zůstane). Když to nejde, vrátí původní soubor. */
+async function shrinkImage(file: File, max: number): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (k === 1 && file.size < 400 * 1024) return file;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * k);
+    canvas.height = Math.round(bmp.height * k);
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/webp', 0.86));
+    if (!blob || blob.type !== 'image/webp' || blob.size >= file.size) return file;
+    return new File([blob], 'image.webp', { type: 'image/webp' });
+  } catch {
+    return file;
+  }
+}
+
 /** Nahraje obrázek do vlastní složky v bucketu shop-media a vrátí jeho cestu. */
-export async function uploadImage(uid: string, prefix: string, file: File): Promise<string> {
-  const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
-  if (!ext) throw new Error('Nahrajte obrázek JPG, PNG nebo WebP.');
-  if (file.size > MAX_IMAGE) throw new Error('Obrázek může mít nejvýš 3 MB.');
+export async function uploadImage(uid: string, prefix: string, original: File): Promise<string> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(original.type)) throw new Error('Nahrajte obrázek JPG, PNG nebo WebP.');
+  if (original.size > MAX_SOURCE) throw new Error('Obrázek může mít nejvýš 20 MB.');
+  const file = await shrinkImage(original, MAX_SIDE[prefix] ?? 1600);
+  const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type]!;
+  if (file.size > MAX_IMAGE) throw new Error('Obrázek je i po zmenšení větší než 3 MB, zkuste jiný.');
   const path = `${uid}/${prefix}-${Date.now().toString(36)}${rid()}.${ext}`;
   const { error } = await createClient().storage.from('shop-media').upload(path, file, { contentType: file.type, cacheControl: '31536000' });
   if (error) throw new Error('Obrázek se nepodařilo nahrát. Máte-li zapnuté dvoufázové ověření, přihlaste se znovu s kódem.');
@@ -138,7 +162,7 @@ export function ImageInput({ label, path, onPath, uid, prefix, round, wide, smal
             {busy ? 'Nahrávám…' : path ? 'Změnit' : 'Nahrát obrázek'}
           </label>
           {path ? <button type="button" className={styles.linkButton} onClick={() => onPath('')}>Odebrat</button> : null}
-          {!small ? <span className="t-small muted">{wide ? 'JPG, PNG nebo WebP do 3 MB, ideálně 1600 × 400 px' : 'JPG, PNG nebo WebP do 3 MB'}</span> : null}
+          {!small ? <span className="t-small muted">{wide ? 'JPG, PNG nebo WebP, ideálně 1600 × 400 px. Velké obrázky zmenšíme.' : 'JPG, PNG nebo WebP. Velké obrázky zmenšíme.'}</span> : null}
           {error ? <span className={sell.error} role="alert">{error}</span> : null}
         </div>
       </div>

@@ -13,6 +13,12 @@ export function mediaUrl(path: string | null | undefined): string | null {
   return path ? `${SUPABASE_URL}/storage/v1/object/public/shop-media/${path}` : null;
 }
 
+/** Zmenšený obrázek přes optimalizaci Next.js, aby se velké nahrané fotky nenačítaly celé (šířka z images.imageSizes/deviceSizes). */
+export function mediaImage(path: string | null | undefined, width: 256 | 1080 | 1920): string | null {
+  const url = mediaUrl(path);
+  return url ? `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=80` : null;
+}
+
 interface PageRow {
   user_id: string;
   slug: string | null;
@@ -79,7 +85,7 @@ export async function getSellerBrands(ids: string[]): Promise<Map<string, { logo
   const { data } = await createPublicClient().from('shop_pages').select('user_id, logo_path, offer_note, design, slug, published').in('user_id', ids);
   for (const r of data ?? []) {
     const design = (r.design ?? {}) as { color?: string };
-    out.set(r.user_id, { logo: mediaUrl(r.logo_path), note: r.offer_note ?? '', color: design.color ?? 'blue', slug: r.slug, published: r.published });
+    out.set(r.user_id, { logo: mediaImage(r.logo_path, 256), note: r.offer_note ?? '', color: design.color ?? 'blue', slug: r.slug, published: r.published });
   }
   return out;
 }
@@ -271,7 +277,7 @@ export async function getProShops(limit = 6): Promise<ProShop[]> {
   if (!isSupabaseConfigured()) return [];
   const { data } = await createPublicClient().rpc('pro_shops', { p_limit: limit });
   return ((data ?? []) as { user_id: string; display_name: string; kind: string; slug: string; tagline: string | null; logo_path: string | null; design: { color?: string } | null; offers: number }[])
-    .map((r) => ({ id: r.user_id, name: r.display_name, kind: r.kind as Seller['kind'], slug: r.slug, tagline: r.tagline ?? '', logo: mediaUrl(r.logo_path), color: r.design?.color ?? 'blue', offers: r.offers }));
+    .map((r) => ({ id: r.user_id, name: r.display_name, kind: r.kind as Seller['kind'], slug: r.slug, tagline: r.tagline ?? '', logo: mediaImage(r.logo_path, 256), color: r.design?.color ?? 'blue', offers: r.offers }));
 }
 
 // ---------- Nabídky u karty ----------
