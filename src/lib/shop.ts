@@ -4,7 +4,7 @@ import { isSupabaseConfigured, SUPABASE_URL } from './supabase/config';
 import { createPublicClient } from './supabase/public';
 import { getSeller } from './catalog';
 import { PLANS, toPlan, type Plan } from './plans';
-import { defaultConfig, effectiveConfig, hasVerifiedBadge, sanitizeConfig, shopHref, type ShopPageConfig } from './shop-config';
+import { defaultConfig, effectiveConfig, hasVerifiedBadge, planColor, sanitizeConfig, shopHref, type ShopPageConfig } from './shop-config';
 import { CONDITIONS, type Condition, type Language, type Seller } from './types';
 import type { GameId } from './games';
 
@@ -308,7 +308,7 @@ export async function getOfferBrands(sellers: Seller[]): Promise<Map<string, Off
       plan,
       badge: hasVerifiedBadge(plan, verified.has(s.id), s.rating, s.sales),
       logo: info.offerLogo ? b?.logo ?? null : null,
-      color: b?.color ?? 'blue',
+      color: planColor(b?.color ?? 'blue', plan),
       note: info.offerHighlight ? b?.note ?? '' : '',
       href: info.shopPage && b?.published && b.slug ? shopHref(s.kind, b.slug) : `/prodejci/${s.id}`,
     });
@@ -326,7 +326,7 @@ export async function getSuggestBrands(ids: string[]): Promise<Map<string, { log
     const b = brands.get(s.id);
     return [s.id, {
       logo: b?.logo ?? null,
-      color: b?.color ?? 'blue',
+      color: planColor(b?.color ?? 'blue', plan),
       href: PLANS[plan].shopPage && b?.published && b.slug ? shopHref(s.kind, b.slug) : `/prodejci/${s.id}`,
       verified: hasVerifiedBadge(plan, verified.has(s.id), s.rating, s.sales),
       pro: plan === 'pro',

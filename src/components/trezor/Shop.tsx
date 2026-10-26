@@ -116,8 +116,14 @@ export function ShopSection({ title, note, id, children, className }: { title: s
 }
 
 /** Styl obalu .tz-shop pro barvu obchodu (token shop-*). */
-export function shopStyle(color: string): CSSProperties {
-  return { ['--shop' as string]: `var(--shop-${color})` } as CSSProperties;
+export function shopStyle(color: string, color2 = ''): CSSProperties {
+  return {
+    '--shop': `var(--shop-${color})`,
+    ...(color2 ? { '--shop-2': `var(--shop-${color2})`, '--shop-2-fx': `var(--shop-${color2}-fx, none)` } : {}),
+    // Efektní barvy mají v DS texturu --shop-<id>-fx (metalíza, mramor…), obyčejné žádnou.
+    '--shop-fx': `var(--shop-${color}-fx, none)`,
+    '--on-shop': `var(--shop-${color}-on, var(--on-shop-base))`,
+  } as CSSProperties;
 }
 
 /** Běžící pruh nad hlavičkou: jedna zpráva pořád dokola, mezi opakováními ✦. Při omezeném pohybu stojí. */

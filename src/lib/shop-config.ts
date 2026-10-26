@@ -17,8 +17,29 @@ export const SHOP_COLORS = [
   { id: 'copper', name: 'Měděná' },
   { id: 'lime', name: 'Citronová' },
   { id: 'pink', name: 'Růžová' },
+  { id: 'gold', name: 'Zlatá metalíza' },
+  { id: 'silver', name: 'Stříbrná metalíza' },
+  { id: 'rosegold', name: 'Růžové zlato' },
+  { id: 'pearl', name: 'Perleť' },
+  { id: 'holo', name: 'Holografická' },
+  { id: 'whitemarble', name: 'Bílý mramor' },
+  { id: 'blackmarble', name: 'Černý mramor' },
+  { id: 'greenmarble', name: 'Zelený mramor' },
 ] as const;
 export type ShopColor = (typeof SHOP_COLORS)[number]['id'];
+
+/** Efektní barvy (metalízy, perleť, holo, mramory) jsou jen v Pro; nižší tarif dostane nejbližší obyčejnou barvu. */
+export const FANCY_COLOR_FALLBACK: Partial<Record<ShopColor, ShopColor>> = {
+  gold: 'yellow', silver: 'blue', rosegold: 'pink', pearl: 'violet',
+  holo: 'violet', whitemarble: 'blue', blackmarble: 'blue', greenmarble: 'teal',
+};
+export const isFancyColor = (c: string) => c in FANCY_COLOR_FALLBACK;
+
+/** Barva obchodu, jak se smí ukázat při daném tarifu (efektní jen v Pro). */
+export function planColor(color: string, plan: Plan): ShopColor {
+  const c = safeColor(color);
+  return PLANS[plan].fullDesign ? c : FANCY_COLOR_FALLBACK[c] ?? c;
+}
 
 /** Barva z databáze jen ze známých tokenů (jde do CSS proměnné) */
 export function safeColor(c: string): ShopColor {
@@ -528,7 +549,7 @@ export function effectiveConfig(config: ShopPageConfig, plan: Plan): ShopPageCon
   const design: ShopDesign = info.fullDesign
     ? config.design
     : {
-        ...config.design, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner,
+        ...config.design, color: FANCY_COLOR_FALLBACK[config.design.color] ?? config.design.color, layout: 'banner', font: 'modern', corners: 'round', banner: proBanner ? 'pattern' : config.design.banner,
         holo: false, color2: '', liveBanner: false, customTags: config.design.customTags.slice(0, 1),
       };
   const blocks = config.blocks

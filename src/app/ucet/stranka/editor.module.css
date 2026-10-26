@@ -131,6 +131,7 @@
 .swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2); }
 .swatch[aria-pressed='true'] { border-color: var(--ink); outline: 2px solid var(--surface); outline-offset: -4px; }
 .swatchNone { background: linear-gradient(135deg, transparent 45%, var(--down) 45%, var(--down) 55%, transparent 55%), var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.swatchGroup { font: 600 11px/16px var(--font-mono); letter-spacing: 0.06em; color: var(--ink-muted); text-transform: uppercase; }
 
 /* Dlaždice s volbami */
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--space-2); }

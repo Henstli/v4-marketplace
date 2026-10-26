@@ -10,7 +10,7 @@ import { GAMES } from '@/lib/games';
 import { PLANS, type Plan } from '@/lib/plans';
 import {
   allTabs, visibleTabs, BLOCKS, blockInfo, effectiveConfig, newBlock, shopHref, slugify,
-  SHOP_BACKGROUNDS, SHOP_BANNERS, SHOP_COLORS, SHOP_DIVIDERS, SHOP_FONTS, SHOP_ICONS, SHOP_LAYOUTS, SHOP_TYPES, SLUG_RE, emptyCollection, COLLECTION_SORTS,
+  SHOP_BACKGROUNDS, SHOP_BANNERS, SHOP_COLORS, SHOP_DIVIDERS, isFancyColor, SHOP_FONTS, SHOP_ICONS, SHOP_LAYOUTS, SHOP_TYPES, SLUG_RE, emptyCollection, COLLECTION_SORTS,
   type BlockInfo, type BlockType, type BlockWidth, type ShopBlock, type ShopCollection, type ShopDesign, type ShopPageConfig, type CustomTag,
 } from '@/lib/shop-config';
 import { CONDITIONS, LANGUAGE_NAMES, type Language } from '@/lib/types';
@@ -377,14 +377,21 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     </div>
   );
 
-  const swatches = (value: string, onPick: (id: string) => void, none?: boolean) => (
-    <div className={styles.swatches}>
-      {none ? <button type="button" className={`${styles.swatch} ${styles.swatchNone}`} aria-pressed={!value} aria-label="Žádná" title="Žádná" onClick={() => onPick('')} /> : null}
-      {SHOP_COLORS.map((x) => (
-        <button key={x.id} type="button" className={styles.swatch} style={{ background: `var(--shop-${x.id})` }} aria-pressed={value === x.id} aria-label={x.name} title={x.name} onClick={() => onPick(x.id)} />
-      ))}
-    </div>
-  );
+  const swatches = (value: string, onPick: (id: string) => void, none?: boolean) => {
+    const swatch = (x: (typeof SHOP_COLORS)[number]) => (
+      <button key={x.id} type="button" className={styles.swatch} style={{ background: `var(--shop-${x.id}-fx, none), var(--shop-${x.id})` }} aria-pressed={value === x.id} aria-label={x.name} title={x.name} onClick={() => onPick(x.id)} />
+    );
+    return (
+      <>
+        <div className={styles.swatches}>
+          {none ? <button type="button" className={`${styles.swatch} ${styles.swatchNone}`} aria-pressed={!value} aria-label="Žádná" title="Žádná" onClick={() => onPick('')} /> : null}
+          {SHOP_COLORS.filter((x) => !isFancyColor(x.id)).map(swatch)}
+        </div>
+        <span className={styles.swatchGroup}>Efektní{locked ? ' · jen Pro' : ''}</span>
+        <div className={styles.swatches}>{SHOP_COLORS.filter((x) => isFancyColor(x.id)).map(swatch)}</div>
+      </>
+    );
+  };
 
   const brandSection = (
     <div className={styles.stack}>
@@ -395,7 +402,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
           <Chip selected={c.design.logo === 'round'} onClick={() => setDesign({ logo: 'round' })}>Kulaté</Chip>
         </div>
       </Group>
-      <Group label="HLAVNÍ BARVA" hint="Barví banner, tlačítka, záložky a nadpisy.">
+      <Group label="HLAVNÍ BARVA" hint={locked ? 'Barví banner, tlačítka, záložky a nadpisy. Efektní barvy (metalízy, perleť, mramor) se na stránce ukážou s tarifem Pro.' : 'Barví banner, tlačítka, záložky a nadpisy.'}>
         {swatches(c.design.color, (id) => setDesign({ color: id as ShopDesign['color'] }))}
       </Group>
       <Group label="DRUHÁ BARVA" pro locked={locked} hint="Doplňková barva do vzorů banneru, štítků a oddělovačů.">
@@ -421,7 +428,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     </div>
   );
 
-  const shopVars = { ...shopStyle(c.design.color), ...(c.design.color2 ? { '--shop-2': `var(--shop-${c.design.color2})` } : {}) } as React.CSSProperties;
+  const shopVars = shopStyle(c.design.color, c.design.color2);
 
   const headerSection = (
     <div className={styles.stack}>
