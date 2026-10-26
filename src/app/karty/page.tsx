@@ -21,7 +21,7 @@ const SORTS: Array<{ id: SortKey; label: string }> = [
   { id: 'trend', label: 'Největší růst' },
 ];
 const SORT_PARAM: Record<SortKey, string> = { relevance: '', 'price-asc': 'cena', 'price-desc': 'cena-sestupne', trend: 'trend' };
-const RELATED_SETS = 8;
+const RELATED_SETS = 3;
 const SELLER_KINDS: Array<{ id: SellerKind; label: string; param: string }> = [
   { id: 'shop', label: 'Obchody', param: 'obchod' },
   { id: 'private', label: 'Sběratelé', param: 'sberatel' },
@@ -80,7 +80,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     return `${base}${base.includes('?') ? '&' : '?'}strana=${n}`;
   };
   const game = query.game ? getGame(query.game) : undefined;
-  // Sad se stejným začátkem názvu bývá hodně (Duel Decks, Starter Deck): nejdřív osm, zbytek na požádání.
+  // Sad se stejným začátkem názvu bývá hodně (Duel Decks, Starter Deck): nejdřív tři, zbytek na požádání.
   const allSets = one(params.sady) === 'vse';
   const sets = related ? (allSets ? related.sets : related.sets.slice(0, RELATED_SETS)) : [];
   const sellerParam = SELLER_KINDS.find((k) => k.id === query.sellerKind)?.param;

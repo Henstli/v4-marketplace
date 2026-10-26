@@ -1,5 +1,5 @@
 -- Sad se stejným začátkem názvu bývá i přes 30 (Duel Decks, Starter Deck), suggest_groups jich proto vrací až 40.
--- Našeptávač ukáže 4, katalog 8 a zbytek po kliknutí na „Zobrazit všech N sad“.
+-- Našeptávač ukáže 4, katalog 3 a zbytek po kliknutí na „Zobrazit všech N sad“.
 
 create or replace function public.suggest_groups(p_q text, p_game text default null)
 returns table (
@@ -35,7 +35,7 @@ begin
            (regexp_replace(lower(public.unaccent_immutable(s.name)), '[^a-z0-9]+', ' ', 'g') = v_norm) desc,
            (regexp_replace(lower(public.unaccent_immutable(s.name)), '[^a-z0-9]+', ' ', 'g') like v_norm || '%') desc,
            s.released_on desc nulls last, s.name
-  -- Našeptávač ukáže první čtyři, katalog osm a na požádání všechny.
+  -- Našeptávač ukáže první čtyři, katalog tři a na požádání všechny.
   limit 40;
 
   -- Prodejci, kteří mají něco v nabídce. Kladná hodnocení = 4 a 5 hvězdiček.
