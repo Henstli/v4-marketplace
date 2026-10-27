@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ActionIcon, isDismiss } from '@/components/orders/ActionIcon';
 import QRCode from 'qrcode';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -144,7 +143,7 @@ export function FlowButton({ id, action }: { id: string; action: FlowAction }) {
       <input type="hidden" name="op" value={action.op} />
       {action.op === 'status' ? <input type="hidden" name="status" value={action.status} /> : null}
       {tracking ? <input name="tracking" maxLength={60} className={`${styles.input} code`} placeholder="Číslo zásilky (nepovinné)" aria-label="Číslo zásilky" /> : null}
-      <Button type="submit" variant={action.variant === 'primary' ? undefined : action.variant}>{isDismiss(action) ? <ActionIcon kind="x" /> : null}{action.label}</Button>
+      <Button type="submit" variant={action.variant === 'primary' ? undefined : action.variant}>{action.label}</Button>
     </form>
   );
 }
