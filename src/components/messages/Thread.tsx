@@ -8,10 +8,11 @@ import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
+import { ShipEdit } from '@/app/objednavky/ShipEdit';
 import { answerOffer, proposePrice } from '@/app/zpravy/offers';
 import { formatDateTime, formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@/lib/messages';
-import { flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
+import { canChangeShipping, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
@@ -104,6 +105,16 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
               <li key={s.key} data-done={s.done ? '' : undefined}>{s.label}</li>
             ))}
           </ol>
+          {!mine && canChangeShipping(o) ? (
+            <ShipEdit
+              key={o.shipChange ?? o.shipping}
+              id={o.id}
+              carrier={o.carrierName}
+              shipping={o.shipChange ?? o.shipping}
+              total={o.total - o.shipping + (o.shipChange ?? o.shipping)}
+              cap={o.shipCap}
+            />
+          ) : null}
           <OrderActions o={o} buyer={mine} />
           <Link href={`/objednavky/${o.number}`} className="t-small">Zobrazit objednávku</Link>
         </>
