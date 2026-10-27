@@ -49,7 +49,9 @@ export function ConversationList({ items }: { items: ConversationItem[] }) {
             </span>
             <span className={styles.convSide}>
               {formatDateTime(c.lastAt)}
-              {c.unread ? <span className={styles.dot} aria-label="Nepřečteno" /> : null}
+              {c.unread ? (
+                <span className={styles.count} aria-label={`${c.unreadCount} nepřečtené`}>{c.unreadCount > 99 ? '99+' : c.unreadCount}</span>
+              ) : null}
             </span>
           </>
         );

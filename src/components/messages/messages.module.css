@@ -31,7 +31,13 @@
 .convName, .convLast { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .convName { font-weight: 600; font-size: 14px; }
 .convLast { font-size: 13px; color: var(--ink-muted); }
-.unread .convLast { color: var(--ink); }
+.unread .convLast { color: var(--ink); font-weight: 600; }
+/* Nepřečtená konverzace (Šimon 27. 10., varianta A): zelený nádech, proužek vlevo, tučně, zelený čas a počet. */
+.conv.unread { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.conv.unread:hover, .conv.unread[aria-current] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.unread .convName { font-weight: 700; }
+.unread .convSide { color: var(--accent); font-weight: 600; }
+.count { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 20px; text-align: center; }
 .convSide { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 
