@@ -113,3 +113,11 @@
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .history li { display: flex; justify-content: space-between; gap: var(--space-3); }
 .history li > :last-child { flex: none; }
+
+/* Celá karta objednávky v seznamu otevře detail (Šimon 27. 10.): odkaz v názvu se roztáhne přes kartu,
+   tlačítka, odkazy a formuláře zůstávají nad ním. */
+.order { position: relative; }
+.order:has(.title) { cursor: pointer; }
+.order:has(.title):hover { border-top-color: var(--line-strong); border-right-color: var(--line-strong); border-bottom-color: var(--line-strong); background: color-mix(in srgb, var(--surface-sunken) 50%, var(--surface)); }
+.title::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.order a:not(.title), .order button, .order form, .order select, .order input, .order .payment { position: relative; z-index: 1; }
