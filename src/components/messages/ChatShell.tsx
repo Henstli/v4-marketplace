@@ -45,7 +45,7 @@ export function ConversationList({ items }: { items: ConversationItem[] }) {
   return (
     <nav className={styles.list} aria-label="Konverzace">
       <strong className={styles.listHead}>Konverzace</strong>
-      {items.length > 1 ? (
+      {items.length ? (
         <input
           type="search"
           value={q}
