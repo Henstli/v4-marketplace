@@ -13,11 +13,14 @@ import styles from './messages.module.css';
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
 const GROUP_MS = 5 * 60_000;
 
-// Štítek stavu objednávky: čeká = warn, domluveno = ok, skončilo bez obchodu = muted.
-const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted'> = {
+// Štítek stavu objednávky: čeká = warn, domluveno = ok, zrušeno a odmítnuto = danger, vypršelo = muted.
+const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted' | 'danger'> = {
   requested: 'warn', pending_payment: 'warn',
   confirmed: 'ok', paid: 'ok', shipped: 'ok', delivered: 'ok',
+  cancelled: 'danger', declined: 'danger',
 };
+// U skončených objednávek není na stránce Objednávky co dělat, odkaz se nezobrazí.
+const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
 function ListingLink({ l, mine }: { l: ListingRef; mine: boolean }) {
   return (
@@ -99,7 +102,9 @@ export function Thread({ to, name, messages, initialText, listing }: {
                     <Status tone={STATUS_TONE[m.order.status] ?? 'muted'} className={styles.orderStatus}>{ORDER_STATUS[m.order.status] ?? m.order.status}</Status>
                   </>
                 ) : null}
-                <Link href="/objednavky" className="t-small">Zobrazit objednávku</Link>
+                {m.order && !ENDED.has(m.order.status) ? (
+                  <Link href={`/objednavky#objednavka-${m.order.number}`} className="t-small">Zobrazit objednávku</Link>
+                ) : null}
               </div>
             );
           }

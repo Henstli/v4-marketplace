@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { cx } from './cx';
 
 export interface StatusProps {
-  /** ok = v pořádku (spárováno), warn = potřebuje opravu, muted = vynecháno */
-  tone?: 'ok' | 'warn' | 'muted';
+  /** ok = v pořádku (spárováno), warn = potřebuje opravu, muted = vynecháno, danger = objednávka zrušená nebo odmítnutá */
+  tone?: 'ok' | 'warn' | 'muted' | 'danger';
   children: ReactNode;
   className?: string;
 }

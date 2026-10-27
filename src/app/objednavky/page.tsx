@@ -154,7 +154,7 @@ function OrderCard({ order, counterpart, contact, payment, role, children }: {
 }) {
   const counterpartId = role === 'buyer' ? order.seller_id : order.buyer_id;
   return (
-    <article className={styles.order}>
+    <article className={styles.order} id={`objednavka-${order.number}`}>
       <div className={styles.head}>
         <div>
           <p className={styles.status}>{STATUS[order.status] ?? order.status}</p>
