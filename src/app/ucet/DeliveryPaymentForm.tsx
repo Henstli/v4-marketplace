@@ -76,8 +76,8 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
             </div>
           ) : null}
           <label className={styles.check}>
-            <input type="checkbox" name="cash" checked={cash} onChange={(e) => setCash(e.target.checked)} />
-            <span><strong>Hotově při osobním předání</strong><small>{pickup ? 'Jen u osobního předání.' : 'Zapněte i osobní předání.'}</small></span>
+            <input type="checkbox" name="cash" checked={cash} onChange={(e) => { setCash(e.target.checked); if (e.target.checked) setPickup(true); }} />
+            <span><strong>Hotově při osobním předání</strong><small>{pickup ? 'Jen u osobního předání.' : 'Zapne i osobní předání.'}</small></span>
           </label>
           <label className={styles.check}>
             <input type="checkbox" checked={cod} onChange={(e) => setCod(e.target.checked)} />
@@ -89,7 +89,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
         <section className={styles.card} aria-labelledby="predani">
           <h3 id="predani" className={styles.cardTitle}>Osobní předání</h3>
           <label className={styles.check}>
-            <input type="checkbox" name="pickup" checked={pickup} onChange={(e) => setPickup(e.target.checked)} />
+            <input type="checkbox" name="pickup" checked={pickup} onChange={(e) => { setPickup(e.target.checked); if (!e.target.checked) setCash(false); }} />
             <span><strong>Nabízím osobní předání</strong></span>
           </label>
           {pickup ? (
