@@ -34,6 +34,11 @@ export default function PrivacyPage() {
             zprostředkování obchodu mezi kupujícím a prodejcem (plnění smlouvy) a vedení záznamů (právní povinnost).
           </li>
           <li>
+            <strong>Zprávy:</strong> text zpráv, které si napíšete s jiným uživatelem, a čas odeslání. Vidíte je jen vy
+            a druhá strana. O nové zprávě vám pošleme e-mail. Účel: domluva kupujícího a prodejce (plnění smlouvy).
+            Do zpráv nahlédneme jen při řešení nahlášeného porušení podmínek.
+          </li>
+          <li>
             <strong>Návrhy karet:</strong> údaje o kartě a fotka, kterou nahrajete. Po schválení se fotka zobrazí v
             katalogu.
           </li>
@@ -55,7 +60,7 @@ export default function PrivacyPage() {
         <h2 className="t-heading-m">Jak dlouho</h2>
         <p>
           Po dobu trvání účtu. Po jeho zrušení údaje smažeme, kromě záznamů o objednávkách, které musíme uchovávat podle
-          zákona.
+          zákona. Zprávy, které jste poslali, zůstanou druhé straně v její konverzaci, ale bez vašeho jména.
         </p>
 
         <h2 className="t-heading-m">Vaše práva</h2>

@@ -114,3 +114,13 @@ export async function sendWatchEmail(to: string, cards: Array<{ name: string; sl
     <ul style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 20px;padding-left:20px">${list}</ul>
     <a href="${siteUrl}/ucet/hlidane" style="display:inline-block;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">Hlídané karty</a>`));
 }
+
+/** Nová zpráva na V4cards (chodí jednou za dávku nepřečtených zpráv). */
+export async function sendMessageEmail(to: string, senderName: string, text: string, href: string): Promise<void> {
+  const preview = text.length > 300 ? `${text.slice(0, 300)}…` : text;
+  await send(to, `Nová zpráva od ${senderName}`, layoutHtml(new URL(href).origin, `
+    <h1 style="font-size:20px;margin:0 0 12px">Nová zpráva od ${escapeHtml(senderName)}</h1>
+    <p style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 20px;white-space:pre-line;border-left:3px solid #30363D;padding-left:12px">${escapeHtml(preview)}</p>
+    <a href="${href}" style="display:inline-block;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">Odpovědět</a>
+    <p style="font-size:13px;line-height:1.5;color:#6E7681;margin:20px 0 0">Na tento e-mail neodpovídejte, odpověď napište na V4cards. Další e-mail pošleme, až si zprávy přečtete.</p>`));
+}

@@ -478,7 +478,6 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
       const cards = await getCardsByIds(items.map((x) => x.cardId));
       const shown = items.filter((x) => cards.has(x.cardId));
       if (!shown.length) return null;
-      const contacts = shopContacts(p);
       return (
         <ShopSection title={blockTitle(b)} note="Máte některou? Nabídněte ji prodejci">
           <div className="tz-wanted">
@@ -497,8 +496,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
                     </span>
                   </Link>
                   {x.maxPrice ? <span className="tz-wanted-price">{formatNumber(x.maxPrice)} Kč{x.qty > 1 ? ` · ${x.qty} ks` : ''}</span> : null}
-                  {/* Návrh prodeje půjde přes zprávy, až budou; zatím kontakt na prodejce. */}
-                  <MessageSeller small name={p.seller.name} contacts={contacts} label="Nabídnout" intro="Návrh prodeje půjde poslat ve zprávách, které připravujeme. Zatím se s prodejcem domluvte přímo:" />
+                  <MessageSeller small sellerId={p.seller.id} label="Nabídnout" text={offerText(c, x.maxPrice)} />
                 </div>
               );
             })}
@@ -606,10 +604,6 @@ function contactHref(kind: string, v: string): string | null {
 }
 
 const CONTACT_LABELS: Record<string, string> = { web: 'Web', instagram: 'Instagram', facebook: 'Facebook', discord: 'Discord', email: 'E-mail', phone: 'Telefon' };
-
-function shopContacts(p: ShopProfile) {
-  return Object.entries(p.config.contact).filter(([, v]) => v).map(([k, v]) => ({ label: CONTACT_LABELS[k], value: v, href: contactHref(k, v) }));
-}
 
 type AboutPart = 'about' | 'contact' | 'store';
 const PANEL_HEADING = { fontFamily: 'var(--shop-font)', textTransform: 'var(--shop-case)' as never };
@@ -828,7 +822,7 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
             tagline={c.tagline || undefined}
             badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
             extra={p.achievements.length ? <Achievements items={p.achievements} /> : undefined}
-            actions={<MessageSeller name={p.seller.name} contacts={shopContacts(p)} />}
+            actions={<MessageSeller sellerId={p.seller.id} />}
             tabs={sticky ? undefined : tabLinks}
           />
         </div>
@@ -856,4 +850,10 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
       </div>
     </div>
   );
+}
+
+/** Předvyplněná zpráva k nabídce karty z bloku Hledám. */
+function offerText(c: { name: string; setCode: string; number: string }, maxPrice?: number | null): string {
+  const price = maxPrice ? ` za ${formatNumber(maxPrice)} Kč` : '';
+  return `Dobrý den, mám kartu ${c.name} (${c.setCode} ${c.number}), kterou hledáte. Nabízím ji${price}. Stav: , jazyk: .`;
 }
