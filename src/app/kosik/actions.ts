@@ -20,7 +20,7 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
   const ids = sellerIds.slice(0, 100);
   const supabase = await createClient();
   const [{ data: profiles }, { data: methods }, { data: rates }] = await Promise.all([
-    supabase.from('profiles').select('id, free_shipping_from, pickup, pickup_place, pickup_radius_km, cash_on_pickup, pay_transfer').in('id', ids),
+    supabase.from('profiles').select('id, free_shipping_from, pickup, pickup_place, pickup_radius_km, pickup_exact, cash_on_pickup, pay_transfer').in('id', ids),
     supabase.from('seller_shipping_methods').select('seller_id, carrier, label, price_czk, cod, cod_fee_czk').in('seller_id', ids),
     supabase.from('carrier_rates').select('carrier, price_czk'),
   ]);
@@ -30,6 +30,7 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
     pickup: p.pickup,
     pickupPlace: p.pickup ? p.pickup_place || 'po domluvě' : null,
     pickupRadius: p.pickup_radius_km,
+    pickupExact: p.pickup_exact,
     cashOnPickup: p.cash_on_pickup,
     transfer: p.pay_transfer,
     freeFrom: p.free_shipping_from,

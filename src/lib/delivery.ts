@@ -47,6 +47,8 @@ export interface SellerOffer {
   pickup: boolean;
   pickupPlace: string | null;
   pickupRadius: number | null;
+  /** Přesná adresa (obchod, pobočka), ne okruh */
+  pickupExact: boolean;
   cashOnPickup: boolean;
   /** Převod jde jen s vyplněným účtem. */
   transfer: boolean;

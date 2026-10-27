@@ -28,7 +28,7 @@ export default async function AccountPage({ searchParams }: Props) {
   const supabase = await createClient();
   const [{ data: profile }, { data: payment }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }] = await Promise.all([
     supabase.from('profiles')
-      .select('display_name, kind, country, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km')
+      .select('display_name, kind, country, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
       .eq('id', user.id).single(),
     supabase.from('seller_payment').select('iban, account_name').eq('user_id', user.id).maybeSingle(),
     supabase.from('seller_shipping_methods').select('carrier, label, price_czk, cod, cod_fee_czk').eq('seller_id', user.id),
@@ -64,6 +64,7 @@ export default async function AccountPage({ searchParams }: Props) {
               pickupLat: profile.pickup_lat,
               pickupLng: profile.pickup_lng,
               pickupRadius: profile.pickup_radius_km ?? 2,
+              pickupExact: profile.pickup_exact,
               freeFrom: profile.free_shipping_from,
               rates: Object.fromEntries((rates ?? []).map((r) => [r.carrier, { price: r.price_czk, codFee: r.cod_fee_czk, heavy: r.heavy_czk }])),
               methods: (methods ?? []).map((m) => ({ carrier: m.carrier as Carrier, label: m.label, price: m.price_czk, cod: m.cod, codFee: m.cod_fee_czk })),

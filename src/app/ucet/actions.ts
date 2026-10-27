@@ -42,6 +42,7 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
   const cash = form.get('cash') === 'on';
   const pickup = form.get('pickup') === 'on';
   const pickupPlace = String(form.get('pickupPlace') ?? '').trim().slice(0, 60);
+  const exact = pickup && form.get('pickupMode') === 'exact';
   const radius = Number(form.get('radius') ?? 2);
   const lat = Number(form.get('lat'));
   const lng = Number(form.get('lng'));
@@ -49,7 +50,7 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
   const freeRaw = String(form.get('freeFrom') ?? '').trim();
   const freeFrom = freeRaw ? Number(freeRaw) : null;
   if (pickup && pickupPlace.length < 2) return { error: 'U osobního předání napište místo (např. Brno, Mendlovo náměstí).' };
-  if (pickup && (!Number.isInteger(radius) || radius < 1 || radius > 50)) return { error: 'Okruh předání musí být 1 až 50 km.' };
+  if (pickup && !exact && (!Number.isInteger(radius) || radius < 1 || radius > 50)) return { error: 'Okruh předání musí být 1 až 50 km.' };
   if (cash && !pickup) return { error: 'Platba hotově jde jen s osobním předáním. Zapněte ho, nebo hotovost vypněte.' };
   if (freeFrom !== null && (!Number.isInteger(freeFrom) || freeFrom < 1 || freeFrom > 100000)) return { error: 'Doprava zdarma od: zadejte celou částku v Kč, nebo nechte prázdné.' };
 
@@ -72,8 +73,8 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
     methods.push({ seller_id: me, carrier: c.key, label, price_czk: price, cod, cod_fee_czk: fee });
   }
 
-  // Polohu zaokrouhlíme na ~1 km: profil je veřejný, přesná adresa do něj nepatří.
-  const round = (x: number) => Math.round(x * 100) / 100;
+  // Okruh: polohu zaokrouhlíme na ~1 km, profil je veřejný. Přesné místo (obchod, pobočka) je veřejné záměrně.
+  const round = (x: number) => exact ? Math.round(x * 1e5) / 1e5 : Math.round(x * 100) / 100;
   const { error } = await supabase.from('profiles').update({
     pay_transfer: transfer,
     cash_on_pickup: cash,
@@ -81,7 +82,8 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
     pickup_place: pickup ? pickupPlace : null,
     pickup_lat: hasPos ? round(lat) : null,
     pickup_lng: hasPos ? round(lng) : null,
-    pickup_radius_km: pickup ? radius : null,
+    pickup_radius_km: pickup && !exact ? radius : null,
+    pickup_exact: exact,
     free_shipping_from: freeFrom,
   }).eq('id', me);
   if (error) return { error: 'Nastavení se nepodařilo uložit.' };

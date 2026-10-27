@@ -161,3 +161,6 @@ returns table (iban text, account_name text, amount int, vs bigint)
     and coalesce(o.payment, 'transfer') = 'transfer'
     and o.ship_change_czk is null;
 $$;
+
+-- Osobní předání na přesném místě (obchod, pobočka): kupující vidí adresu, poloha se nezaokrouhluje.
+alter table public.profiles add column pickup_exact boolean not null default false;

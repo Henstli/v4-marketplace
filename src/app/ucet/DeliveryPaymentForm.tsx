@@ -25,6 +25,8 @@ export interface DeliveryPaymentValues {
   pickupLat: number | null;
   pickupLng: number | null;
   pickupRadius: number;
+  /** Přesné místo (obchod, pobočka) místo okruhu */
+  pickupExact: boolean;
   freeFrom: number | null;
   methods: ShippingMethod[];
   /** Ceníky dopravců pro strop ceny (prázdné, dokud není migrace shipping_caps). */
@@ -40,6 +42,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
   const [cod, setCod] = useState(values.methods.some((m) => m.cod));
   const [pos, setPos] = useState<{ lat: number | null; lng: number | null }>({ lat: values.pickupLat, lng: values.pickupLng });
   const [radius, setRadius] = useState(values.pickupRadius);
+  const [exact, setExact] = useState(values.pickupExact);
   const [place, setPlace] = useState(values.pickupPlace);
   // Název doplněný z mapy se smí přepsat dalším kliknutím, napsaný ručně ne.
   const [autoPlace, setAutoPlace] = useState(!values.pickupPlace);
@@ -94,7 +97,12 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
           </label>
           {pickup ? (
             <div className={styles.subCol}>
-              <PickupMap lat={pos.lat} lng={pos.lng} radiusKm={radius} onPick={(lat, lng) => {
+              {/* Okruh (soukromník, poloha zaokrouhlená) nebo přesné místo (obchod, pobočka). */}
+              <div className={styles.segment} role="radiogroup" aria-label="Jak ukázat místo">
+                <label><input type="radio" name="pickupMode" value="radius" checked={!exact} onChange={() => setExact(false)} /><span>Okruh</span></label>
+                <label><input type="radio" name="pickupMode" value="exact" checked={exact} onChange={() => setExact(true)} /><span>Přesné místo</span></label>
+              </div>
+              <PickupMap lat={pos.lat} lng={pos.lng} radiusKm={exact ? null : radius} onPick={(lat, lng) => {
                 setPos({ lat, lng });
                 if (autoPlace || !place.trim()) placeAt(lat, lng).then((name) => { if (name) { setPlace(name); setAutoPlace(true); } });
               }} />
@@ -102,19 +110,25 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
               <input type="hidden" name="lng" value={pos.lng ?? ''} />
               <div className={styles.sub}>
                 <label className={styles.field}>
-                  <span className={styles.label}>Místo (vidí kupující)</span>
+                  <span className={styles.label}>{exact ? 'Adresa (vidí kupující)' : 'Místo (vidí kupující)'}</span>
                   <PlaceInput
                     value={place}
                     onChange={(v) => { setPlace(v); setAutoPlace(false); }}
                     onPick={(p) => { setPos({ lat: p.lat, lng: p.lng }); setAutoPlace(false); }}
                   />
                 </label>
+{exact ? null : (
                 <label className={`${styles.field} ${styles.narrow}`}>
                   <span className={styles.label}>Okruh (km)</span>
                   <input name="radius" type="number" min={1} max={50} value={radius} onChange={(e) => setRadius(Math.min(50, Math.max(1, Number(e.target.value) || 1)))} className={`${styles.input} code`} />
                 </label>
+                )}
               </div>
-              <small className={styles.note}>Začněte psát místo, nebo klikněte do mapy, kde předáváte. Přesnou adresu kupující neuvidí, jen místo a okruh. Domluvíte se ve zprávách.</small>
+              <small className={styles.note}>
+                {exact
+                  ? 'Pro obchody a pobočky: kupující uvidí přesnou adresu a špendlík. Začněte psát adresu, nebo klikněte do mapy.'
+                  : 'Začněte psát místo, nebo klikněte do mapy, kde předáváte. Přesnou adresu kupující neuvidí, jen místo a okruh. Domluvíte se ve zprávách.'}
+              </small>
             </div>
           ) : null}
         </section>
