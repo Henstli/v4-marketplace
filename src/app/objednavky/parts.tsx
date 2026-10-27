@@ -9,6 +9,7 @@ import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import type { createClient } from '@/lib/supabase/server';
 import { CopyButton } from '@/components/orders/CopyButton';
 import { ExpiryStatus } from '@/components/orders/Expiry';
+import { ShipChangeBlock } from '@/components/orders/ShipChange';
 import { addReview, setOrderStatus } from './actions';
 import { ShipEdit } from './ShipEdit';
 import styles from './orders.module.css';
@@ -137,7 +138,7 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 }
 
 /** Objednávka pro pravidla kroků (DS DeliveryPayment). */
-export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, shipChange: o.ship_change_czk });
+export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
 
 /** Akce kupujícího podle stavu (stejné na seznamu, v detailu i v chatu). */
 export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }) {
@@ -194,20 +195,16 @@ export async function loadShipCaps(supabase: Supabase): Promise<Map<string, numb
 /** Čekající změna dopravy: původní a nová cena a důvod (kupující i prodejce). */
 export function ShipChangeNotice({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
   if ((o.status !== 'requested' && o.status !== 'confirmed') || o.ship_change_czk == null) return null;
-  const total = o.total_czk - o.shipping_czk + o.ship_change_czk;
   return (
-    <div className={styles.shipNotice}>
-      <p>
-        <strong>{role === 'buyer' ? 'Prodejce zvýšil dopravu' : 'Navrhli jste vyšší dopravu'}</strong> z <span className="code">{o.shipping_czk} Kč</span> na <strong className="code">{o.ship_change_czk} Kč</strong>
-      </p>
-      {o.ship_change_reason ? <p className="t-small muted">Důvod: {o.ship_change_reason}</p> : null}
-      <p className="t-small">
-        Nové celkem <strong className="code">{total.toLocaleString('cs-CZ')} Kč</strong>.{' '}
-        {role === 'buyer'
-          ? (o.payment ?? 'transfer') === 'transfer' ? 'QR kód pro platbu se ukáže, až změnu potvrdíte.' : 'Na dobírce zaplatíte novou částku.'
-          : o.status === 'requested' ? 'Platí od potvrzení objednávky. Kupující ji musí odsouhlasit, než uvidí QR kód.' : 'Kupující ji musí potvrdit, do té doby nevidí QR kód.'}
-      </p>
-    </div>
+    <ShipChangeBlock
+      shipping={o.shipping_czk}
+      change={o.ship_change_czk}
+      total={o.total_czk}
+      reason={o.ship_change_reason}
+      role={role}
+      requested={o.status === 'requested'}
+      transfer={(o.payment ?? 'transfer') === 'transfer'}
+    />
   );
 }
 

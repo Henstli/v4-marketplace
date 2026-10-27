@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, 
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/trezor';
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
+import { ShipChangeBlock } from '@/components/orders/ShipChange';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
 import { ShipEdit } from '@/app/objednavky/ShipEdit';
@@ -95,7 +96,9 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
         ))}
       </ul>
       <div className={styles.ordSum}>
-        <span>{plural(o.count, ['karta', 'karty', 'karet'])} · {o.deliveryLine}{o.pickup ? '' : o.shipping ? ` ${formatPrice(o.shipping)}` : ' zdarma'}</span>
+        <span>
+          {plural(o.count, ['karta', 'karty', 'karet'])} · {o.pickup ? o.deliveryLine : `${o.carrierName} ${o.shipping ? formatPrice(o.shipping) : 'zdarma'}${o.paymentName ? ` · ${o.paymentName}` : ''}`}
+        </span>
         <span className={styles.ordTotal}><Price amount={o.total} /></span>
       </div>
       {ended ? null : (
@@ -105,6 +108,17 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
               <li key={s.key} data-done={s.done ? '' : undefined}>{s.label}</li>
             ))}
           </ol>
+          {o.shipChange != null && (o.status === 'requested' || o.status === 'confirmed') ? (
+            <ShipChangeBlock
+              shipping={o.shipping}
+              change={o.shipChange}
+              total={o.total}
+              reason={o.shipChangeReason}
+              role={mine ? 'buyer' : 'seller'}
+              requested={o.status === 'requested'}
+              transfer={(o.payment ?? 'transfer') === 'transfer'}
+            />
+          ) : null}
           {!mine && canChangeShipping(o) ? (
             <ShipEdit
               key={o.shipChange ?? o.shipping}

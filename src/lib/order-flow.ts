@@ -12,6 +12,9 @@ export interface FlowOrder {
   buyerPaidAt: string | null;
   /** Prodejce navrhl vyšší dopravu, čeká se na kupujícího. */
   shipChange?: number | null;
+  /** Součet a doprava, aby Souhlasím řeklo novou částku. */
+  total?: number;
+  shipping?: number;
 }
 
 type Role = 'buyer' | 'seller';
@@ -107,7 +110,7 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   // Čekající změna dopravy: kupující souhlasí nebo zruší, prodejce může jen zrušit.
   if ((o.status === 'confirmed' || (o.status === 'requested' && role === 'buyer')) && o.shipChange != null) {
     return role === 'buyer'
-      ? [{ op: 'ship_accept', label: 'Souhlasím', variant: 'primary' }, { op: 'ship_reject', label: 'Zrušit objednávku', variant: 'ghost' }]
+      ? [{ op: 'ship_accept', label: o.total != null && o.shipping != null ? `Souhlasím s ${(o.total - o.shipping + o.shipChange).toLocaleString('cs-CZ')} Kč` : 'Souhlasím', variant: 'primary' }, { op: 'ship_reject', label: 'Zrušit objednávku', variant: 'ghost' }]
       : [{ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' }];
   }
   if (role === 'buyer') {
