@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { siteOrigin } from '@/lib/auth-helpers';
 import { sendOrderEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
+import { scheduleWatchFlush } from '@/lib/watch';
 
 export async function setOrderStatus(form: FormData) {
   const supabase = await createClient();
@@ -17,6 +18,8 @@ export async function setOrderStatus(form: FormData) {
     const [user, origin] = await Promise.all([getCurrentUser(), siteOrigin()]);
     if (user) after(() => sendOrderEmail(supabase, id, status, user.displayName, origin));
   }
+  // Odmítnutí a zrušení vrací kusy do nabídky, čekající na kartu dostanou e-mail.
+  if (!error && (status === 'declined' || status === 'cancelled')) await scheduleWatchFlush();
   revalidatePath('/objednavky');
   revalidatePath('/', 'layout');
 }

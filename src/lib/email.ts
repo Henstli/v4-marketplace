@@ -100,3 +100,17 @@ function layoutHtml(siteUrl: string, body: string): string {
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
+
+/** Hlídaná karta je znovu skladem (čekací pořadník). */
+export async function sendWatchEmail(to: string, cards: Array<{ name: string; slug: string }>, siteUrl: string): Promise<void> {
+  const list = cards
+    .slice(0, 10)
+    .map((c) => `<li style="margin:0 0 6px"><a href="${siteUrl}/karty/${encodeURIComponent(c.slug)}" style="color:#7CF2C8">${escapeHtml(c.name)}</a></li>`)
+    .join('');
+  const one = cards.length === 1;
+  await send(to, one ? `${cards[0].name} je znovu k mání` : 'Hlídané karty jsou znovu k mání', layoutHtml(siteUrl, `
+    <h1 style="font-size:20px;margin:0 0 12px">${one ? 'Hlídaná karta je znovu k mání' : 'Hlídané karty jsou znovu k mání'}</h1>
+    <p style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 12px">Upozornění dostali všichni, kdo kartu hlídali. Kdo objedná dřív, ten ji má.</p>
+    <ul style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 20px;padding-left:20px">${list}</ul>
+    <a href="${siteUrl}/ucet/hlidane" style="display:inline-block;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">Hlídané karty</a>`));
+}
