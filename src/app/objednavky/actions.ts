@@ -1,11 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshCatalog } from '@/lib/catalog-refresh';
 import { after } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { siteOrigin } from '@/lib/auth-helpers';
 import { sendOrderEmail } from '@/lib/email';
+import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { scheduleWatchFlush } from '@/lib/watch';
 
 export async function setOrderStatus(form: FormData) {
@@ -54,7 +57,7 @@ export async function addReview(form: FormData) {
     comment: comment || null,
   });
   revalidatePath('/objednavky');
-  revalidatePath('/karty', 'layout');
+  refreshCatalog();
 }
 
 export interface ShipChangeState { error?: string; ok?: boolean }
@@ -74,4 +77,19 @@ export async function changeShipping(_prev: ShipChangeState, form: FormData): Pr
   revalidatePath('/objednavky');
   revalidatePath('/', 'layout');
   return { ok: true };
+}
+
+/** Účet prodejce a QR pro bublinu ve zprávách (DS Messages › QR platba v bublině). */
+export interface ChatPayment { account: string; owner: string; amount: number; vs: number; qr: string | null }
+
+/** Načte se až po kliknutí na „Zaplatit QR kódem“; databáze údaje vrátí jen účastníkům potvrzené objednávky. */
+export async function orderPaymentQr(id: string): Promise<ChatPayment | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('order_payment', { target: id });
+  const p = (data as Array<{ iban: string; account_name: string; amount: number; vs: number }> | null)?.[0];
+  if (!p) return null;
+  const qr = p.iban.startsWith('CZ')
+    ? await QRCode.toString(spayd({ iban: p.iban, amount: p.amount, vs: p.vs, name: p.account_name }), { type: 'svg', margin: 1, width: 132 })
+    : null;
+  return { account: czAccountNumber(p.iban) ?? formatIban(p.iban), owner: p.account_name, amount: p.amount, vs: p.vs, qr };
 }

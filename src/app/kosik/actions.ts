@@ -47,20 +47,24 @@ export interface CartAlternatives {
   /** Pro každou nabídku z košíku: nabídky téže karty ve stejném nebo lepším stavu a jazyce (včetně jí samé) */
   candidates: Record<string, Candidate[]>;
   terms: Record<string, ShippingTerms>;
+  /** Nabídky z košíku, které už nejdou koupit (smazané, vyprodané, cena dohodou) */
+  gone: string[];
 }
 
 /** Stejné karty u jiných prodejců, pro varianty košíku (nejlevněji, nejméně prodejců). */
 export async function getCartAlternatives(listingIds: string[]): Promise<CartAlternatives> {
   const ids = listingIds.slice(0, 60);
-  if (!ids.length) return { candidates: {}, terms: {} };
+  if (!ids.length) return { candidates: {}, terms: {}, gone: [] };
   const supabase = await createClient();
   const [{ data: own }, user] = await Promise.all([
-    supabase.from('listings').select('id, card_id, condition, language').in('id', ids),
+    supabase.from('listings').select('id, card_id, condition, language, quantity, price_czk').in('id', ids),
     getCurrentUser(),
   ]);
-  const originals = own ?? [];
+  // Stejný dotaz zároveň poví, které nabídky z košíku mezitím zmizely (košík je jen v prohlížeči).
+  const originals = (own ?? []).filter((l) => l.quantity > 0 && l.price_czk != null);
+  const gone = ids.filter((id) => !originals.some((l) => l.id === id));
   const cardIds = [...new Set(originals.map((l) => l.card_id))];
-  if (!cardIds.length) return { candidates: {}, terms: {} };
+  if (!cardIds.length) return { candidates: {}, terms: {}, gone };
   const { data: offers } = await supabase
     .from('listings')
     .select('id, card_id, seller_id, price_czk, condition, language, quantity, profiles(display_name, shipping_czk, free_shipping_from)')
@@ -91,7 +95,7 @@ export async function getCartAlternatives(listingIds: string[]): Promise<CartAlt
         };
       });
   }
-  return { candidates, terms };
+  return { candidates, terms, gone };
 }
 
 /** Volba kupujícího u jednoho prodejce: doprava (dopravce nebo osobní předání), platba, výdejní místo a adresa. */

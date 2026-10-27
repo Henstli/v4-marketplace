@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshCatalog } from '@/lib/catalog-refresh';
 import { searchCards } from '@/lib/catalog';
 import { getGame, type GameId } from '@/lib/games';
 import { QUANTITY_MAX } from '@/lib/import/columns';
@@ -130,6 +131,6 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
 
 function revalidate() {
   revalidatePath('/prodat');
-  revalidatePath('/karty', 'layout');
+  refreshCatalog();
   revalidatePath('/prodejci', 'layout');
 }

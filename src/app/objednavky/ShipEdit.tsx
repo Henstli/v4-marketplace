@@ -15,7 +15,9 @@ export function ShipEdit({ id, carrier, shipping, total, cap }: { id: string; ca
   // Otevřeno od stavu `opened`; po úspěšném odeslání se formulář zavře.
   const [opened, setOpened] = useState<ShipChangeState | null>(null);
   const open = opened !== null && (state === opened || !state.ok);
-  const [price, setPrice] = useState(shipping);
+  // Text, ať jde pole při psaní úplně smazat (prázdné = 0 Kč).
+  const [draft, setDraft] = useState(String(shipping));
+  const price = Number(draft) || 0;
   const [reason, setReason] = useState(REASONS[0]);
   if (!open) {
     return (
@@ -24,7 +26,7 @@ export function ShipEdit({ id, carrier, shipping, total, cap }: { id: string; ca
           <span className="t-label muted">DOPRAVA</span>
           <span>{carrier} · <span className="code">{kc(shipping)}</span></span>
         </span>
-        <button type="button" className={styles.shipRowBtn} onClick={() => { setOpened(state); setPrice(shipping); }}>Upravit</button>
+        <button type="button" className={styles.shipRowBtn} onClick={() => { setOpened(state); setDraft(String(shipping)); }}>Upravit</button>
       </div>
     );
   }
@@ -41,7 +43,7 @@ export function ShipEdit({ id, carrier, shipping, total, cap }: { id: string; ca
         </label>
         <label className={styles.field}>
           <span className="t-label muted">NOVÁ CENA</span>
-          <input name="price" type="number" min={0} max={cap ?? 1000} required value={price} onChange={(e) => setPrice(Number(e.target.value) || 0)} className={`${styles.input} code ${over ? styles.inputOver : ''}`} aria-invalid={over > 0} aria-describedby={cap ? `cap-${id}` : undefined} />
+          <input name="price" type="number" min={0} max={cap ?? 1000} required value={draft} onChange={(e) => setDraft(e.target.value)} className={`${styles.input} code ${over ? styles.inputOver : ''}`} aria-invalid={over > 0} aria-describedby={cap ? `cap-${id}` : undefined} />
           {cap ? (
             <span id={`cap-${id}`} className={`t-small ${over ? styles.over : 'muted'}`} role={over ? 'alert' : undefined}>
               {over ? `Nejvýš ${kc(cap)}, překračujete o ${kc(over)}` : `nejvýš ${kc(cap)}`}

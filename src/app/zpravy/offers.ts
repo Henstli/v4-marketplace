@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshCatalog } from '@/lib/catalog-refresh';
 import { after } from 'next/server';
 import { siteOrigin } from '@/lib/auth-helpers';
 import { sendMessageEmail } from '@/lib/email';
@@ -67,7 +68,7 @@ export async function answerOffer(offerId: string, action: 'accept' | 'decline' 
     orderNumber = order?.number ?? undefined;
     await notify(supabase, offerId, `Cena je dohodnutá${orderNumber ? `, vznikla objednávka č. ${orderNumber}` : ''}. Domluvte se na platbě a předání.`);
     // Přijetím ubyly kusy, katalog to musí vědět.
-    revalidatePath('/karty', 'layout');
+    refreshCatalog();
   }
   revalidatePath('/zpravy', 'layout');
   revalidatePath('/objednavky');

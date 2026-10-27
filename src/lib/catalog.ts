@@ -465,7 +465,9 @@ export const getSeller = cache(async (id: string): Promise<Seller | null> => {
 });
 
 // Úvodní stránka je pro všechny stejná, stačí ji z databáze načíst jednou za minutu.
-const HOME_CACHE = { revalidate: 60 };
+// Po změně nabídky ji hned obnoví refreshCatalog() (štítek HOME_TAG).
+export const HOME_TAG = 'home';
+const HOME_CACHE = { revalidate: 60, tags: [HOME_TAG] };
 
 const dbTrending = unstable_cache(
   async (limit: number) => (await dbSearch({ sort: 'trend', onlyOffers: true, pageSize: limit })).cards,
