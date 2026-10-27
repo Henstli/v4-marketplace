@@ -1,13 +1,11 @@
 'use client';
 
-import { ButtonLink } from '@/components/trezor';
+import { usePathname } from 'next/navigation';
+import { HeaderIcon } from '@/components/site/HeaderIcon';
 import { useCart } from './CartProvider';
 
 export function CartLink() {
   const { count } = useCart();
-  return (
-    <ButtonLink href="/kosik" variant="ghost" aria-label={count ? `Košík, ${count} položek` : 'Košík'}>
-      Košík{count ? <span className="t-price">{count}</span> : null}
-    </ButtonLink>
-  );
+  const pathname = usePathname();
+  return <HeaderIcon href="/kosik" icon="bag" label="Košík" count={count} countLabel={`${count} ks`} current={pathname === '/kosik'} />;
 }
