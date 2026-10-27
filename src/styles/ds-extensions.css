@@ -33,3 +33,7 @@ a.tz-chip { text-decoration: none; }
 
 /* Status danger: jen zrušené a odmítnuté objednávky (výjimka z pravidla červené, Šimon 27. 10.) */
 .tz-status-danger { color: var(--danger); background: var(--danger-tint); }
+
+/* Zapnuté přepínací tlačítko (Hlídáte): jako počet v košíku, DS OfferTable. */
+.tz-btn-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.tz-btn-on:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
