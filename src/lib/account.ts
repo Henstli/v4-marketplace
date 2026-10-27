@@ -27,7 +27,7 @@ export interface AccountSummary {
   toShip: number;
   /** Nákupy potvrzené nebo odeslané, čekající na převzetí */
   toConfirm: number;
-  /** Nepřečtená upozornění „hlídaná karta je znovu skladem“ */
+  /** Nepřečtená upozornění „na hlídanou kartu je nabídka“ */
   alerts: number;
   /** Aktivní nabídky (skladem) */
   listings: number;

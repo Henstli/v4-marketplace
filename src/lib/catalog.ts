@@ -252,13 +252,14 @@ async function dbSeller(id: string): Promise<Seller | null> {
   };
 }
 
-async function dbOffers(cardId: string): Promise<Offer[]> {
+/** Nabídky karty skladem, nebo (s reserved) vyprodané nabídky s danými id. */
+async function dbOffers(cardId: string, reserved?: string[]): Promise<Offer[]> {
   const supabase = createPublicClient();
-  const { data: listings, error } = await supabase
+  const base = supabase
     .from('listings')
     .select('id, card_id, seller_id, price_czk, condition, language, quantity, graded, note, profiles(display_name, kind, country)')
-    .eq('card_id', cardId)
-    .gt('quantity', 0)
+    .eq('card_id', cardId);
+  const { data: listings, error } = await (reserved ? base.eq('quantity', 0).in('id', reserved) : base.gt('quantity', 0))
     .order('price_czk');
   if (error) throw new Error(`Nabídky se nepodařilo načíst: ${error.message}`);
   const sellerIds = [...new Set((listings ?? []).map((l) => l.seller_id))];
@@ -465,6 +466,19 @@ export const getCardBySlug = cache(async (slug: string): Promise<CardSummary | n
   if (isSupabaseConfigured()) return dbCardBySlug(slug);
   const card = CARDS.find((c) => c.slug === slug);
   return card ? mockSummarize(card) : null;
+});
+
+export type ReservedOffer = Offer & { reservedUntil: string | null };
+
+/** Nabídky, jejichž všechny kusy čekají v objednávce na potvrzení prodejce (u nich jde čekat). */
+export const getReservedOffers = cache(async (cardId: string): Promise<ReservedOffer[]> => {
+  if (!isSupabaseConfigured()) return [];
+  const { data, error } = await createPublicClient().rpc('reserved_offers', { p_card: cardId });
+  // Bez funkce v databázi (neaplikovaná migrace) se rezervace prostě neukážou.
+  if (error || !data?.length) return [];
+  const until = new Map((data as Array<{ listing_id: string; until: string | null }>).map((r) => [r.listing_id, r.until]));
+  const offers = await dbOffers(cardId, [...until.keys()]);
+  return offers.map((o) => ({ ...o, reservedUntil: until.get(o.id) ?? null }));
 });
 
 export const getOffers = cache(async (cardId: string): Promise<Offer[]> => {
