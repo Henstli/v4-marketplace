@@ -7,9 +7,9 @@ import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
-import { formatDateTime, plural } from '@/lib/format';
+import { formatDateTime, formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
-import { ORDER_STATUS, ORDER_TONE } from '@/lib/order-status';
+import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
@@ -70,7 +70,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
     <div className={`${styles.ord} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`}>
       <div className={styles.ordTop}>
         <strong>Objednávka č. <span className="code">{o.number}</span></strong>
-        <Status tone={ORDER_TONE[o.status] ?? 'muted'}>{ORDER_STATUS[o.status] ?? o.status}</Status>
+        <Status tone={ORDER_TONE[o.status] ?? 'muted'}>{ORDER_STATUS_SHORT[o.status] ?? o.status}</Status>
       </div>
       <ul className={styles.ordItems}>
         {o.items.map((it, n) => (
@@ -84,7 +84,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
         ))}
       </ul>
       <div className={styles.ordSum}>
-        <span>{plural(o.count, ['karta', 'karty', 'karet'])} · {o.pickup ? 'osobní předání' : o.shipping ? <>doprava <Price amount={o.shipping} /></> : 'doprava zdarma'}</span>
+        <span>{plural(o.count, ['karta', 'karty', 'karet'])} · {o.pickup ? 'osobní předání' : o.shipping ? `doprava ${formatPrice(o.shipping)}` : 'doprava zdarma'}</span>
         <span className={styles.ordTotal}><Price amount={o.total} /></span>
       </div>
       {ended ? null : (

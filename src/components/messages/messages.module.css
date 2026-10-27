@@ -78,6 +78,7 @@
 .ordThem { border-radius: 16px 16px 16px 4px; }
 .ordEnded { background: var(--surface); border-color: var(--line); }
 .ordTop { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; }
+.ordTop strong { white-space: nowrap; }
 .ordItems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ordItems li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
 .ordItems small { font-size: 11px; color: var(--ink-muted); }

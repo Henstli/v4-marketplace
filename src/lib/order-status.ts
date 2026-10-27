@@ -23,3 +23,16 @@ export const ORDER_TONE: Record<string, 'ok' | 'warn' | 'muted' | 'danger' | 'in
   declined: 'danger',
   expired: 'muted',
 };
+
+/** Krátké popisy do štítku v bublině objednávky ve zprávách (dlouhé se do bubliny nevejdou). */
+export const ORDER_STATUS_SHORT: Record<string, string> = {
+  requested: 'Čeká na potvrzení',
+  confirmed: 'Potvrzeno',
+  pending_payment: 'Čeká na platbu',
+  paid: 'Zaplaceno',
+  shipped: 'Odesláno',
+  delivered: 'Převzato',
+  cancelled: 'Zrušeno',
+  declined: 'Odmítnuto',
+  expired: 'Vypršelo',
+};
