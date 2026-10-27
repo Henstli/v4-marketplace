@@ -18,7 +18,8 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   const cardId = String(form.get('card') ?? '');
   const condition = String(form.get('condition') ?? '');
   const language = String(form.get('language') ?? '');
-  const price = Number(form.get('price'));
+  const negotiable = form.get('negotiable') != null;
+  const price = negotiable ? null : Number(form.get('price'));
   const quantity = Number(form.get('quantity'));
   const graded = String(form.get('graded') ?? '').trim();
   const note = String(form.get('note') ?? '').trim();
@@ -26,13 +27,14 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   if (!cardId) return { error: 'Vyberte kartu.' };
   if (!CONDITIONS.includes(condition as never)) return { error: 'Vyberte stav karty.' };
   if (!(language in LANGUAGE_NAMES)) return { error: 'Vyberte jazyk.' };
-  if (!Number.isInteger(price) || price <= 0) return { error: 'Cena musí být celé číslo v korunách.' };
+  if (price != null && (!Number.isInteger(price) || price <= 0)) return { error: 'Cena musí být celé číslo v korunách.' };
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return { error: 'Počet kusů musí být 1 až 999.' };
 
   const { error } = await supabase.from('listings').insert({
     card_id: cardId,
     seller_id: auth.user.id,
     price_czk: price,
+    ...(negotiable ? { negotiable: true } : {}),
     condition,
     language,
     quantity,
@@ -41,6 +43,7 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   });
   // 42501: databáze nepustí vystavení bez dopravy a platby (seller_ready).
   if (error?.code === '42501') return { error: 'Nejdřív doplňte dopravu a platbu v nastavení účtu.' };
+  if (error && negotiable && error.code === 'PGRST204') return { error: 'Cena dohodou zatím nejde, zadejte prosím cenu.' };
   if (error) return { error: 'Nabídku se nepodařilo uložit. Zkuste to prosím znovu.' };
 
   revalidatePath('/prodat');

@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ChipLink } from '@/components/trezor';
+import { CardThumb, ChipLink, Price, Status } from '@/components/trezor';
+import { formatDateTime } from '@/lib/format';
+import { thumbUrl } from '@/lib/images';
 import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -9,6 +11,11 @@ import { BuyerActions, ENDED, loadContact, loadPayment, ORDER_SELECT, OrderCard,
 import styles from './orders.module.css';
 
 export const metadata: Metadata = { title: 'Objednávky' };
+
+interface OfferRow {
+  id: string; buyer_id: string; seller_id: string; last_by: string; price_czk: number; quantity: number; expires_at: string;
+  listings: { cards: { name: string; image_url: string | null; game_id: string | null } | Array<{ name: string; image_url: string | null; game_id: string | null }> | null } | null;
+}
 
 type Props = { searchParams: Promise<{ nova?: string; tab?: string }> };
 
@@ -19,7 +26,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const { nova, tab: tabParam } = await searchParams;
 
   const supabase = await createClient();
-  const [{ data: orders }, { data: profiles }, { data: reviews }] = await Promise.all([
+  const [{ data: orders }, { data: profiles }, { data: reviews }, { data: offers }] = await Promise.all([
     supabase
       .from('orders')
       .select(ORDER_SELECT)
@@ -27,6 +34,13 @@ export default async function OrdersPage({ searchParams }: Props) {
       .returns<OrderRow[]>(),
     supabase.from('profiles').select('id, display_name'),
     supabase.from('reviews').select('order_id'),
+    // Otevřené návrhy ceny (bez migrace price_offers tabulka není a blok se neukáže).
+    supabase
+      .from('price_offers')
+      .select('id, buyer_id, seller_id, last_by, price_czk, quantity, expires_at, listings(cards(name, image_url, game_id))')
+      .eq('status', 'open')
+      .order('updated_at', { ascending: false })
+      .returns<OfferRow[]>(),
   ]);
   const names = new Map((profiles ?? []).map((p) => [p.id, p.display_name as string]));
   const reviewed = new Set((reviews ?? []).map((r) => r.order_id as string));
@@ -61,6 +75,36 @@ export default async function OrdersPage({ searchParams }: Props) {
         <p className={styles.ok} role="status">
           Objednávka je odeslaná. Prodejce ji do 48 hodin potvrdí a přijde vám e-mail. Pak se s ním domluvíte na platbě a předání.
         </p>
+      ) : null}
+
+      {offers?.length ? (
+        <section className={styles.offers} aria-labelledby="navrhy">
+          <h2 id="navrhy" className="t-heading-m">Návrhy ceny</h2>
+          <ul>
+            {offers.map((o) => {
+              const other = o.buyer_id === user.id ? o.seller_id : o.buyer_id;
+              const listing = Array.isArray(o.listings) ? o.listings[0] : o.listings;
+              const card = listing ? (Array.isArray(listing.cards) ? listing.cards[0] : listing.cards) : null;
+              const myTurn = o.last_by !== user.id;
+              return (
+                <li key={o.id}>
+                  <Link href={`/zpravy/${other}`} className={styles.offerRow}>
+                    <CardThumb image={thumbUrl(card?.image_url ?? undefined)} color={card?.game_id ? `var(--game-${card.game_id}-art)` : undefined} size="sm" />
+                    <span className={styles.offerText}>
+                      <strong>{card?.name ?? 'Karta'}</strong>
+                      <span className="t-small muted">
+                        {o.buyer_id === user.id ? 'Prodejce' : 'Kupující'} {names.get(other) ?? 'smazaný účet'}
+                        {o.quantity > 1 ? ` · ${o.quantity} ks` : ''} · platí do {formatDateTime(o.expires_at)}
+                      </span>
+                    </span>
+                    <Price amount={o.price_czk} />
+                    <Status tone={myTurn ? 'warn' : 'info'}>{myTurn ? 'Čeká na vás' : 'Čeká na odpověď'}</Status>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
 
       {/* Nákupy a prodeje jako přepínač, ne pod sebou (Šimon 27. 10.). */}

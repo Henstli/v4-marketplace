@@ -50,7 +50,10 @@ export interface Listing {
   id: string;
   cardId: string;
   sellerId: string;
-  price: number;
+  /** null = cena dohodou (negotiable) */
+  price: number | null;
+  /** Cena dohodou: kupující posílá návrh ceny, do košíku nejde. */
+  negotiable?: boolean;
   condition: Condition;
   language: Language;
   quantity: number;

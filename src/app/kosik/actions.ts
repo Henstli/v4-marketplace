@@ -63,6 +63,8 @@ export async function getCartAlternatives(listingIds: string[]): Promise<CartAlt
     .select('id, card_id, seller_id, price_czk, condition, language, quantity, profiles(display_name, shipping_czk, free_shipping_from)')
     .in('card_id', cardIds)
     .gt('quantity', 0)
+    // Cena dohodou do košíku nejde.
+    .not('price_czk', 'is', null)
     .order('price_czk')
     .limit(2000);
 

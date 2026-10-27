@@ -6,6 +6,7 @@ import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Status, Trend } fr
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { WatchButton } from '@/components/WatchButton';
+import { ProposePrice } from '@/components/offers/ProposePrice';
 import { getCardBySlug, getOffers, getReservedOffers, type Offer, type ReservedOffer } from '@/lib/catalog';
 import type { CardSummary } from '@/lib/types';
 import { getGame } from '@/lib/games';
@@ -31,6 +32,8 @@ export default async function CardDetailPage({ params }: Props) {
   // Rezervované (čekají na potvrzení prodejce) jsou pod volnými, místo košíku jde na ně čekat.
   const reserved = sortOffers(reservedUnsorted, brands);
   const rows: Array<Offer | ReservedOffer> = [...offers, ...reserved];
+  // „Přidat nejlevnější“ jen z nabídek s pevnou cenou (cena dohodou do košíku nejde).
+  const cheapest = offers.find((o) => o.price != null);
   const game = getGame(card.game);
   const avg = card.priceHistory.length
     ? Math.round(card.priceHistory.reduce((a, b) => a + b, 0) / card.priceHistory.length)
@@ -79,8 +82,8 @@ export default async function CardDetailPage({ params }: Props) {
               <div><dt className="t-small muted">Průměr 30 dní</dt><dd className="t-price">{avg != null ? <>{formatNumber(avg)}&nbsp;Kč</> : 'Bez prodejů'}</dd></div>
             </dl>
             <div className={styles.buyActions}>
-              {offers.length ? (
-                <AddToCartButton item={cartItem(card, offers[0])} label="Přidat nejlevnější do košíku" variant="primary" size="lg" />
+              {cheapest?.price != null ? (
+                <AddToCartButton item={cartItem(card, cheapest, cheapest.price)} label="Přidat nejlevnější do košíku" variant="primary" size="lg" />
               ) : (
                 <WatchButton cardId={card.id} />
               )}
@@ -171,7 +174,7 @@ export default async function CardDetailPage({ params }: Props) {
                     </td>
                     <td className={styles.wide}>{LANGUAGE_NAMES[o.language]}</td>
                     <td className={`${styles.num} ${styles.wide} t-price`}>{o.quantity}</td>
-                    <td className={styles.num}><Price amount={o.price} /></td>
+                    <td className={styles.num}>{o.price != null ? <Price amount={o.price} /> : <span className="muted">Dohodou</span>}</td>
                     <td className={styles.num}>
                       <div className={styles.actions}>
                         {/* Dotaz k nabídce: konverzace s prodejcem s odkazem na tuto nabídku. */}
@@ -187,7 +190,9 @@ export default async function CardDetailPage({ params }: Props) {
                           </svg>
                           <span className={styles.askText}>Napsat</span>
                         </ButtonLink>
-                        {'reservedUntil' in o ? <WatchButton cardId={card.id} size="md" compact /> : <AddToCartButton item={cartItem(card, o)} />}
+                        {'reservedUntil' in o ? <WatchButton cardId={card.id} size="md" compact />
+                          : o.price == null ? <ProposePrice listingId={o.id} sellerId={o.seller.id} max={o.quantity} />
+                          : <AddToCartButton item={cartItem(card, o, o.price)} />}
                       </div>
                     </td>
                   </tr>
@@ -207,7 +212,7 @@ export default async function CardDetailPage({ params }: Props) {
   );
 }
 
-function cartItem(card: CardSummary, o: Offer) {
+function cartItem(card: CardSummary, o: Offer, price: number) {
   return {
     listingId: o.id,
     cardSlug: card.slug,
@@ -217,7 +222,7 @@ function cartItem(card: CardSummary, o: Offer) {
     sellerName: o.seller.name,
     condition: o.condition + (o.graded ? ` · ${o.graded}` : ''),
     language: LANGUAGE_NAMES[o.language],
-    price: o.price,
+    price,
     maxQuantity: o.quantity,
     image: card.image,
     game: card.game,

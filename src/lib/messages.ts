@@ -38,6 +38,27 @@ export interface ChatMessage {
   order: ChatOrder | null;
   /** Nabídka, ke které se zpráva ptá */
   listing: ListingRef | null;
+  /** Návrh ceny: bublina s cenou (price) nebo řádek o změně stavu (price = null) */
+  offer: ChatOffer | null;
+}
+
+/** Návrh ceny v konverzaci (cena dohodou). */
+export interface ChatOffer {
+  id: string;
+  /** Cena v této zprávě; null u řádku o změně stavu */
+  price: number | null;
+  /** Předchozí cena v témže smlouvání */
+  previous: number | null;
+  /** Nejnovější cena návrhu: jen ta má akce, starší jsou „Nahrazeno“ */
+  current: boolean;
+  status: 'open' | 'accepted' | 'declined' | 'cancelled' | 'expired' | 'sold_out';
+  quantity: number;
+  /** Kdo navrhl současnou cenu: přijmout ji může jen druhá strana */
+  lastByMe: boolean;
+  /** Jsem v tomto návrhu kupující */
+  buyer: boolean;
+  expiresAt: string;
+  orderNumber: number | null;
 }
 
 /** Objednávka jako bublina v konverzaci. */
@@ -70,7 +91,8 @@ export interface ListingRef {
   image: string | null;
   condition: string;
   language: string;
-  price: number;
+  /** null = cena dohodou */
+  price: number | null;
 }
 
 interface ConversationRow {
@@ -169,11 +191,13 @@ export async function getThread(me: string, other: string): Promise<{ id: string
     .eq('conversation_id', conv.id)
     .order('id', { ascending: false })
     .limit(200)
-    .returns<Array<{ id: number; sender_id: string | null; kind: string; body: string; created_at: string; order_id: string | null; listing_id?: string | null }>>();
-  let { data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id');
-  // Bez migrace message_listing sloupec listing_id ještě není.
+    .returns<Array<{ id: number; sender_id: string | null; kind: string; body: string; created_at: string; order_id: string | null; listing_id?: string | null; offer_id?: string | null; offer_price?: number | null }>>();
+  let { data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id, offer_id, offer_price');
+  // Bez migrací price_offers a message_listing sloupce ještě nejsou.
+  if (error) ({ data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id'));
   if (error) ({ data: rows } = await query('id, sender_id, kind, body, created_at, order_id'));
   const list = (rows ?? []).reverse();
+  const offers = await getOffers(me, list);
   const listings = await getListingRefs([...new Set(list.map((m) => m.listing_id).filter((x): x is string => !!x))]);
   const orderIds = [...new Set(list.filter((m) => m.kind === 'order' && m.order_id).map((m) => m.order_id as string))];
   const { data: orders } = orderIds.length
@@ -215,8 +239,47 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       createdAt: m.created_at as string,
       order: m.kind === 'order' && m.order_id ? byId.get(m.order_id as string) ?? null : null,
       listing: m.listing_id ? listings.get(m.listing_id) ?? null : null,
+      offer: (m.offer_id && offers.get(m.id)) || null,
     })),
   };
+}
+
+/** Návrhy ceny ke zprávám: u každé zprávy s cenou předchozí cena a zda je nejnovější. */
+async function getOffers(
+  me: string,
+  list: Array<{ id: number; offer_id?: string | null; offer_price?: number | null }>,
+): Promise<Map<number, ChatOffer>> {
+  const out = new Map<number, ChatOffer>();
+  const ids = [...new Set(list.map((m) => m.offer_id).filter((x): x is string => !!x))];
+  if (!ids.length) return out;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('price_offers')
+    .select('id, buyer_id, last_by, status, quantity, expires_at, orders(number)')
+    .in('id', ids);
+  const byId = new Map((data ?? []).map((o) => [o.id as string, o]));
+  const last = new Map<string, number>();
+  for (const m of list) if (m.offer_id && m.offer_price != null) last.set(m.offer_id, m.id);
+  const prev = new Map<string, number>();
+  for (const m of list) {
+    const o = m.offer_id ? byId.get(m.offer_id) : null;
+    if (!o || !m.offer_id) continue;
+    const order = (Array.isArray(o.orders) ? o.orders[0] : o.orders) as { number: number } | null;
+    out.set(m.id, {
+      id: o.id as string,
+      price: m.offer_price ?? null,
+      previous: m.offer_price != null ? prev.get(m.offer_id) ?? null : null,
+      current: last.get(m.offer_id) === m.id,
+      status: o.status as ChatOffer['status'],
+      quantity: o.quantity as number,
+      lastByMe: o.last_by === me,
+      buyer: o.buyer_id === me,
+      expiresAt: o.expires_at as string,
+      orderNumber: order?.number ?? null,
+    });
+    if (m.offer_price != null) prev.set(m.offer_id, m.offer_price);
+  }
+  return out;
 }
 
 /** Nabídky pro dotazy v konverzaci (i vyprodané, aby šlo poznat, o co šlo). */
@@ -242,8 +305,33 @@ export async function getListingRefs(ids: string[]): Promise<Map<string, Listing
       image: card.image_url,
       condition: (l.condition as string) + (l.graded ? ` · ${l.graded}` : ''),
       language: LANGUAGE_NAMES[l.language as Language] ?? String(l.language),
-      price: l.price_czk as number,
+      price: (l.price_czk as number | null) ?? null,
     });
   }
   return out;
+}
+
+/** Moje nabídka skladem pro návrh ceny v konverzaci. */
+export interface MyListing { id: string; label: string; price: number | null; quantity: number }
+
+/** Nabídky prodejce skladem (nejnovější), ze kterých může v konverzaci navrhnout cenu. */
+export async function getMyListings(me: string): Promise<MyListing[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('listings')
+    .select('id, price_czk, condition, quantity, cards(name, number, card_sets(code))')
+    .eq('seller_id', me)
+    .gt('quantity', 0)
+    .order('created_at', { ascending: false })
+    .limit(300);
+  return (data ?? []).map((l) => {
+    const card = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as { name: string; number: string; card_sets: { code: string } | { code: string }[] | null } | null;
+    const set = Array.isArray(card?.card_sets) ? card?.card_sets[0] : card?.card_sets;
+    return {
+      id: l.id as string,
+      label: `${card?.name ?? 'Karta'}${set?.code ? ` · ${set.code} ${card?.number ?? ''}` : ''} · ${l.condition}`,
+      price: (l.price_czk as number | null) ?? null,
+      quantity: l.quantity as number,
+    };
+  });
 }

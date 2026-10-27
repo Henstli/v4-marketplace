@@ -4,13 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Button, CardThumb, Price, Status } from '@/components/trezor';
+import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/trezor';
 import { ExpiryStatus } from '@/components/orders/Expiry';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
-import { formatPrice, plural } from '@/lib/format';
-import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
+import { answerOffer, proposePrice } from '@/app/zpravy/offers';
+import { formatDateTime, formatPrice, plural } from '@/lib/format';
+import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@/lib/messages';
 import { flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
+import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
@@ -35,7 +37,7 @@ function ListingLink({ l, mine }: { l: ListingRef; mine: boolean }) {
       <CardThumb image={l.image ?? undefined} size="sm" />
       <span className={styles.refText}>
         <span className={styles.refName}>{l.cardName}{l.setLabel ? ` · ${l.setLabel}` : ''}</span>
-        <span className={styles.refMeta}>{l.condition} · {l.language} · <Price amount={l.price} /></span>
+        <span className={styles.refMeta}>{l.condition} · {l.language} · {l.price != null ? <Price amount={l.price} /> : 'cena dohodou'}</span>
       </span>
     </Link>
   );
@@ -110,7 +112,91 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
   );
 }
 
-export function Thread({ to, name, messages, initialText, listing, wasUnread }: {
+// Štítek návrhu ceny (DS Messages, Návrh ceny).
+const OFFER_STATUS: Record<ChatOffer['status'], [string, StatusTone]> = {
+  open: ['Čeká na odpověď', 'info'],
+  accepted: ['Přijato', 'ok'],
+  declined: ['Odmítnuto', 'danger'],
+  cancelled: ['Staženo', 'muted'],
+  expired: ['Vypršelo', 'muted'],
+  sold_out: ['Prodáno jinde', 'muted'],
+};
+
+/** Návrh ceny jako bublina na straně toho, kdo cenu poslal; akce jen u nejnovější ceny otevřeného návrhu. */
+function OfferBubble({ o, l, mine, sellerSent, other }: { o: ChatOffer; l: ListingRef | null; mine: boolean; sellerSent: boolean; other: string }) {
+  const router = useRouter();
+  const [counter, setCounter] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const old = !o.current;
+  const [label, tone] = old ? ['Nahrazeno', 'muted' as StatusTone] : OFFER_STATUS[o.status];
+  const open = o.current && o.status === 'open';
+  const run = (fn: () => Promise<{ error?: string; orderNumber?: number }>) => {
+    setError(null);
+    start(async () => {
+      const r = await fn();
+      if (r.error) return setError(r.error);
+      setCounter(false);
+      router.refresh();
+    });
+  };
+  const price = o.price ?? 0;
+  return (
+    <div className={`${styles.ofr} ${mine ? '' : styles.ordThem} ${old || !open ? styles.ofrDone : ''}`}>
+      <div className={styles.ordTop}>
+        <strong>{sellerSent ? 'Cena od prodejce' : 'Návrh ceny'}</strong>
+        <Status tone={tone}>{label}</Status>
+      </div>
+      {l ? (
+        <Link href={`/karty/${l.cardSlug}`} className={styles.ofrCard}>
+          <CardThumb image={l.image ?? undefined} size="sm" />
+          <span className={styles.refText}>
+            <span className={styles.refName}>{l.cardName}{l.setLabel ? ` · ${l.setLabel}` : ''}</span>
+            <span className={styles.refMeta}>{l.condition} · {l.language} · {o.quantity}&nbsp;ks</span>
+          </span>
+        </Link>
+      ) : null}
+      <div className={styles.ofrPrice}>
+        <span className={old ? styles.ofrOld : undefined}>{formatPrice(price)}</span>
+        {o.previous != null && !old ? <s>{formatPrice(o.previous)}</s> : null}
+        {o.quantity > 1 ? <small> za kus</small> : null}
+      </div>
+      {o.current && o.status === 'accepted' && o.orderNumber ? (
+        <Link href={`/objednavky/${o.orderNumber}`} className="t-small">Objednávka č. {o.orderNumber}</Link>
+      ) : null}
+      {open ? (
+        <>
+          <span className="t-small muted">Platí do {formatDateTime(o.expiresAt)}</span>
+          {counter ? (
+            <form
+              className={styles.ofrCounter}
+              action={(f) => run(() => proposePrice(l?.id ?? '', Number(f.get('price')), o.quantity, o.buyer ? null : other))}
+            >
+              <input name="price" type="number" min={1} step={1} required inputMode="numeric" autoFocus aria-label="Vaše cena za kus v Kč" placeholder="Kč" className={styles.ofrInput} />
+              <Button type="submit" disabled={pending} className={styles.ordBtn}>Poslat</Button>
+              <Button variant="ghost" onClick={() => setCounter(false)} className={styles.ordBtn}>Zpět</Button>
+            </form>
+          ) : (
+            <div className={styles.ordActions}>
+              {o.lastByMe ? (
+                <Button variant="ghost" disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, o.buyer ? 'cancel' : 'decline'))}>Stáhnout návrh</Button>
+              ) : (
+                <>
+                  <Button disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, 'accept'))}>Přijmout {formatPrice(price * o.quantity)}</Button>
+                  <Button variant="secondary" disabled={pending} className={styles.ordBtn} onClick={() => setCounter(true)}>Jiná cena</Button>
+                  <Button variant="ghost" disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, o.buyer ? 'cancel' : 'decline'))}>Odmítnout</Button>
+                </>
+              )}
+            </div>
+          )}
+          {error ? <p className="t-small" role="alert">{error}</p> : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+export function Thread({ to, name, messages, initialText, listing, wasUnread, myListings = [] }: {
   to: string;
   name: string;
   messages: ChatMessage[];
@@ -119,12 +205,18 @@ export function Thread({ to, name, messages, initialText, listing, wasUnread }: 
   listing?: ListingRef | null;
   /** Konverzace byla při otevření nepřečtená (stránka ji právě označila jako přečtenou) */
   wasUnread?: boolean;
+  /** Moje nabídky skladem: z nich jde druhé straně navrhnout cenu */
+  myListings?: MyListing[];
 }) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
   const [about, setAbout] = useState<ListingRef | null>(listing ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [proposing, setProposing] = useState(false);
+  // Předvybraná nabídka: poslední moje nabídka, o které byla v konverzaci řeč.
+  const mineIds = new Set(myListings.map((l) => l.id));
+  const lastAbout = [...messages].reverse().find((m) => m.listing && mineIds.has(m.listing.id))?.listing?.id;
   const box = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const last = messages.at(-1)?.id;
@@ -180,6 +272,14 @@ export function Thread({ to, name, messages, initialText, listing, wasUnread }: 
         </div>
       );
     }
+    if (m.kind === 'status' && m.offer && m.offer.price != null) {
+      return (
+        <div key={m.id} className={styles.orderWrap} data-mine={m.mine ? '' : undefined}>
+          <OfferBubble o={m.offer} l={m.listing} mine={m.mine} sellerSent={m.mine !== m.offer.buyer} other={to} />
+          <span className={styles.time}>{m.mine ? 'Vy' : name} · {clock(m.createdAt)}</span>
+        </div>
+      );
+    }
     if (m.kind === 'status') {
       return <p key={m.id} className={styles.event}>{m.body} · {clock(m.createdAt)}</p>;
     }
@@ -210,12 +310,15 @@ export function Thread({ to, name, messages, initialText, listing, wasUnread }: 
           <p className={`muted ${styles.start}`}>Začněte konverzaci s {name}. Zpráva přijde i e-mailem.</p>
         )}
       </div>
+      {proposing ? (
+        <ProposeForm to={to} listings={myListings} initial={lastAbout} onDone={() => { setProposing(false); router.refresh(); }} onCancel={() => setProposing(false)} />
+      ) : null}
       <form className={styles.compose} onSubmit={(e) => { e.preventDefault(); send(); }}>
         {about ? (
           <div className={styles.ctx}>
             <CardThumb image={about.image ?? undefined} size="sm" />
             <span className={styles.ctxText}>
-              Dotaz k nabídce: <strong>{about.cardName}{about.setLabel ? ` · ${about.setLabel}` : ''}</strong> · {about.condition} · <Price amount={about.price} />
+              Dotaz k nabídce: <strong>{about.cardName}{about.setLabel ? ` · ${about.setLabel}` : ''}</strong> · {about.condition} · {about.price != null ? <Price amount={about.price} /> : 'cena dohodou'}
             </span>
             <button type="button" className={styles.ctxClose} onClick={() => setAbout(null)} aria-label="Zrušit odkaz na nabídku">×</button>
           </div>
@@ -232,11 +335,65 @@ export function Thread({ to, name, messages, initialText, listing, wasUnread }: 
             aria-label="Zpráva"
             className={styles.field}
           />
+          {myListings.length && !proposing ? (
+            <Button variant="secondary" onClick={() => setProposing(true)} title="Navrhnout cenu k některé vaší nabídce">Navrhnout cenu</Button>
+          ) : null}
           <Button type="submit" disabled={pending || !text.trim()}>{pending ? 'Odesílám…' : 'Odeslat'}</Button>
         </div>
         {error ? <p className="t-small" role="alert">{error}</p> : null}
         <p className={styles.hint}>Plaťte jen na účet uvedený u objednávky. Nikomu neposílejte hesla ani údaje z platební karty.</p>
       </form>
     </>
+  );
+}
+
+/** Prodejce navrhne cenu k některé své nabídce (DS Messages, Návrh ceny). */
+function ProposeForm({ to, listings, initial, onDone, onCancel }: {
+  to: string;
+  listings: MyListing[];
+  initial?: string;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [id, setId] = useState(initial ?? listings[0]?.id ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const l = listings.find((x) => x.id === id);
+  return (
+    <form
+      className={styles.propose}
+      action={(f) => {
+        setError(null);
+        start(async () => {
+          const r = await proposePrice(id, Number(f.get('price')), Number(f.get('quantity') ?? 1), to);
+          if (r.error) return setError(r.error);
+          onDone();
+        });
+      }}
+    >
+      <label className={styles.proposeWide}>
+        <span className="t-label muted">NABÍDKA</span>
+        <select value={id} onChange={(e) => setId(e.target.value)} className={styles.ofrInput}>
+          {listings.map((x) => (
+            <option key={x.id} value={x.id}>{x.label} · {x.price != null ? formatPrice(x.price) : 'dohodou'}{x.quantity > 1 ? ` · ${x.quantity} ks` : ''}</option>
+          ))}
+        </select>
+      </label>
+      {l && l.quantity > 1 ? (
+        <label>
+          <span className="t-label muted">KUSŮ</span>
+          <input key={id} name="quantity" type="number" min={1} max={l.quantity} defaultValue={1} className={styles.ofrInput} />
+        </label>
+      ) : null}
+      <label>
+        <span className="t-label muted">CENA ZA KUS (KČ)</span>
+        <input name="price" type="number" min={1} step={1} required inputMode="numeric" autoFocus className={styles.ofrInput} />
+      </label>
+      <div className={styles.proposeActions}>
+        <Button type="submit" disabled={pending || !id}>{pending ? 'Posílám…' : 'Poslat návrh'}</Button>
+        <Button variant="ghost" onClick={onCancel}>Zrušit</Button>
+      </div>
+      {error ? <p className="t-small" role="alert">{error}</p> : null}
+    </form>
   );
 }

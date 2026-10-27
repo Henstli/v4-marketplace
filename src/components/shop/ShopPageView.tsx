@@ -48,7 +48,7 @@ function sellerMeta(p: ShopProfile, offers: number) {
   );
 }
 
-function cartItem(l: ShopListing, p: ShopProfile) {
+function cartItem(l: ShopListing, p: ShopProfile, price: number) {
   return {
     listingId: l.id,
     cardSlug: l.card.slug,
@@ -58,7 +58,7 @@ function cartItem(l: ShopListing, p: ShopProfile) {
     sellerName: p.seller.name,
     condition: l.condition + (l.graded ? ` · ${l.graded}` : ''),
     language: LANGUAGE_NAMES[l.language] ?? l.language,
-    price: l.price,
+    price,
     maxQuantity: l.quantity,
     image: l.card.image,
     game: l.card.game,
@@ -101,17 +101,18 @@ function ListingTile({ l, d, p }: { l: ShopListing; d: ShopDesign; p?: ShopProfi
         <div className="tz-tile-set">{l.card.setCode} {l.card.number}</div>
       </div>
       <div className="tz-tile-row">
-        <Price amount={l.price} />
+        {l.price != null ? <Price amount={l.price} /> : <span className="muted">Cena dohodou</span>}
         <span className="code" title={CONDITION_NAMES[l.condition]}>{l.condition}{l.graded ? ` · ${l.graded}` : ''}</span>
       </div>
     </>
   );
-  if (!p) return <Link className="tz-tile" href={`/karty/${l.card.slug}`}>{body}</Link>;
+  // Bez košíku i u ceny dohodou: návrh ceny se posílá na stránce karty.
+  if (!p || l.price == null) return <Link className="tz-tile" href={`/karty/${l.card.slug}`}>{body}</Link>;
   // S košíkem: odkaz a tlačítko vedle sebe, tlačítko nesmí být uvnitř odkazu.
   return (
     <div className="tz-tile">
       <Link className="tz-tile-link" href={`/karty/${l.card.slug}`}>{body}</Link>
-      <AddToCartButton item={cartItem(l, p)} className="tz-tile-buy" />
+      <AddToCartButton item={cartItem(l, p, l.price)} className="tz-tile-buy" />
     </div>
   );
 }
@@ -211,7 +212,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
             <span className="code">{l.card.setCode} {l.card.number} · {l.condition}{l.graded ? ` · ${l.graded}` : ''} · {LANGUAGE_NAMES[l.language] ?? l.language}</span>
             {s.story ? <p className="muted" style={{ margin: 0, whiteSpace: 'pre-line', maxWidth: 560 }}>{s.story}</p> : null}
             <div className={styles.spotBuy}>
-              <Price amount={l.price} size="lg" />
+              {l.price != null ? <Price amount={l.price} size="lg" /> : <span className="t-price-l">Cena dohodou</span>}
               <ButtonLink href={`/karty/${l.card.slug}`} variant="secondary">Detail karty</ButtonLink>
             </div>
           </div>
@@ -401,7 +402,7 @@ async function Block({ b, p, base }: { b: ShopBlock; p: ShopProfile; base: strin
       return (
         <section aria-label={blockTitle(b)} className="tz-shop-window" data-count={n}>
           {items.slice(0, n).map((l) => (
-            <Link key={l.id} href={`/karty/${l.card.slug}`} className="tz-shop-window-card" title={`${l.card.name} · ${formatNumber(l.price)} Kč`}>
+            <Link key={l.id} href={`/karty/${l.card.slug}`} className="tz-shop-window-card" title={`${l.card.name} · ${l.price != null ? `${formatNumber(l.price)} Kč` : 'cena dohodou'}`}>
               <span className={d.holo ? 'tz-holo' : undefined} style={{ display: 'block' }}>
                 {l.card.image
                   // eslint-disable-next-line @next/next/no-img-element

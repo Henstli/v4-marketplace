@@ -65,3 +65,19 @@ a.tz-chip { text-decoration: none; }
 .tz-expiry-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .tz-expiry-row strong { font-size: 15px; font-weight: 600; color: var(--tone); font-variant-numeric: tabular-nums; }
 .tz-expiry-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--tone) var(--left), var(--line) var(--left)); }
+
+/* Nabídnout cenu u nabídky s cenou dohodou (DS OfferTable): panel pod tlačítkem. */
+.tz-offer { position: relative; }
+.tz-offer > .tz-btn { width: 100%; }
+.tz-offer-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 300px; max-width: calc(100vw - 32px);
+  display: flex; flex-direction: column; gap: 10px; text-align: left; padding: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+}
+.tz-offer-panel label { display: flex; flex-direction: column; gap: 4px; }
+.tz-offer-panel p { margin: 0; }
+.tz-offer-input {
+  height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: var(--radius-md); border: 1px solid var(--line-strong);
+  background: var(--bg); color: var(--ink); font: 500 14px var(--font-mono, monospace);
+}
+.tz-offer-error { color: var(--danger); font-size: 13px; }

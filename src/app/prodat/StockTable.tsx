@@ -12,7 +12,8 @@ import styles from './sell.module.css';
 
 export interface StockItem {
   id: string;
-  price: number;
+  /** null = cena dohodou */
+  price: number | null;
   condition: string;
   language: string;
   quantity: number;
@@ -124,7 +125,7 @@ export function StockTable({ items }: { items: StockItem[] }) {
                 </td>
                 <td><span className="code">{l.condition}</span></td>
                 <td className="tz-muted">{LANGUAGE_NAMES[l.language as Language] ?? l.language}</td>
-                <td className="tz-num"><Price amount={l.price} /></td>
+                <td className="tz-num">{l.price != null ? <Price amount={l.price} /> : <span className="muted">Dohodou</span>}</td>
                 <td className="tz-num">{l.quantity > 0 ? l.quantity : <Status tone="muted">Stažená</Status>}</td>
               </tr>
             ))}

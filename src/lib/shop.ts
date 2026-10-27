@@ -162,7 +162,8 @@ export const getShopProfileBySlug = cache(async (slug: string): Promise<ShopProf
 
 export interface ShopListing {
   id: string;
-  price: number;
+  /** null = cena dohodou */
+  price: number | null;
   condition: Condition;
   language: Language;
   quantity: number;
@@ -174,7 +175,7 @@ export interface ShopListing {
 const LISTING_COLUMNS = 'id, price_czk, condition, language, quantity, graded, created_at, cards(id, slug, name, number, image_url, card_sets(game_id, code, name))';
 
 type ListingRow = {
-  id: string; price_czk: number; condition: string; language: string; quantity: number; graded: string | null; created_at: string;
+  id: string; price_czk: number | null; condition: string; language: string; quantity: number; graded: string | null; created_at: string;
   cards: unknown;
 };
 
@@ -241,7 +242,7 @@ export async function searchShopListings(sellerId: string, f: ListingFilter): Pr
   if (f.language) q = q.eq('language', f.language);
   if (f.priceMin) q = q.gte('price_czk', f.priceMin);
   if (f.priceMax) q = q.lte('price_czk', f.priceMax);
-  q = f.sort === 'cheap' ? q.order('price_czk') : f.sort === 'expensive' ? q.order('price_czk', { ascending: false }) : q.order('created_at', { ascending: false });
+  q = f.sort === 'cheap' ? q.order('price_czk') : f.sort === 'expensive' ? q.order('price_czk', { ascending: false, nullsFirst: false }) : q.order('created_at', { ascending: false });
   const size = f.pageSize ?? 24;
   const page = Math.max(1, f.page ?? 1);
   const { data, count } = await q.range((page - 1) * size, page * size - 1);
@@ -340,11 +341,12 @@ const CONDITION_RANK = new Map(CONDITIONS.map((c, i) => [c, i]));
  * Pořadí nabídek: cena, pak lepší stav, a teprve při stejné ceně i stavu má přednost Pro.
  * Pro tak nikdy nepředběhne levnější ani zachovalejší nabídku.
  */
-export function sortOffers<T extends { price: number; condition: Condition; seller: { id: string } }>(offers: T[], brands: Map<string, OfferBrand>): T[] {
+export function sortOffers<T extends { price: number | null; condition: Condition; seller: { id: string } }>(offers: T[], brands: Map<string, OfferBrand>): T[] {
   return offers
     .map((o, i) => ({ o, i }))
     .sort((a, b) =>
-      a.o.price - b.o.price
+      // Cena dohodou (null) až za pevnými cenami.
+      (a.o.price ?? 1e12) - (b.o.price ?? 1e12)
       || (CONDITION_RANK.get(a.o.condition) ?? 9) - (CONDITION_RANK.get(b.o.condition) ?? 9)
       || Number(brands.get(b.o.seller.id)?.plan === 'pro') - Number(brands.get(a.o.seller.id)?.plan === 'pro')
       || a.i - b.i)

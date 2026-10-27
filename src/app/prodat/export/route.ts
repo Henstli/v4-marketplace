@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { LANGUAGE_NAMES, type Language } from '@/lib/types';
 
 type Row = {
-  price_czk: number; condition: string; language: string; quantity: number; graded: string | null; note: string | null;
+  price_czk: number | null; condition: string; language: string; quantity: number; graded: string | null; note: string | null;
   cards: { name: string; number: string; game_id: string | null; card_sets: { code: string; name: string } | null } | null;
 };
 
@@ -33,7 +33,7 @@ export async function GET() {
     ...rows.map((l) => csvLine([
       l.cards?.game_id ? getGame(l.cards.game_id)?.name ?? l.cards.game_id : '',
       l.cards?.name, l.cards?.card_sets?.code, l.cards?.card_sets?.name, l.cards?.number,
-      l.condition, LANGUAGE_NAMES[l.language as Language] ?? l.language, l.price_czk, l.quantity, l.graded, l.note,
+      l.condition, LANGUAGE_NAMES[l.language as Language] ?? l.language, l.price_czk ?? 'dohodou', l.quantity, l.graded, l.note,
     ])),
   ];
   const day = new Date().toISOString().slice(0, 10);
