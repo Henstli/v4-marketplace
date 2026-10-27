@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
-import { Button, CardThumb, Price } from '@/components/trezor';
+import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
-import { ORDER_STATUS as STATUS } from '@/lib/order-status';
+import { ORDER_STATUS as STATUS, ORDER_TONE } from '@/lib/order-status';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -154,10 +154,10 @@ function OrderCard({ order, counterpart, contact, payment, role, children }: {
 }) {
   const counterpartId = role === 'buyer' ? order.seller_id : order.buyer_id;
   return (
-    <article className={styles.order} id={`objednavka-${order.number}`}>
+    <article className={styles.order} id={`objednavka-${order.number}`} data-tone={ORDER_TONE[order.status] ?? 'muted'}>
       <div className={styles.head}>
         <div>
-          <p className={styles.status}>{STATUS[order.status] ?? order.status}</p>
+          <Status tone={ORDER_TONE[order.status] ?? 'muted'} className={styles.status}>{STATUS[order.status] ?? order.status}</Status>
           <p className="t-small muted">
             {counterpart} · {formatDate(order.created_at)} · č. <span className="code">{order.number}</span>
             {order.delivery === 'pickup' ? ' · osobní předání' : ''}

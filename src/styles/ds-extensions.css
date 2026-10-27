@@ -37,3 +37,6 @@ a.tz-chip { text-decoration: none; }
 /* Zapnuté přepínací tlačítko (Hlídáte): jako počet v košíku, DS OfferTable. */
 .tz-btn-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tz-btn-on:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* Status info: probíhá (objednávka potvrzená, zaplacená, odeslaná). */
+.tz-status-info { color: var(--info); background: var(--info-tint); }

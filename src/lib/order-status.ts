@@ -10,3 +10,16 @@ export const ORDER_STATUS: Record<string, string> = {
   declined: 'Prodejce odmítl',
   expired: 'Vypršelo bez potvrzení',
 };
+
+/** Barva stavu (DS Status): čeká = warn, probíhá = info, převzato = ok, zrušeno = danger, vypršelo = muted. */
+export const ORDER_TONE: Record<string, 'ok' | 'warn' | 'muted' | 'danger' | 'info'> = {
+  requested: 'warn',
+  pending_payment: 'warn',
+  confirmed: 'info',
+  paid: 'info',
+  shipped: 'info',
+  delivered: 'ok',
+  cancelled: 'danger',
+  declined: 'danger',
+  expired: 'muted',
+};

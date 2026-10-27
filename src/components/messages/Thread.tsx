@@ -7,18 +7,12 @@ import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { sendMessage } from '@/app/zpravy/actions';
 import { formatDateTime, plural } from '@/lib/format';
 import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
-import { ORDER_STATUS } from '@/lib/order-status';
+import { ORDER_STATUS, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
 const GROUP_MS = 5 * 60_000;
 
-// Štítek stavu objednávky: čeká = warn, domluveno = ok, zrušeno a odmítnuto = danger, vypršelo = muted.
-const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted' | 'danger'> = {
-  requested: 'warn', pending_payment: 'warn',
-  confirmed: 'ok', paid: 'ok', shipped: 'ok', delivered: 'ok',
-  cancelled: 'danger', declined: 'danger',
-};
 // U skončených objednávek není na stránce Objednávky co dělat, odkaz se nezobrazí.
 const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
@@ -46,7 +40,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
     <div className={`${styles.ord} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`}>
       <div className={styles.ordTop}>
         <strong>Objednávka č. <span className="code">{o.number}</span></strong>
-        <Status tone={STATUS_TONE[o.status] ?? 'muted'}>{ORDER_STATUS[o.status] ?? o.status}</Status>
+        <Status tone={ORDER_TONE[o.status] ?? 'muted'}>{ORDER_STATUS[o.status] ?? o.status}</Status>
       </div>
       <ul className={styles.ordItems}>
         {o.items.map((it, n) => (

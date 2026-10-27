@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import { cx } from './cx';
 
+export type StatusTone = 'ok' | 'warn' | 'muted' | 'danger' | 'info';
+
 export interface StatusProps {
-  /** ok = v pořádku (spárováno), warn = potřebuje opravu, muted = vynecháno, danger = objednávka zrušená nebo odmítnutá */
-  tone?: 'ok' | 'warn' | 'muted' | 'danger';
+  /** ok = v pořádku (spárováno), warn = potřebuje opravu, muted = vynecháno, danger = objednávka zrušená nebo odmítnutá, info = probíhá */
+  tone?: StatusTone;
   children: ReactNode;
   className?: string;
 }
