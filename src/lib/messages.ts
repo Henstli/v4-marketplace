@@ -23,6 +23,8 @@ export interface ConversationItem {
   lastAt: string;
   lastMine: boolean;
   unread: boolean;
+  /** Počet nových zpráv od druhé strany */
+  unreadCount: number;
 }
 
 export interface ChatMessage {
@@ -117,7 +119,18 @@ export async function getConversations(me: string): Promise<ConversationItem[]> 
     .returns<ConversationRow[]>();
   const rows = data ?? [];
   const others = rows.map((c) => (c.user_a === me ? c.user_b : c.user_a));
-  const people = await getPeople([...new Set(others.filter((x): x is string => !!x))]);
+  // Počet nových zpráv jen u nepřečtených konverzací (DS Messages, varianta A).
+  const [people, counts] = await Promise.all([
+    getPeople([...new Set(others.filter((x): x is string => !!x))]),
+    Promise.all(rows.map(async (c) => {
+      if (!unreadFor(c, me)) return 0;
+      const read = c.user_a === me ? c.a_read_at : c.b_read_at;
+      let q = supabase.from('messages').select('id', { count: 'exact', head: true }).eq('conversation_id', c.id).neq('sender_id', me);
+      if (read) q = q.gt('created_at', read);
+      const { count } = await q;
+      return Math.max(count ?? 1, 1);
+    })),
+  ]);
   return rows.map((c, i) => ({
     id: c.id,
     other: (others[i] && people.get(others[i]!)) || null,
@@ -125,6 +138,7 @@ export async function getConversations(me: string): Promise<ConversationItem[]> 
     lastAt: c.last_message_at,
     lastMine: c.last_sender === me,
     unread: unreadFor(c, me),
+    unreadCount: counts[i],
   }));
 }
 

@@ -15,6 +15,8 @@ export function ChatShell({ list, children }: { list: ReactNode; children: React
   // Nové zprávy: obnovení každých 5 s, když je karta prohlížeče vidět, a hned po návratu na ni.
   useEffect(() => {
     const refresh = () => { if (!document.hidden) router.refresh(); };
+    // Hned po otevření Zpráv: seznam mohl přijít z mezipaměti prohlížeče.
+    refresh();
     const t = setInterval(refresh, 5_000);
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('focus', refresh);
@@ -47,7 +49,9 @@ export function ConversationList({ items }: { items: ConversationItem[] }) {
             </span>
             <span className={styles.convSide}>
               {formatDateTime(c.lastAt)}
-              {c.unread ? <span className={styles.dot} aria-label="Nepřečteno" /> : null}
+              {c.unread ? (
+                <span className={styles.count} aria-label={`${c.unreadCount} nepřečtené`}>{c.unreadCount > 99 ? '99+' : c.unreadCount}</span>
+              ) : null}
             </span>
           </>
         );

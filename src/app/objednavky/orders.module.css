@@ -76,3 +76,40 @@
 .ended { border-top: 1px solid var(--line); padding-top: var(--space-3); }
 .ended summary { cursor: pointer; color: var(--ink-muted); font-weight: 600; font-size: 14px; }
 .endedList { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-4); }
+.actions:empty { display: none; }
+
+/* Název objednávky v seznamu vede na detail. */
+.title { color: var(--ink); font-weight: 600; text-decoration: none; }
+.title:hover { color: var(--accent); }
+
+/* Detail objednávky (DS OrderPayment, varianta A). */
+.detail { gap: var(--space-5, 20px); }
+.crumb { color: var(--ink-muted); text-decoration: none; }
+.crumb:hover { color: var(--accent); }
+.detailHead { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-4); flex-wrap: wrap; }
+.detailHead p { margin: 6px 0 0; }
+.detailTitle { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.detailTitle h1 { margin: 0; }
+.detailGrid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-6, 24px); align-items: start; }
+@media (max-width: 900px) { .detailGrid { grid-template-columns: minmax(0, 1fr); } }
+.detailCol { display: flex; flex-direction: column; gap: var(--space-5, 20px); min-width: 0; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: var(--space-3); }
+.boxTitle { margin: 0; font-size: 15px; font-weight: 600; }
+.box p { margin: 0; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; }
+.steps li { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-muted); min-width: 0; }
+.steps li::before { content: ""; height: 4px; border-radius: 2px; background: var(--line-strong); margin-bottom: 2px; }
+.steps li[data-done] { color: var(--ink); }
+.steps li[data-done]::before { background: var(--accent); }
+@media (max-width: 520px) { .steps { flex-direction: column; } }
+.sum { display: flex; justify-content: space-between; gap: var(--space-3); font-size: 14px; }
+.sum:first-of-type { border-top: 1px solid var(--line); padding-top: var(--space-3); }
+.sumTotal { font-weight: 600; }
+.party { font-weight: 600; color: var(--ink); text-decoration: none; }
+.party:hover { color: var(--accent); }
+.wideBtn { width: 100%; justify-content: center; }
+.sideActions { flex-direction: column; border-top: 0; padding-top: 0; }
+.sideActions form, .sideActions button { width: 100%; }
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.history li { display: flex; justify-content: space-between; gap: var(--space-3); }
+.history li > :last-child { flex: none; }
