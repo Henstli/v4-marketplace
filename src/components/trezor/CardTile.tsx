@@ -19,7 +19,9 @@ export interface CardTileProps {
 
 export function CardTile({ name, set, game, color, image, price, trend, href = '#' }: CardTileProps) {
   return (
-    <Link className="tz-tile" href={href}>
+    // Bez přednačítání: mřížka má desítky dlaždic a každá by při zobrazení stáhla stránku karty
+    // (desítky požadavků na Vercel na jedno otevření katalogu).
+    <Link className="tz-tile" href={href} prefetch={false}>
       <div
         className={image ? 'tz-tile-art tz-tile-art-photo' : 'tz-tile-art'}
         style={image ? undefined : { background: color || 'var(--surface-sunken)' }}
