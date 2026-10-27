@@ -118,7 +118,7 @@
 .barSpacer { flex: 1; }
 
 /* Náhled v editoru: prázdný blok ukáže, proč není vidět */
-.blockBody:empty { display: flex; align-items: center; min-height: 72px; padding: var(--space-4) var(--space-5); border: 1.5px dashed var(--line-strong); border-radius: var(--radius-lg); color: var(--ink-muted, var(--ink)); font-size: 14px; }
+.blockBody:empty { display: flex; align-items: center; min-height: 72px; padding: var(--space-4) var(--space-5, 20px); border: 1.5px dashed var(--line-strong); border-radius: var(--radius-lg); color: var(--ink-muted, var(--ink)); font-size: 14px; }
 .blockBody:empty::before { content: attr(data-empty); opacity: .8; }
 
 /* Oddělovač mezi bloky: v náhledu jde jedním klikem přidat nebo odebrat */
