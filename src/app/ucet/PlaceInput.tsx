@@ -31,7 +31,7 @@ function toPlace(f: Feature): Place {
 /** Název místa podle bodu na mapě (pro vyplnění pole po kliknutí do mapy). */
 export async function placeAt(lat: number, lng: number): Promise<string | null> {
   try {
-    const res = await fetch(`${PHOTON}/reverse?lat=${lat}&lon=${lng}`);
+    const res = await fetch(`${PHOTON}/reverse?lat=${lat}&lon=${lng}&lang=default`);
     const data = (await res.json()) as { features?: Feature[] };
     return data.features?.[0] ? toPlace(data.features[0]).label : null;
   } catch {
@@ -52,7 +52,7 @@ export function PlaceInput({ value, onChange, onPick }: { value: string; onChang
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=6&bbox=${BBOX}`, { signal: ctrl.signal });
+        const res = await fetch(`${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=6&lang=default&bbox=${BBOX}`, { signal: ctrl.signal });
         const data = (await res.json()) as { features?: Feature[] };
         const seen = new Set<string>();
         setItems((data.features ?? []).map(toPlace).filter((p) => p.label && !seen.has(p.label) && seen.add(p.label)).slice(0, 5));
