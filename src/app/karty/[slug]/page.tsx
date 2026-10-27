@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Fragment } from 'react';
 import { notFound } from 'next/navigation';
-import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Trend } from '@/components/trezor';
+import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Status, Trend } from '@/components/trezor';
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { WatchButton } from '@/components/WatchButton';
@@ -119,8 +120,19 @@ export default async function CardDetailPage({ params }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((o) => (
-                  <tr key={o.id}>
+                {rows.map((o, i) => {
+                  const reserved = 'reservedUntil' in o;
+                  return (
+                  <Fragment key={o.id}>
+                  {/* Rezervované jsou oddělené a ztlumené: objednat nejdou, jde jen čekat. */}
+                  {reserved && (i === 0 || !('reservedUntil' in rows[i - 1])) ? (
+                    <tr className={styles.groupRow}>
+                      <td colSpan={6}>
+                        <strong>Rezervované</strong> Čekají na potvrzení prodejce, objednat teď nejdou. Klikněte na Čekat a dáme vám vědět, až se uvolní.
+                      </td>
+                    </tr>
+                  ) : null}
+                  <tr className={reserved ? styles.reserved : undefined}>
                     <td>
                       {(() => {
                         const b = brands.get(o.seller.id);
@@ -144,9 +156,9 @@ export default async function CardDetailPage({ params }: Props) {
                                 {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
                               </div>
                               {'reservedUntil' in o ? (
-                                <div className="t-small muted">
-                                  Rezervováno{o.reservedUntil ? `, prodejce potvrdí do ${formatDateTime(o.reservedUntil)}` : ''}
-                                </div>
+                                <Status tone="warn" className={styles.reservedTag}>
+                                  Rezervováno{o.reservedUntil ? ` do ${formatDateTime(o.reservedUntil)}` : ''}
+                                </Status>
                               ) : null}
                             </div>
                           </div>
@@ -179,7 +191,9 @@ export default async function CardDetailPage({ params }: Props) {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
