@@ -8,6 +8,7 @@ import { PLANS, toPlan } from '@/lib/plans';
 import type { CardLite } from '@/lib/import/rows';
 import { createClient } from '@/lib/supabase/server';
 import { CONDITIONS, LANGUAGE_NAMES } from '@/lib/types';
+import { scheduleWatchFlush } from '@/lib/watch';
 
 export interface MatchInput {
   idx: number;
@@ -121,6 +122,7 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
     created += chunk.length;
   }
   revalidate();
+  await scheduleWatchFlush();
   return { created };
 }
 

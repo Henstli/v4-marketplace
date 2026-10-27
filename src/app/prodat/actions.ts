@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { CONDITIONS, LANGUAGE_NAMES } from '@/lib/types';
+import { scheduleWatchFlush } from '@/lib/watch';
 
 export interface ListingState {
   error?: string;
@@ -42,6 +43,7 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
 
   revalidatePath('/prodat');
   revalidatePath('/karty', 'layout');
+  await scheduleWatchFlush();
   return { ok: true };
 }
 
@@ -86,6 +88,7 @@ export async function bulkUpdateListings(ids: string[], change: BulkChange): Pro
   });
   if (error) return { error: 'Nabídky se nepodařilo upravit. Zkuste to prosím znovu.' };
   revalidateStock();
+  if (quantity) await scheduleWatchFlush();
   return { count: Number(data ?? 0) };
 }
 

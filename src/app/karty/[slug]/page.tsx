@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Trend } from '@/components/trezor';
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
+import { WatchButton } from '@/components/WatchButton';
 import { getCardBySlug, getOffers, type Offer } from '@/lib/catalog';
 import type { CardSummary } from '@/lib/types';
 import { getGame } from '@/lib/games';
@@ -76,7 +77,9 @@ export default async function CardDetailPage({ params }: Props) {
             <div className={styles.buyActions}>
               {offers.length ? (
                 <AddToCartButton item={cartItem(card, offers[0])} label="Přidat nejlevnější do košíku" variant="primary" size="lg" />
-              ) : null}
+              ) : (
+                <WatchButton cardId={card.id} />
+              )}
               <ButtonLink href={`/prodat?karta=${card.slug}`} size="lg" variant="secondary">Prodat tuto kartu</ButtonLink>
             </div>
           </div>

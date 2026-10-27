@@ -27,6 +27,8 @@ export interface AccountSummary {
   toShip: number;
   /** Nákupy potvrzené nebo odeslané, čekající na převzetí */
   toConfirm: number;
+  /** Nepřečtená upozornění „hlídaná karta je znovu skladem“ */
+  alerts: number;
   /** Aktivní nabídky (skladem) */
   listings: number;
 }
@@ -36,13 +38,14 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
   if (!user) return null;
   const supabase = await createClient();
   const count = { count: 'exact' as const, head: true };
-  const [profile, brands, ship, confirm, offers, draft] = await Promise.all([
+  const [profile, brands, ship, confirm, offers, draft, alerts] = await Promise.all([
     getShopProfile(user.id),
     getSellerBrands([user.id]),
     supabase.from('orders').select('id', count).eq('seller_id', user.id).in('status', ['requested', 'confirmed', 'paid']),
     supabase.from('orders').select('id', count).eq('buyer_id', user.id).in('status', ['confirmed', 'shipped']),
     supabase.from('listings').select('id', count).eq('seller_id', user.id).gt('quantity', 0),
     supabase.from('shop_page_drafts').select('user_id').eq('user_id', user.id).maybeSingle(),
+    supabase.from('watch_alerts').select('id', count).eq('user_id', user.id).is('seen_at', null),
   ]);
   const plan = profile?.plan ?? 'free';
   const kind = profile?.seller.kind ?? 'private';
@@ -66,5 +69,6 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
     toShip: ship.count ?? 0,
     toConfirm: confirm.count ?? 0,
     listings: offers.count ?? 0,
+    alerts: alerts.count ?? 0,
   };
 });

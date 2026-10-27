@@ -13,6 +13,7 @@ const ICONS = {
   shop: <path d="M4 9h16l-1-5H5zM5 9v11h14V9M9 20v-6h6v6" />,
   edit: <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
   coll: <><rect x="4" y="5" width="11" height="15" rx="2" /><path d="M8 3h10a2 2 0 0 1 2 2v13" /></>,
+  bell: <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0" />,
   wish: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
   offers: <path d="M4 7h16M4 12h16M4 17h10" />,
   orders: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
@@ -63,6 +64,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
       items: [
         { label: 'Moje nabídky', icon: 'offers', href: '/prodat', hint: a.listings ? a.listings.toLocaleString('cs-CZ') : undefined },
         { label: 'Objednávky', icon: 'orders', href: '/objednavky', count: pending || undefined },
+        { label: 'Hlídané karty', icon: 'bell', href: '/ucet/hlidane', count: a.alerts || undefined },
         ...(PLANS[a.plan].bulkImport ? [{ label: 'Hromadné nahrávání', icon: 'bulk' as const, href: '/prodat/import' }] : []),
         { label: 'Návrhy karet', icon: 'card', href: '/prodat/nova-karta' },
       ],
@@ -127,7 +129,7 @@ export function AccountMenu({ a }: { a: AccountSummary }) {
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
-  const pending = a.toShip + a.toConfirm;
+  const pending = a.toShip + a.toConfirm + a.alerts;
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
@@ -157,7 +159,7 @@ export function AccountMenu({ a }: { a: AccountSummary }) {
         className="tz-acct-btn"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={pending ? `Můj profil, ${pending} objednávky čekají` : 'Můj profil'}
+        aria-label={pending ? 'Můj profil, máte novinky' : 'Můj profil'}
         onClick={() => setOpen(!open)}
       >
         <Avatar a={a} size={32} />
