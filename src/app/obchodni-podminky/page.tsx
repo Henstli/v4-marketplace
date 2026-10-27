@@ -73,6 +73,7 @@ export default function TermsPage() {
           </li>
           <li>objednávku potvrdí nebo odmítne do 48 hodin;</li>
           <li>kartu po zaplacení odešle do 5 pracovních dnů, bezpečně zabalenou (obal, tuhá ochrana) a označí ji v objednávce jako odeslanou;</li>
+          <li>doručovací údaje kupujícího (jméno, adresu, telefon, výdejní místo) použije jen k odeslání dané objednávky;</li>
           <li>při prodeji dodržuje právní předpisy, zejména daňové a spotřebitelské.</li>
         </ul>
         <p>
@@ -113,6 +114,12 @@ export default function TermsPage() {
           <li>
             Po potvrzení uvidíte kontakt na prodejce a domluvíte se s ním na platbě a předání. Objednávka pak prochází
             stavy potvrzeno → odesláno → převzato. Po převzetí karet označte objednávku jako převzatou.
+          </li>
+          <li>
+            Doručení zajišťuje prodejce vlastním jménem u dopravce, kterého si vyberete z jeho nabídky. V4cards není stranou
+            přepravní smlouvy, zásilky nepodává, poštovné nepřijímá a za ztrátu, poškození ani zpoždění zásilky neodpovídá.
+            Mapu výdejních míst poskytuje dopravce. Doručovací údaje předáme prodejci až po potvrzení objednávky a jen k
+            jejímu odeslání.
           </li>
           <li>Kupující může mít najednou nejvýš 10 nepotvrzených objednávek.</li>
           <li>Po dokončení objednávky můžete prodejce ohodnotit.</li>

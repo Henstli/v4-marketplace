@@ -7,6 +7,7 @@ import { SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
 import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder } from '@/lib/order-flow';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import type { createClient } from '@/lib/supabase/server';
+import { CopyButton } from '@/components/orders/CopyButton';
 import { ExpiryStatus } from '@/components/orders/Expiry';
 import { addReview, setOrderStatus } from './actions';
 import { ShipEdit } from './ShipEdit';
@@ -19,7 +20,7 @@ export const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 // Skončené bez obchodu.
 export const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
-export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, cod_fee_czk, buyer_paid_at, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
+export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
 
 export interface OrderRow {
   id: string;
@@ -37,6 +38,8 @@ export interface OrderRow {
   carrier: string | null;
   carrier_label: string | null;
   pickup_point: string | null;
+  /** Město doručení na adresu (zůstane i po smazání adresy). */
+  ship_city: string | null;
   cod_fee_czk: number;
   buyer_paid_at: string | null;
   tracking: string | null;
@@ -54,6 +57,71 @@ export async function loadContact(supabase: Supabase, o: OrderRow): Promise<stri
   if (!AGREED.has(o.status) || o.status === 'delivered') return null;
   const { data } = await supabase.rpc('order_counterpart', { target: o.id });
   return (data as Array<{ email: string | null }> | null)?.[0]?.email ?? null;
+}
+
+/** Doručovací údaje (databáze je prodejci vrátí až po potvrzení, 30 dní po uzavření je smaže). */
+export interface DeliveryRow {
+  order_id: string;
+  recipient: string;
+  phone: string | null;
+  street: string | null;
+  city: string | null;
+  zip: string | null;
+  country: string | null;
+  point_id: string | null;
+  point_name: string | null;
+  point_address: string | null;
+}
+
+export async function loadDeliveries(supabase: Supabase, ids: string[]): Promise<Map<string, DeliveryRow>> {
+  if (!ids.length) return new Map();
+  const { data } = await supabase.from('order_delivery').select('order_id, recipient, phone, street, city, zip, country, point_id, point_name, point_address').in('order_id', ids);
+  return new Map(((data ?? []) as DeliveryRow[]).map((d) => [d.order_id, d]));
+}
+
+const zipText = (z: string | null) => (z ?? '').replace(/^(\d{3})(\d{2})$/, '$1 $2');
+
+/** Kam zásilku poslat (DS DeliveryPayment › Prodejce: kam poslat), s tlačítky Kopírovat. */
+export function DeliveryBox({ d, o, role, compact }: { d?: DeliveryRow | null; o: OrderRow; role: 'buyer' | 'seller'; compact?: boolean }) {
+  if (!d) {
+    // Prodejce před potvrzením vidí jen město nebo výdejní místo.
+    if (role === 'seller' && o.status === 'requested' && (o.ship_city || o.pickup_point)) {
+      return <p className="t-small muted">Adresu a telefon kupujícího uvidíte po potvrzení objednávky.</p>;
+    }
+    return null;
+  }
+  const address = d.point_name
+    ? [d.point_name, d.point_address].filter(Boolean).join(', ')
+    : `${d.street}, ${zipText(d.zip)} ${d.city}${d.country === 'SK' ? ', Slovensko' : ''}`;
+  const all = [d.recipient, address, d.point_id ? `ID ${d.point_id}` : null, d.phone].filter(Boolean).join('\n');
+  const rows: Array<[string, string]> = d.point_name
+    ? [['Místo', d.point_name], ...(d.point_address ? [['Adresa', d.point_address] as [string, string]] : []), ...(d.point_id ? [['ID místa', d.point_id] as [string, string]] : []), ['Příjemce', d.recipient], ...(d.phone ? [['Telefon', d.phone] as [string, string]] : [])]
+    : [['Jméno', d.recipient], ['Adresa', address], ...(d.phone ? [['Telefon', d.phone] as [string, string]] : [])];
+  const title = role === 'seller' ? 'Kam poslat' : 'Doručení';
+  return (
+    <div className={styles.deliveryBox}>
+      <div className={styles.deliveryHead}>
+        <span className="t-label muted">{title.toUpperCase()}</span>
+        {role === 'seller' ? <CopyButton text={all} label={d.point_name ? 'Kopírovat vše' : 'Kopírovat celou adresu'} /> : null}
+      </div>
+      {compact ? (
+        <p className="t-small">{d.recipient} · {address}{d.point_id ? <> · <span className="code">ID {d.point_id}</span></> : null}{d.phone ? <> · <span className="code">{d.phone}</span></> : null}</p>
+      ) : (
+        <dl className={styles.deliveryRows}>
+          {rows.map(([k, v]) => (
+            <div key={k}>
+              <dt className="t-small muted">{k}</dt>
+              <dd className={k === 'ID místa' || k === 'Telefon' ? 'code' : undefined}>{v}</dd>
+              {role === 'seller' ? <CopyButton text={v} /> : null}
+            </div>
+          ))}
+        </dl>
+      )}
+      {role === 'seller' ? (
+        <p className="t-small muted">Zásilku podáte pod svým účtem u dopravce. Údaje použijte jen k odeslání této objednávky, 30 dní po jejím uzavření se smažou.</p>
+      ) : null}
+    </div>
+  );
 }
 
 /** Účet prodejce a QR platba pro potvrzenou nebo odeslanou objednávku. */
@@ -154,17 +222,18 @@ export function DeliveryInfo({ o }: { o: OrderRow }) {
   return (
     <p className="t-small muted">
       {deliveryLine(o)}
-      {o.pickup_point ? <> · výdejní místo {o.pickup_point}</> : null}
+      {o.pickup_point ? <> · výdejní místo {o.pickup_point}</> : o.ship_city ? <> · {o.ship_city}</> : null}
       {o.tracking ? <> · zásilka {url ? <a href={url} target="_blank" rel="noreferrer" className="code">{o.tracking}</a> : <span className="code">{o.tracking}</span>}</> : null}
     </p>
   );
 }
 
-export function OrderCard({ order, counterpart, contact, payment, role, children }: {
+export function OrderCard({ order, counterpart, contact, payment, delivery, role, children }: {
   order: OrderRow;
   counterpart: string;
   contact?: string | null;
   payment?: Payment | null;
+  delivery?: DeliveryRow | null;
   role: 'buyer' | 'seller';
   children?: React.ReactNode;
 }) {
@@ -211,6 +280,7 @@ export function OrderCard({ order, counterpart, contact, payment, role, children
         </p>
       ) : null}
       <ShipChangeNotice o={order} role={role} />
+      {!ENDED.has(order.status) && order.status !== 'delivered' ? <DeliveryBox d={delivery} o={order} role={role} compact /> : null}
       <PaymentInfo payment={payment} role={role} order={order} />
       {contact ? (
         <p className="t-small">

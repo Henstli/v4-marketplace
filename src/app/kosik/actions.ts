@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { siteOrigin } from '@/lib/auth-helpers';
 import type { Candidate, ShippingTerms } from '@/lib/cart-optimize';
 import { sendOrderEmail } from '@/lib/email';
-import { CARRIERS, type Carrier, type PaymentMethod, type SellerOffer } from '@/lib/delivery';
+import { CARRIERS, type Carrier, type DeliveryAddress, type DeliveryPoint, type PaymentMethod, type SellerOffer } from '@/lib/delivery';
 import { createClient } from '@/lib/supabase/server';
 
 export interface PlaceOrderResult {
@@ -94,10 +94,33 @@ export async function getCartAlternatives(listingIds: string[]): Promise<CartAlt
   return { candidates, terms };
 }
 
-/** Volba kupujícího u jednoho prodejce: doprava (dopravce nebo osobní předání), platba a výdejní místo. */
-export interface SellerChoice { delivery: string; payment: PaymentMethod; point?: string }
+/** Volba kupujícího u jednoho prodejce: doprava (dopravce nebo osobní předání), platba, výdejní místo a adresa. */
+export interface SellerChoice { delivery: string; payment: PaymentMethod; point?: DeliveryPoint; address?: DeliveryAddress }
 
-export async function placeOrder(items: Array<{ listingId: string; quantity: number }>, choices: Record<string, SellerChoice>): Promise<PlaceOrderResult> {
+/** Adresa, kterou si kupující uložil pro příští nákupy (vidí ji jen on). */
+export async function getSavedAddress(): Promise<DeliveryAddress | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from('buyer_addresses').select('recipient, phone, street, city, zip, country').eq('user_id', user.id).maybeSingle();
+  if (!data) return null;
+  return { name: data.recipient, phone: data.phone ?? '', street: data.street ?? '', city: data.city ?? '', zip: data.zip ?? '', country: data.country === 'SK' ? 'SK' : 'CZ' };
+}
+
+/** Smaže uloženou adresu (Můj profil › Nastavení). */
+export async function deleteSavedAddress(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  const supabase = await createClient();
+  await supabase.from('buyer_addresses').delete().eq('user_id', user.id);
+  revalidatePath('/ucet/nastaveni');
+}
+
+export async function placeOrder(
+  items: Array<{ listingId: string; quantity: number }>,
+  choices: Record<string, SellerChoice>,
+  save?: DeliveryAddress | null,
+): Promise<PlaceOrderResult> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: 'Pro objednávku se nejdřív přihlaste.' };
@@ -110,6 +133,21 @@ export async function placeOrder(items: Array<{ listingId: string; quantity: num
   if (error) return { error: error.message || 'Objednávku se nepodařilo vytvořit.' };
 
   const orderIds = (data ?? []) as string[];
+  if (save) {
+    // Jen když kupující zaškrtl Uložit adresu. Neúspěch objednávku nezdrží.
+    const phone = save.phone.replace(/[^0-9+]/g, '');
+    const zip = save.zip.replace(/\s/g, '');
+    await supabase.from('buyer_addresses').upsert({
+      user_id: user.id,
+      recipient: save.name.trim().slice(0, 80),
+      phone: /^\+?[0-9]{9,15}$/.test(phone) ? phone : null,
+      street: save.street.trim().slice(0, 120) || null,
+      city: save.city.trim().slice(0, 80) || null,
+      zip: /^[0-9]{5}$/.test(zip) ? zip : null,
+      country: save.country,
+      updated_at: new Date().toISOString(),
+    });
+  }
   const origin = await siteOrigin();
   // Každý prodejce dostane e-mail o nové objednávce, odpověď kupujícímu kvůli tomu nezdržujeme.
   after(() => Promise.all(orderIds.map((id) => sendOrderEmail(supabase, id, 'requested', user.displayName, origin))));
