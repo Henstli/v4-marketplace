@@ -6,17 +6,20 @@ import { useEffect, useRef, useState } from 'react';
 import { unreadSummary, type UnreadSummary } from '@/app/zpravy/actions';
 import { HeaderIcon } from '@/components/site/HeaderIcon';
 
-const POLL_MS = 15_000;
+const POLL_MS = 8_000;
+/** Na schované kartě stačí kontrola jednou za minutu (počet v názvu záložky). */
+const HIDDEN_POLL_MS = 60_000;
 const TOAST_MS = 8_000;
 
 /**
- * Zprávy v hlavičce s počtem nepřečtených konverzací. Obnovuje se každých 15 s a při přechodu;
+ * Zprávy v hlavičce s počtem nepřečtených konverzací. Obnovuje se každých 8 s (a hned po návratu na kartu) a při přechodu;
  * když přibude nepřečtená zpráva, vyskočí vpravo dole upozornění (DS Messages) a počet je i v názvu záložky.
  */
 export function MessagesLink({ initial }: { initial: number }) {
   const [count, setCount] = useState(initial);
   const [toast, setToast] = useState<UnreadSummary['latest']>(null);
   const seen = useRef<string | null>(null);
+  const pending = useRef<UnreadSummary['latest']>(null);
   const pathname = usePathname();
   const path = useRef(pathname);
   path.current = pathname;
@@ -24,22 +27,37 @@ export function MessagesLink({ initial }: { initial: number }) {
   useEffect(() => setCount(initial), [initial]);
   useEffect(() => {
     let alive = true;
+    let lastLoad = 0;
     const load = () => {
-      if (document.hidden) return;
+      lastLoad = Date.now();
       unreadSummary().then((s) => {
         if (!alive) return;
         setCount(s.count);
         const key = s.latest ? `${s.latest.from}:${s.latest.at}` : null;
         // První načtení jen zapamatuje stav, upozornění až na zprávu, která přišla potom.
+        // Na schované kartě počkáme, až se uživatel vrátí, aby upozornění neprošvihl.
         if (seen.current !== null && key && key !== seen.current && s.latest && !path.current.startsWith(`/zpravy/${s.latest.from}`)) {
-          setToast(s.latest);
+          pending.current = s.latest;
+        }
+        if (pending.current && !document.hidden) {
+          setToast(pending.current);
+          pending.current = null;
         }
         seen.current = key ?? '';
       }).catch(() => {});
     };
+    // Po návratu na kartu nebo do okna hned zkontrolovat, ne až za celý interval.
+    const wake = () => { if (!document.hidden && Date.now() - lastLoad > 2_000) load(); };
     load();
-    const t = setInterval(load, POLL_MS);
-    return () => { alive = false; clearInterval(t); };
+    const t = setInterval(() => { if (!document.hidden || Date.now() - lastLoad > HIDDEN_POLL_MS) load(); }, POLL_MS);
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('focus', wake);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('focus', wake);
+    };
   }, [pathname]);
 
   useEffect(() => {
