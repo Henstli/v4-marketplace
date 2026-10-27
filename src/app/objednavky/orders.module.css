@@ -129,6 +129,10 @@
 .order a:not(.title), .order button, .order form, .order select, .order input, .order .payment { position: relative; z-index: 1; }
 
 /* Odesláno s nepovinným číslem zásilky (DS DeliveryPayment) */
+ /* Tlačítka kroků si rozdělí šířku řádku (DS DeliveryPayment, varianta I). */
+.flowForm { flex: 1 1 0; min-width: max-content; margin: 0; display: flex; }
+.flowForm > :global(.tz-btn) { flex: 1; gap: 6px; }
+.flowForm > :global(.tz-btn-ghost) { border-color: var(--line-strong); }
 .trackForm { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .trackForm .input { width: 220px; max-width: 100%; }
 /* Otevřené návrhy ceny nad záložkami (DS OrderPayment, Návrhy ceny). */
