@@ -95,7 +95,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
             ))}
           </ol>
           <OrderActions o={o} buyer={mine} />
-          <Link href={`/objednavky?tab=${mine ? 'nakupy' : 'prodeje'}#objednavka-${o.number}`} className="t-small">Zobrazit objednávku</Link>
+          <Link href={`/objednavky/${o.number}`} className="t-small">Zobrazit objednávku</Link>
         </>
       )}
     </div>

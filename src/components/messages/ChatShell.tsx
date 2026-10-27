@@ -15,6 +15,8 @@ export function ChatShell({ list, children }: { list: ReactNode; children: React
   // Nové zprávy: obnovení každých 5 s, když je karta prohlížeče vidět, a hned po návratu na ni.
   useEffect(() => {
     const refresh = () => { if (!document.hidden) router.refresh(); };
+    // Hned po otevření Zpráv: seznam mohl přijít z mezipaměti prohlížeče.
+    refresh();
     const t = setInterval(refresh, 5_000);
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('focus', refresh);

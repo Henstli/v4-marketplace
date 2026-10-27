@@ -18,6 +18,8 @@ export function HeaderIcon({ href, icon, label, count, countLabel, current }: {
   return (
     <Link
       href={href}
+      // Bez předběžného načtení: seznam zpráv i košík musí být při kliknutí čerstvé, ne z mezipaměti.
+      prefetch={false}
       className="tz-hdr-ico"
       title={label}
       aria-label={count ? `${label}, ${countLabel ?? count}` : label}

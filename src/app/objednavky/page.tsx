@@ -1,45 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import QRCode from 'qrcode';
-import { Button, CardThumb, ChipLink, Price, Status } from '@/components/trezor';
+import { ChipLink } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
-import { formatDate, formatDateTime } from '@/lib/format';
-import { thumbUrl } from '@/lib/images';
-import { ORDER_STATUS as STATUS, ORDER_TONE } from '@/lib/order-status';
-import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { addReview, setOrderStatus } from './actions';
+import { BuyerActions, ENDED, loadContact, loadPayment, ORDER_SELECT, OrderCard, type OrderRow, SellerActions } from './parts';
 import styles from './orders.module.css';
 
 export const metadata: Metadata = { title: 'Objednávky' };
 
-// Stavy, ve kterých si strany vidí kontakt a domlouvají platbu a předání.
-const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
-
-interface OrderRow {
-  id: string;
-  // Prázdné, když druhá strana smazala účet.
-  buyer_id: string | null;
-  seller_id: string | null;
-  status: string;
-  number: number;
-  delivery: 'ship' | 'pickup';
-  expires_at: string | null;
-  total_czk: number;
-  shipping_czk: number;
-  created_at: string;
-  order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null } | null }>;
-}
-
-interface PaymentRow { iban: string; account_name: string; amount: number; vs: number }
-type Payment = PaymentRow & { qr: string | null };
-
 type Props = { searchParams: Promise<{ nova?: string; tab?: string }> };
-
-// Skončené bez obchodu: sbalené dole, ať nepřekáží aktivním.
-const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
 export default async function OrdersPage({ searchParams }: Props) {
   if (!isSupabaseConfigured()) redirect('/');
@@ -51,7 +22,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const [{ data: orders }, { data: profiles }, { data: reviews }] = await Promise.all([
     supabase
       .from('orders')
-      .select('id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))')
+      .select(ORDER_SELECT)
       .order('created_at', { ascending: false })
       .returns<OrderRow[]>(),
     supabase.from('profiles').select('id, display_name'),
@@ -61,25 +32,11 @@ export default async function OrdersPage({ searchParams }: Props) {
   const reviewed = new Set((reviews ?? []).map((r) => r.order_id as string));
   const bought = (orders ?? []).filter((o) => o.buyer_id === user.id);
   const sold = (orders ?? []).filter((o) => o.seller_id === user.id);
-  // E-mail druhé strany vrací databáze jen účastníkům objednávky.
-  const contacts = new Map(await Promise.all(
-    (orders ?? []).filter((o) => AGREED.has(o.status) && o.status !== 'delivered').map(async (o) => {
-      const { data } = await supabase.rpc('order_counterpart', { target: o.id });
-      return [o.id, (data as Array<{ email: string | null }> | null)?.[0]?.email ?? null] as const;
-    }),
-  ));
-  // Účet prodejce a QR platba pro potvrzené objednávky (databáze je vrací jen účastníkům).
-  const payments = new Map(await Promise.all(
-    (orders ?? []).filter((o) => o.status === 'confirmed' || o.status === 'shipped').map(async (o) => {
-      const { data } = await supabase.rpc('order_payment', { target: o.id });
-      const p = (data as PaymentRow[] | null)?.[0];
-      if (!p) return [o.id, null] as const;
-      const qr = p.iban.startsWith('CZ')
-        ? await QRCode.toString(spayd({ iban: p.iban, amount: p.amount, vs: p.vs, name: p.account_name }), { type: 'svg', margin: 1, width: 160 })
-        : null;
-      return [o.id, { ...p, qr }] as const;
-    }),
-  ));
+  const all = orders ?? [];
+  const [contacts, payments] = await Promise.all([
+    Promise.all(all.map((o) => loadContact(supabase, o))).then((r) => new Map(all.map((o, i) => [o.id, r[i]]))),
+    Promise.all(all.map((o) => loadPayment(supabase, o))).then((r) => new Map(all.map((o, i) => [o.id, r[i]]))),
+  ]);
 
   const boughtActive = bought.filter((o) => !ENDED.has(o.status));
   const soldActive = sold.filter((o) => !ENDED.has(o.status));
@@ -90,37 +47,11 @@ export default async function OrdersPage({ searchParams }: Props) {
 
   const buyerCard = (o: OrderRow) => (
     <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="buyer">
-      {o.status === 'requested' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit objednávku</StatusButton> : null}
-      {o.status === 'confirmed' || o.status === 'shipped' ? <StatusButton id={o.id} status="delivered">Potvrdit převzetí</StatusButton> : null}
-      {o.status === 'delivered' && o.seller_id && !reviewed.has(o.id) ? (
-        <form action={addReview} className={styles.review}>
-          <input type="hidden" name="orderId" value={o.id} />
-          <input type="hidden" name="sellerId" value={o.seller_id} />
-          <label className={styles.field}>
-            <span className="t-label muted">HODNOCENÍ</span>
-            <select name="rating" defaultValue="5" className={styles.input}>
-              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>)}
-            </select>
-          </label>
-          <label className={`${styles.field} ${styles.grow}`}>
-            <span className="t-label muted">KOMENTÁŘ (NEPOVINNÝ)</span>
-            <input name="comment" maxLength={500} className={styles.input} placeholder="Jak proběhl nákup?" />
-          </label>
-          <Button type="submit" variant="secondary">Ohodnotit prodejce</Button>
-        </form>
-      ) : null}
-      {reviewed.has(o.id) ? <p className="t-small muted">Prodejce jste ohodnotili, děkujeme.</p> : null}
+      <BuyerActions o={o} reviewed={reviewed.has(o.id)} />
     </OrderCard>);
   const sellerCard = (o: OrderRow) => (
     <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="seller">
-      {o.status === 'requested' ? (
-        <>
-          <StatusButton id={o.id} status="confirmed">Potvrdit objednávku</StatusButton>
-          <StatusButton id={o.id} status="declined" variant="ghost">Odmítnout</StatusButton>
-        </>
-      ) : null}
-      {o.status === 'confirmed' || o.status === 'paid' ? <StatusButton id={o.id} status="shipped">Označit jako odeslané</StatusButton> : null}
-      {o.status === 'confirmed' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit (kupující nezaplatil)</StatusButton> : null}
+      <SellerActions o={o} />
     </OrderCard>);
 
   return (
@@ -168,100 +99,3 @@ function Ended({ list, render }: { list: OrderRow[]; render: (o: OrderRow) => Re
   );
 }
 
-function StatusButton({ id, status, variant, children }: { id: string; status: string; variant?: 'ghost'; children: React.ReactNode }) {
-  return (
-    <form action={setOrderStatus}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="status" value={status} />
-      <Button type="submit" variant={variant}>{children}</Button>
-    </form>
-  );
-}
-
-function OrderCard({ order, counterpart, contact, payment, role, children }: {
-  order: OrderRow;
-  counterpart: string;
-  contact?: string | null;
-  payment?: Payment | null;
-  role: 'buyer' | 'seller';
-  children?: React.ReactNode;
-}) {
-  const counterpartId = role === 'buyer' ? order.seller_id : order.buyer_id;
-  return (
-    <article className={styles.order} id={`objednavka-${order.number}`} data-tone={ORDER_TONE[order.status] ?? 'muted'}>
-      <div className={styles.head}>
-        <div>
-          <Status tone={ORDER_TONE[order.status] ?? 'muted'} className={styles.status}>{STATUS[order.status] ?? order.status}</Status>
-          <p className="t-small muted">
-            {counterpart} · {formatDate(order.created_at)} · č. <span className="code">{order.number}</span>
-            {order.delivery === 'pickup' ? ' · osobní předání' : ''}
-          </p>
-        </div>
-        <Price amount={order.total_czk} />
-      </div>
-      <ul className={styles.items}>
-        {order.order_items.map((i, n) => (
-          <li key={n}>
-            <CardThumb
-              image={thumbUrl(i.cards?.image_url ?? undefined)}
-              preview={i.cards?.image_url ?? undefined}
-              color={i.cards?.game_id ? `var(--game-${i.cards.game_id}-art)` : undefined}
-            />
-            {i.cards ? <Link href={`/karty/${i.cards.slug}`}>{i.cards.name}</Link> : 'Karta'}
-            {i.condition ? <> <span className="code">{i.condition}</span></> : null}
-            <span className="muted"> · {i.quantity}&nbsp;ks</span>
-            <Price amount={i.price_czk * i.quantity} />
-          </li>
-        ))}
-        <li className="muted">{order.delivery === 'pickup' ? 'Osobní předání' : 'Doprava'} <Price amount={order.shipping_czk} /></li>
-      </ul>
-      {order.status === 'requested' && order.expires_at ? (
-        <p className="t-small muted">
-          {role === 'seller' ? 'Potvrďte nebo odmítněte do' : 'Prodejce potvrdí nejpozději'} {formatDateTime(order.expires_at)}.
-          {role === 'seller' ? ' Potom objednávka vyprší a karty se vrátí do nabídky.' : ' Karty jsou zatím rezervované pro vás.'}
-        </p>
-      ) : null}
-      {payment ? (
-        <div className={styles.payment}>
-          {payment.qr ? <div className={styles.qr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
-          <dl className={styles.payLines}>
-            <div><dt className="t-label muted">ÚČET</dt><dd className="code">{czAccountNumber(payment.iban) ?? formatIban(payment.iban)}</dd></div>
-            {payment.iban.startsWith('CZ') ? <div><dt className="t-label muted">IBAN</dt><dd className="code">{formatIban(payment.iban)}</dd></div> : null}
-            <div><dt className="t-label muted">MAJITEL</dt><dd>{payment.account_name}</dd></div>
-            <div><dt className="t-label muted">ČÁSTKA</dt><dd><Price amount={payment.amount} /></dd></div>
-            <div><dt className="t-label muted">VARIABILNÍ SYMBOL</dt><dd className="code">{payment.vs}</dd></div>
-          </dl>
-          <p className="t-small muted">
-            {role === 'buyer'
-              ? 'Platíte přímo prodejci. Pokud jste se domluvili jinak (dobírka, hotově při předání), řiďte se domluvou.'
-              : 'Tyto údaje vidí kupující. Kartu odešlete, až platba dorazí na váš účet.'}
-          </p>
-        </div>
-      ) : role === 'buyer' && order.status === 'confirmed' ? (
-        <p className="t-small muted">Prodejce nemá vyplněný účet. Domluvte se s ním na platbě e-mailem.</p>
-      ) : role === 'seller' && order.status === 'confirmed' ? (
-        <p className="t-small muted">
-          Kupující neví, kam platit. <Link href="/ucet/nastaveni#doprava-platba">Doplňte číslo účtu</Link> a uvidí ho i s QR platbou.
-        </p>
-      ) : null}
-      {contact ? (
-        <p className="t-small">
-          {role === 'buyer' ? 'Kontakt na prodejce: ' : 'Kontakt na kupujícího: '}
-          <a href={`mailto:${contact}`}>{contact}</a>
-          <span className="muted">
-            {role === 'buyer'
-              ? ' · Platbu a předání si domluvte přímo s prodejcem. V4cards peníze nepřijímá.'
-              : ' · Napište kupujícímu, jak zaplatit a jak kartu předáte.'}
-          </span>
-        </p>
-      ) : null}
-      {counterpartId ? (
-        <p className="t-small">
-          <Link href={`/zpravy/${counterpartId}`}>{role === 'buyer' ? 'Napsat prodejci' : 'Napsat kupujícímu'}</Link>
-          <span className="muted"> · Ve zprávách najdete i celou historii objednávek mezi vámi.</span>
-        </p>
-      ) : null}
-      {children ? <div className={styles.actions}>{children}</div> : null}
-    </article>
-  );
-}
