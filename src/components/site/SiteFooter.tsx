@@ -12,7 +12,7 @@ export function SiteFooter() {
             <Link href="/obchodni-podminky">Obchodní podmínky</Link> · <Link href="/ochrana-osobnich-udaju">Ochrana osobních údajů</Link> · <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a> · Beta verze
           </p>
           <p className="t-small muted">
-            Marketplace sběratelských karet pro Česko a Slovensko. Peníze držíme v úschově do doručení.
+            Inzerce sběratelských karet pro Česko a Slovensko. Platíte přímo prodejci.
           </p>
         </div>
       </div>

@@ -19,8 +19,8 @@ export default async function HomePage() {
           <p className="t-label muted">SBĚRATELSKÉ KARTY · CZ A SK</p>
           <h1 className="t-display-xl">Kupujte karty s přehledem</h1>
           <p className="t-body-l muted">
-            Pokémon, Magic a sportovní karty od ověřených obchodů i sběratelů. Vidíte vývoj ceny, nakoupíte od více
-            prodejců v jednom košíku a peníze držíme v úschově do doručení.
+            Pokémon, Magic a sportovní karty od ověřených obchodů i sběratelů. Vidíte vývoj ceny, objednáte od více
+            prodejců v jednom košíku a platíte přímo jim.
           </p>
           <div className={styles.heroActions}>
             <ButtonLink href="/karty" size="lg">Procházet karty</ButtonLink>
@@ -108,8 +108,8 @@ export default async function HomePage() {
       <section className="container section">
         <div className={styles.trust}>
           <div className="panel">
-            <h3 className="t-heading-m">Peníze v úschově</h3>
-            <p className="muted">Prodejce dostane zaplaceno až po doručení. Když karta nedorazí nebo neodpovídá popisu, vrátíme vám peníze.</p>
+            <h3 className="t-heading-m">Rezervace do potvrzení</h3>
+            <p className="muted">Po objednání prodejce do 48 hodin potvrdí, že kartu má. Do té doby ji nikdo jiný nekoupí.</p>
           </div>
           <div className="panel">
             <h3 className="t-heading-m">Ověření prodejci</h3>
@@ -117,7 +117,7 @@ export default async function HomePage() {
           </div>
           <div className="panel">
             <h3 className="t-heading-m">Doprava po Česku a Slovensku</h3>
-            <p className="muted">Zásilkovna, Balíkovna a osobní předání. Platba kartou nebo převodem v korunách i eurech.</p>
+            <p className="muted">Zásilkovna, Balíkovna nebo osobní předání, jak se s prodejcem domluvíte. Platíte převodem přímo prodejci.</p>
           </div>
         </div>
       </section>

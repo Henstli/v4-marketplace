@@ -13,6 +13,11 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' });
 }
 
+// Datum a čas v českém čase (server běží v UTC).
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Europe/Prague' });
+}
+
 // České skloňování podle počtu: plural(3, ['karta', 'karty', 'karet']) → „3 karty“.
 export function plural(n: number, forms: [string, string, string]): string {
   const form = n === 1 ? forms[0] : n >= 2 && n <= 4 ? forms[1] : forms[2];

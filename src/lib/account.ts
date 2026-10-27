@@ -23,9 +23,9 @@ export interface AccountSummary {
   /** Rozpracovaný koncept stránky v editoru */
   draft: boolean;
   isAdmin: boolean;
-  /** Prodeje zaplacené a čekající na odeslání */
+  /** Prodeje čekající na potvrzení nebo odeslání */
   toShip: number;
-  /** Nákupy odeslané a čekající na potvrzení převzetí */
+  /** Nákupy potvrzené nebo odeslané, čekající na převzetí */
   toConfirm: number;
   /** Aktivní nabídky (skladem) */
   listings: number;
@@ -39,8 +39,8 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
   const [profile, brands, ship, confirm, offers, draft] = await Promise.all([
     getShopProfile(user.id),
     getSellerBrands([user.id]),
-    supabase.from('orders').select('id', count).eq('seller_id', user.id).eq('status', 'paid'),
-    supabase.from('orders').select('id', count).eq('buyer_id', user.id).eq('status', 'shipped'),
+    supabase.from('orders').select('id', count).eq('seller_id', user.id).in('status', ['requested', 'confirmed', 'paid']),
+    supabase.from('orders').select('id', count).eq('buyer_id', user.id).in('status', ['confirmed', 'shipped']),
     supabase.from('listings').select('id', count).eq('seller_id', user.id).gt('quantity', 0),
     supabase.from('shop_page_drafts').select('user_id').eq('user_id', user.id).maybeSingle(),
   ]);

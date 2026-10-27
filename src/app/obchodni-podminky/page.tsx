@@ -7,13 +7,13 @@ export const metadata: Metadata = { title: 'Obchodní podmínky' };
 const list = { paddingLeft: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' } as const;
 
 // Pracovní verze pro betu. Před ostrým spuštěním ji má zkontrolovat právník a doplnit údaje provozovatele (src/lib/operator.ts).
-// Pravidla plateb a úschovy se doplní, až se zapnou skutečné platby.
+// V4cards je inzertní platforma: platby za karty probíhají přímo mezi kupujícím a prodejcem, ne přes nás.
 export default function TermsPage() {
   return (
     <div className="container section">
       <article className="panel" style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <h1 className="t-heading-l">Obchodní podmínky</h1>
-        <p className="muted">Platí od 25. 10. 2026 · beta verze webu</p>
+        <p className="muted">Platí od 27. 10. 2026 · beta verze webu</p>
 
         <h2 className="t-heading-m">1. Kdo jsme a co upravují tyto podmínky</h2>
         <p>
@@ -27,7 +27,7 @@ export default function TermsPage() {
         </p>
         <p>
           Web je ve <strong>zkušebním (beta) provozu</strong>. Některé funkce se mohou měnit nebo dočasně nefungovat.
-          Zatím přes něj neprobíhají žádné platby (viz článek 8).
+          Platby za karty přes V4cards neprobíhají, kupující platí přímo prodejci (viz článek 8).
         </p>
 
         <h2 className="t-heading-m">2. Pojmy</h2>
@@ -71,6 +71,7 @@ export default function TermsPage() {
             popis odpovídá skutečnosti: správná karta, edice, jazyk, varianta (např. foil), stav podle stupnice v článku 6
             a vlastní fotka, pokud ji přikládá;
           </li>
+          <li>objednávku potvrdí nebo odmítne do 48 hodin;</li>
           <li>kartu po zaplacení odešle do 5 pracovních dnů, bezpečně zabalenou (obal, tuhá ochrana) a označí ji v objednávce jako odeslanou;</li>
           <li>při prodeji dodržuje právní předpisy, zejména daňové a spotřebitelské.</li>
         </ul>
@@ -105,17 +106,28 @@ export default function TermsPage() {
             konečné; pokud je prodejce plátce DPH, obsahují DPH.
           </li>
           <li>
-            Odesláním objednávky vzniká kupní smlouva mezi vámi a prodejcem. Objednávka prochází stavy zaplaceno →
-            odesláno → doručeno. Po převzetí zásilky označte objednávku jako doručenou.
+            Odeslání objednávky je závazný návrh kupní smlouvy s povinností platby. Prodejce ho do 48 hodin potvrdí nebo
+            odmítne. Potvrzením vzniká kupní smlouva mezi vámi a prodejcem. Do té doby jsou karty rezervované a dokud
+            prodejce nepotvrdí, můžete objednávku zrušit. Když prodejce do 48 hodin nepotvrdí, objednávka vyprší.
           </li>
+          <li>
+            Po potvrzení uvidíte kontakt na prodejce a domluvíte se s ním na platbě a předání. Objednávka pak prochází
+            stavy potvrzeno → odesláno → převzato. Po převzetí karet označte objednávku jako převzatou.
+          </li>
+          <li>Kupující může mít najednou nejvýš 10 nepotvrzených objednávek.</li>
           <li>Po dokončení objednávky můžete prodejce ohodnotit.</li>
         </ul>
 
         <h2 className="t-heading-m">8. Platby a poplatky</h2>
         <p>
-          V beta verzi se <strong>neprovádějí žádné platby</strong>. Objednávky jsou zkušební a nic se za ně neplatí.
-          Pravidla plateb, úschovy peněz do doručení a poplatků prodejců doplníme do těchto podmínek před spuštěním plateb.
-          O změně vás předem upozorníme (článek 15).
+          Za karty platíte <strong>přímo prodejci</strong> způsobem, na kterém se dohodnete (například převodem na jeho účet
+          nebo dobírkou). V4cards platby za karty nepřijímá, nedrží ani nepřeposílá a neručí za jejich vrácení. Případné
+          vrácení peněz řešíte s prodejcem.
+        </p>
+        <p>
+          Prodejce sám odpovídá za své daňové povinnosti z prodeje. Jako provozovatel platformy můžeme mít podle zákona
+          povinnost hlásit finanční správě údaje o prodejcích a jejich prodejích (pravidla DAC7) a prodejce nám k tomu na
+          vyžádání poskytne potřebné údaje.
         </p>
         <p>Používání V4cards je v beta verzi pro kupující i prodejce zdarma.</p>
 

@@ -1,13 +1,24 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
+import { siteOrigin } from '@/lib/auth-helpers';
+import { sendOrderEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 
 export async function setOrderStatus(form: FormData) {
   const supabase = await createClient();
+  const id = String(form.get('id'));
+  const status = String(form.get('status'));
   // Kdo smí jaký stav nastavit, hlídá funkce set_order_status v databázi.
-  await supabase.rpc('set_order_status', { target: String(form.get('id')), next_status: String(form.get('status')) });
+  const { error } = await supabase.rpc('set_order_status', { target: id, next_status: status });
+  if (!error && (status === 'confirmed' || status === 'declined')) {
+    const [user, origin] = await Promise.all([getCurrentUser(), siteOrigin()]);
+    if (user) after(() => sendOrderEmail(supabase, id, status, user.displayName, origin));
+  }
   revalidatePath('/objednavky');
+  revalidatePath('/', 'layout');
 }
 
 export async function addReview(form: FormData) {

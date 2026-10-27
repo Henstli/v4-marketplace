@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button, CardThumb, Price } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -13,12 +13,19 @@ import styles from './orders.module.css';
 export const metadata: Metadata = { title: 'Objednávky' };
 
 const STATUS: Record<string, string> = {
+  requested: 'Čeká na potvrzení prodejce',
+  confirmed: 'Potvrzeno, domluvte platbu a předání',
   pending_payment: 'Čeká na platbu',
   paid: 'Zaplaceno, čeká na odeslání',
   shipped: 'Odesláno',
-  delivered: 'Doručeno',
+  delivered: 'Převzato',
   cancelled: 'Zrušeno',
+  declined: 'Prodejce odmítl',
+  expired: 'Vypršelo bez potvrzení',
 };
+
+// Stavy, ve kterých si strany vidí kontakt a domlouvají platbu a předání.
+const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 
 interface OrderRow {
   id: string;
@@ -26,6 +33,7 @@ interface OrderRow {
   buyer_id: string | null;
   seller_id: string | null;
   status: string;
+  expires_at: string | null;
   total_czk: number;
   shipping_czk: number;
   created_at: string;
@@ -44,7 +52,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   const [{ data: orders }, { data: profiles }, { data: reviews }] = await Promise.all([
     supabase
       .from('orders')
-      .select('id, buyer_id, seller_id, status, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))')
+      .select('id, buyer_id, seller_id, status, expires_at, total_czk, shipping_czk, created_at, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))')
       .order('created_at', { ascending: false })
       .returns<OrderRow[]>(),
     supabase.from('profiles').select('id, display_name'),
@@ -54,23 +62,29 @@ export default async function OrdersPage({ searchParams }: Props) {
   const reviewed = new Set((reviews ?? []).map((r) => r.order_id as string));
   const bought = (orders ?? []).filter((o) => o.buyer_id === user.id);
   const sold = (orders ?? []).filter((o) => o.seller_id === user.id);
+  // E-mail druhé strany vrací databáze jen účastníkům objednávky.
+  const contacts = new Map(await Promise.all(
+    (orders ?? []).filter((o) => AGREED.has(o.status) && o.status !== 'delivered').map(async (o) => {
+      const { data } = await supabase.rpc('order_counterpart', { target: o.id });
+      return [o.id, (data as Array<{ email: string | null }> | null)?.[0]?.email ?? null] as const;
+    }),
+  ));
 
   return (
     <div className={`container ${styles.page}`}>
       <h1 className="t-heading-l">Objednávky</h1>
-      {nova ? <p className={styles.ok} role="status">Objednávka je odeslaná. Prodejce teď kartu zabalí a odešle.</p> : null}
+      {nova ? (
+        <p className={styles.ok} role="status">
+          Objednávka je odeslaná. Prodejce ji do 48 hodin potvrdí a přijde vám e-mail. Pak se s ním domluvíte na platbě a předání.
+        </p>
+      ) : null}
 
       <section className={styles.section}>
         <h2 className="t-heading-m">Nákupy</h2>
         {bought.length ? bought.map((o) => (
-          <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`}>
-            {o.status === 'shipped' ? (
-              <form action={setOrderStatus}>
-                <input type="hidden" name="id" value={o.id} />
-                <input type="hidden" name="status" value="delivered" />
-                <Button type="submit">Potvrdit převzetí</Button>
-              </form>
-            ) : null}
+          <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} role="buyer">
+            {o.status === 'requested' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit objednávku</StatusButton> : null}
+            {o.status === 'confirmed' || o.status === 'shipped' ? <StatusButton id={o.id} status="delivered">Potvrdit převzetí</StatusButton> : null}
             {o.status === 'delivered' && o.seller_id && !reviewed.has(o.id) ? (
               <form action={addReview} className={styles.review}>
                 <input type="hidden" name="orderId" value={o.id} />
@@ -96,14 +110,15 @@ export default async function OrdersPage({ searchParams }: Props) {
       <section className={styles.section}>
         <h2 className="t-heading-m">Prodeje</h2>
         {sold.length ? sold.map((o) => (
-          <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`}>
-            {o.status === 'paid' ? (
-              <form action={setOrderStatus}>
-                <input type="hidden" name="id" value={o.id} />
-                <input type="hidden" name="status" value="shipped" />
-                <Button type="submit">Označit jako odeslané</Button>
-              </form>
+          <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} role="seller">
+            {o.status === 'requested' ? (
+              <>
+                <StatusButton id={o.id} status="confirmed">Potvrdit objednávku</StatusButton>
+                <StatusButton id={o.id} status="declined" variant="ghost">Odmítnout</StatusButton>
+              </>
             ) : null}
+            {o.status === 'confirmed' || o.status === 'paid' ? <StatusButton id={o.id} status="shipped">Označit jako odeslané</StatusButton> : null}
+            {o.status === 'confirmed' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit (kupující nezaplatil)</StatusButton> : null}
           </OrderCard>
         )) : <p className="muted">Zatím nemáte žádné prodeje. <Link href="/prodat">Vystavit kartu</Link></p>}
       </section>
@@ -111,7 +126,23 @@ export default async function OrdersPage({ searchParams }: Props) {
   );
 }
 
-function OrderCard({ order, counterpart, children }: { order: OrderRow; counterpart: string; children?: React.ReactNode }) {
+function StatusButton({ id, status, variant, children }: { id: string; status: string; variant?: 'ghost'; children: React.ReactNode }) {
+  return (
+    <form action={setOrderStatus}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="status" value={status} />
+      <Button type="submit" variant={variant}>{children}</Button>
+    </form>
+  );
+}
+
+function OrderCard({ order, counterpart, contact, role, children }: {
+  order: OrderRow;
+  counterpart: string;
+  contact?: string | null;
+  role: 'buyer' | 'seller';
+  children?: React.ReactNode;
+}) {
   return (
     <article className={styles.order}>
       <div className={styles.head}>
@@ -137,6 +168,23 @@ function OrderCard({ order, counterpart, children }: { order: OrderRow; counterp
         ))}
         <li className="muted">Doprava <Price amount={order.shipping_czk} /></li>
       </ul>
+      {order.status === 'requested' && order.expires_at ? (
+        <p className="t-small muted">
+          {role === 'seller' ? 'Potvrďte nebo odmítněte do' : 'Prodejce potvrdí nejpozději'} {formatDateTime(order.expires_at)}.
+          {role === 'seller' ? ' Potom objednávka vyprší a karty se vrátí do nabídky.' : ' Karty jsou zatím rezervované pro vás.'}
+        </p>
+      ) : null}
+      {contact ? (
+        <p className="t-small">
+          {role === 'buyer' ? 'Kontakt na prodejce: ' : 'Kontakt na kupujícího: '}
+          <a href={`mailto:${contact}`}>{contact}</a>
+          <span className="muted">
+            {role === 'buyer'
+              ? ' · Platbu a předání si domluvte přímo s prodejcem. V4cards peníze nepřijímá.'
+              : ' · Napište kupujícímu, jak zaplatit a jak kartu předáte.'}
+          </span>
+        </p>
+      ) : null}
       {children ? <div className={styles.actions}>{children}</div> : null}
     </article>
   );
