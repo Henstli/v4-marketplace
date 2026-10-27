@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ShopLogo, shopStyle } from '@/components/trezor';
 import { formatDateTime } from '@/lib/format';
+import { lastConversationChange } from '@/lib/unread-client';
 import type { ConversationItem } from '@/lib/messages';
 import styles from './messages.module.css';
 
@@ -12,18 +13,30 @@ import styles from './messages.module.css';
 export function ChatShell({ list, children }: { list: ReactNode; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  // Nové zprávy: obnovení každých 5 s, když je karta prohlížeče vidět, a hned po návratu na ni.
+  // Nové zprávy: každých 5 s (a hned po návratu na kartu) se přímo Supabase zeptá na čas poslední změny
+  // v konverzacích; stránka se obnoví přes Vercel, jen když se opravdu něco změnilo.
   useEffect(() => {
-    const refresh = () => { if (!document.hidden) router.refresh(); };
+    let last: string | null | undefined;
+    let alive = true;
+    const check = () => {
+      if (document.hidden) return;
+      lastConversationChange().then((at) => {
+        if (!alive) return;
+        if (last !== undefined && at !== last) router.refresh();
+        last = at;
+      }).catch(() => {});
+    };
     // Hned po otevření Zpráv: seznam mohl přijít z mezipaměti prohlížeče.
-    refresh();
-    const t = setInterval(refresh, 5_000);
-    document.addEventListener('visibilitychange', refresh);
-    window.addEventListener('focus', refresh);
+    router.refresh();
+    check();
+    const t = setInterval(check, 5_000);
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
     return () => {
+      alive = false;
       clearInterval(t);
-      document.removeEventListener('visibilitychange', refresh);
-      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
     };
   }, [router]);
   return (

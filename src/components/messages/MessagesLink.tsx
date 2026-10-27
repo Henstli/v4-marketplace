@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { unreadSummary, type UnreadSummary } from '@/app/zpravy/actions';
+import type { UnreadSummary } from '@/app/zpravy/actions';
+import { loadUnread } from '@/lib/unread-client';
 import { HeaderIcon } from '@/components/site/HeaderIcon';
 
 const POLL_MS = 8_000;
@@ -12,7 +13,7 @@ const HIDDEN_POLL_MS = 60_000;
 const TOAST_MS = 8_000;
 
 /**
- * Zprávy v hlavičce s počtem nepřečtených konverzací. Obnovuje se každých 8 s (a hned po návratu na kartu) a při přechodu;
+ * Zprávy v hlavičce s počtem nepřečtených konverzací. Ptá se přímo Supabase (ne Vercelu) každých 8 s (a hned po návratu na kartu) a při přechodu;
  * když přibude nepřečtená zpráva, vyskočí vpravo dole upozornění (DS Messages) a počet je i v názvu záložky.
  */
 export function MessagesLink({ initial }: { initial: number }) {
@@ -30,7 +31,7 @@ export function MessagesLink({ initial }: { initial: number }) {
     let lastLoad = 0;
     const load = () => {
       lastLoad = Date.now();
-      unreadSummary().then((s) => {
+      loadUnread().then((s) => {
         if (!alive) return;
         setCount(s.count);
         const key = s.latest ? `${s.latest.from}:${s.latest.at}` : null;

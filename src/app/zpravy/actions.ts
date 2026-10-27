@@ -47,25 +47,3 @@ export interface UnreadSummary {
   latest: { from: string; name: string; body: string; at: string } | null;
 }
 
-/** Počet nepřečtených a poslední nepřečtená zpráva (hlavička a upozornění vpravo dole). */
-export async function unreadSummary(): Promise<UnreadSummary> {
-  const supabase = await createClient();
-  const [{ data: count }, { data: auth }] = await Promise.all([supabase.rpc('unread_conversations'), supabase.auth.getUser()]);
-  const me = auth.user?.id;
-  const n = Number(count ?? 0);
-  if (!me || !n) return { count: n, latest: null };
-  const { data: conv } = await supabase
-    .from('conversations')
-    .select('user_a, user_b, last_sender, last_body, last_message_at')
-    .neq('last_sender', me)
-    .not('last_sender', 'is', null)
-    .order('last_message_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!conv?.last_sender) return { count: n, latest: null };
-  const { data: p } = await supabase.from('profiles').select('display_name').eq('id', conv.last_sender).maybeSingle();
-  return {
-    count: n,
-    latest: { from: conv.last_sender, name: p?.display_name ?? 'Uživatel', body: conv.last_body, at: conv.last_message_at },
-  };
-}
