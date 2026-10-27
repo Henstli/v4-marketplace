@@ -52,9 +52,9 @@ create or replace function public.seller_shipping(p_seller uuid, p_subtotal int,
   from public.profiles p where p.id = p_seller;
 $$;
 
-drop function public.place_order(jsonb);
-
-create function public.place_order(items jsonb, pickup uuid[] default '{}') returns setof uuid
+-- Nová podoba s osobním předáním. Bez výchozí hodnoty, aby se nepletla s původní place_order(jsonb),
+-- kterou nemažeme (konektor Supabase u DROP čeká na potvrzení), jen ji přesměrujeme sem.
+create function public.place_order(items jsonb, pickup uuid[]) returns setof uuid
   language plpgsql security definer set search_path = '' as $$
 declare
   buyer uuid := auth.uid();
@@ -102,3 +102,8 @@ end;
 $$;
 revoke execute on function public.place_order(jsonb, uuid[]) from public, anon;
 grant execute on function public.place_order(jsonb, uuid[]) to authenticated;
+
+create or replace function public.place_order(items jsonb) returns setof uuid
+  language sql security definer set search_path = '' as $$
+  select * from public.place_order(items, '{}'::uuid[]);
+$$;
