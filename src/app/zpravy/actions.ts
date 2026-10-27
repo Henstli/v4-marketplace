@@ -29,3 +29,10 @@ export async function sendMessage(to: string, body: string): Promise<{ ok?: true
   revalidatePath('/zpravy', 'layout');
   return { ok: true };
 }
+
+/** Počet konverzací s nepřečtenou zprávou (ikona Zprávy v hlavičce). */
+export async function unreadCount(): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('unread_conversations');
+  return Number(data ?? 0);
+}
