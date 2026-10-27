@@ -209,7 +209,7 @@ export function PaymentInfo({ payment, role, order }: { payment?: Payment | null
           {payment.qr ? <div className={styles.qr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
           <dl className={styles.payLines}>
             <div><dt className="t-label muted">ÚČET</dt><dd className="code">{czAccountNumber(payment.iban) ?? formatIban(payment.iban)}</dd></div>
-            {payment.iban.startsWith('CZ') ? <div><dt className="t-label muted">IBAN</dt><dd className="code">{formatIban(payment.iban)}</dd></div> : null}
+            {payment.iban.startsWith('CZ') ? <div className={styles.wide}><dt className="t-label muted">IBAN</dt><dd className="code">{formatIban(payment.iban)}</dd></div> : null}
             <div><dt className="t-label muted">MAJITEL</dt><dd>{payment.account_name}</dd></div>
             <div><dt className="t-label muted">ČÁSTKA</dt><dd><Price amount={payment.amount} /></dd></div>
             <div><dt className="t-label muted">VARIABILNÍ SYMBOL</dt><dd className="code">{payment.vs}</dd></div>
