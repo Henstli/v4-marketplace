@@ -44,6 +44,8 @@
 .itemName:hover { color: var(--accent); }
 
 .itemPrice { text-align: right; white-space: nowrap; }
+/* Nabídka mezitím zmizela (DS CartPlans › Nedostupná položka). */
+.itemGone .itemCard, .itemGone .itemPrice { opacity: .5; }
 .qty { display: block; }
 
 .qty select {

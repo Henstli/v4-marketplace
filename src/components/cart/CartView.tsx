@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
-import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
-import { getSavedAddress, getSellerOffers, placeOrder, type SellerChoice } from '@/app/kosik/actions';
+import { Button, ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
+import { getCartAlternatives, getSavedAddress, getSellerOffers, placeOrder, type CartAlternatives, type SellerChoice } from '@/app/kosik/actions';
 import { addressProblem, CARRIERS, carrierKind, EMPTY_ADDRESS, methodName, paymentsFor, shippingPrice, type DeliveryAddress, type DeliveryPoint, type PaymentMethod, type PointProvider, type SellerOffer } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/images';
 import { AddressBlock } from './AddressBlock';
@@ -15,6 +15,8 @@ import styles from './cart.module.css';
 
 const PROVIDER = Object.fromEntries(CARRIERS.filter((c) => c.point).map((c) => [c.key, c.point])) as Record<string, PointProvider>;
 const LAST_POINTS = 'v4-vydejni-mista';
+// Nad tímto počtem položek varianty ani dostupnost nenačítáme, výpočet variant by v prohlížeči trval dlouho.
+const MAX_ITEMS = 40;
 const PAY_LABEL: Record<PaymentMethod, string> = { transfer: 'Převodem předem', cod: 'Dobírka', cash: 'Hotově při předání' };
 const PAY_HINT: Record<PaymentMethod, string> = { transfer: 'QR kód dostanete po potvrzení.', cod: 'Platíte při převzetí zásilky.', cash: 'Platíte prodejci na místě.' };
 
@@ -59,6 +61,17 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   // Naposledy vybraná místa podle mapy (jen v tomto prohlížeči, nejsou to osobní údaje).
   const [lastPoints, setLastPoints] = useState<Partial<Record<PointProvider, DeliveryPoint>>>({});
   const sellerKey = [...new Set(items.map((i) => i.sellerId))].sort().join(',');
+  // Varianty košíku a zároveň dostupnost nabídek (DS CartPlans › Nedostupná položka), jeden dotaz.
+  const [alt, setAlt] = useState<CartAlternatives>();
+  const itemKey = items.map((i) => `${i.listingId}:${i.quantity}`).sort().join(',');
+
+  useEffect(() => {
+    if (!itemKey || items.length > MAX_ITEMS) return;
+    let live = true;
+    getCartAlternatives(items.map((i) => i.listingId)).then((a) => { if (live) setAlt(a); }).catch(() => {});
+    return () => { live = false; };
+    // Načítá se znovu jen při změně složení košíku, ne při každém novém poli items.
+  }, [itemKey]);
 
   useEffect(() => {
     if (!sellerKey) return;
@@ -116,12 +129,15 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   });
   const shipping = groups.reduce((s, g) => s + g.ship, 0);
   const fees = groups.reduce((s, g) => s + g.fee, 0);
-  const ready = groups.every((g) => g.complete);
+  const gone = new Set(alt?.gone ?? []);
+  const hasGone = items.some((i) => gone.has(i.listingId));
+  const ready = groups.every((g) => g.complete) && !hasGone;
   const single = groups.length === 1;
 
   const submit = () =>
     startTransition(async () => {
       setError(undefined);
+      if (hasGone) return setError('Odeberte nabídky, které už nejsou k dispozici.');
       const choices: Record<string, SellerChoice> = {};
       for (const g of groups) {
         if (!g.complete) return setError('Vyberte dopravu a platbu u každého prodejce.');
@@ -146,7 +162,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
         <p className="muted">
           {bySeller.size === 1 ? 'Jedna zásilka od jednoho prodejce.' : `${bySeller.size} zásilky od různých prodejců, každý posílá zvlášť.`}
         </p>
-        <CartPlans items={items} onApply={replace} />
+        {hasGone ? null : <CartPlans items={items} alt={alt} onApply={replace} />}
         {groups.map(({ group, sellerId, sum, offer, choice, ship, fee, kind, provider, point, missing }) => {
           const ds = deliveries(offer);
           const ps = offer && choice.delivery ? paymentsFor(offer, choice.delivery) : [];
@@ -163,8 +179,10 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                 <h2 className="t-heading-m">{group[0].sellerName}</h2>
                 <span className="t-small muted">{count} {count === 1 ? 'karta' : count < 5 ? 'karty' : 'karet'} · <Price amount={sum} /></span>
               </div>
-              {group.map((item) => (
-                <div key={item.listingId} className={styles.item}>
+              {group.map((item) => {
+                const off = gone.has(item.listingId);
+                return (
+                <div key={item.listingId} className={`${styles.item} ${off ? styles.itemGone : ''}`}>
                   <div className={styles.itemCard}>
                     <CardThumb image={thumbUrl(item.image)} preview={item.image} color={item.game ? `var(--game-${item.game}-art)` : undefined} />
                     <div className={styles.itemInfo}>
@@ -174,18 +192,23 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                       </div>
                     </div>
                   </div>
-                  <label className={styles.qty}>
-                    <span className="sr-only">Počet kusů</span>
-                    <select value={item.quantity} onChange={(e) => setQuantity(item.listingId, Number(e.target.value))}>
-                      {Array.from({ length: item.maxQuantity }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>{n} ks</option>
-                      ))}
-                    </select>
-                  </label>
-                  <span className={styles.itemPrice}><Price amount={item.price * item.quantity} /></span>
+                  {off ? (
+                    <Status tone="muted">Už není k dispozici</Status>
+                  ) : (
+                    <label className={styles.qty}>
+                      <span className="sr-only">Počet kusů</span>
+                      <select value={item.quantity} onChange={(e) => setQuantity(item.listingId, Number(e.target.value))}>
+                        {Array.from({ length: item.maxQuantity }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={n}>{n} ks</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <span className={styles.itemPrice}>{off ? <s><Price amount={item.price * item.quantity} /></s> : <Price amount={item.price * item.quantity} />}</span>
                   <Button variant="ghost" onClick={() => remove(item.listingId)} aria-label={`Odebrat ${item.cardName}`}>Odebrat</Button>
                 </div>
-              ))}
+                );
+              })}
               {offer ? (
                 <button type="button" className={styles.chooseHead} aria-expanded={expanded} onClick={() => setOpen((o) => ({ ...o, [sellerId]: !expanded }))}>
                   <span className={styles.chooseLabel}>DOPRAVA A PLATBA</span>
@@ -295,7 +318,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
         ) : (
           <Button size="lg" disabled title="Objednávky zapneme po připojení databáze">Objednat</Button>
         )}
-        {checkout === 'ready' && !ready ? <p className="t-small muted">Vyberte dopravu a platbu u {bySeller.size === 1 ? 'prodejce' : 'každého prodejce'}.</p> : null}
+        {hasGone ? <p className="t-small muted">Odeberte nabídky, které už nejsou k dispozici.</p> : checkout === 'ready' && !ready ? <p className="t-small muted">Vyberte dopravu a platbu u {bySeller.size === 1 ? 'prodejce' : 'každého prodejce'}.</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <p className="t-small muted">
           {bySeller.size === 1 ? 'Prodejce objednávku' : 'Každý prodejce svou objednávku'} do 48 hodin potvrdí. Do té doby

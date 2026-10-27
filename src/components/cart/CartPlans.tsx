@@ -1,29 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Button, Price } from '@/components/trezor';
-import { getCartAlternatives, type CartAlternatives } from '@/app/kosik/actions';
+import type { CartAlternatives } from '@/app/kosik/actions';
 import { cheapestPlan, fewestSellersPlan, planCost, type Need, type Plan } from '@/lib/cart-optimize';
 import { plural } from '@/lib/format';
 import type { CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
-// Nad tímto počtem položek varianty nepočítáme, výpočet by v prohlížeči trval dlouho.
-const MAX_ITEMS = 40;
-
 /** Varianty košíku: stejné karty od jiných prodejců, nejlevněji nebo od co nejméně prodejců. */
-export function CartPlans({ items, onApply }: { items: CartItem[]; onApply: (items: CartItem[]) => void }) {
-  const [alt, setAlt] = useState<CartAlternatives>();
-  const key = items.map((i) => `${i.listingId}:${i.quantity}`).sort().join(',');
-
-  useEffect(() => {
-    if (!key || items.length > MAX_ITEMS) return;
-    let live = true;
-    getCartAlternatives(items.map((i) => i.listingId)).then((a) => { if (live) setAlt(a); }).catch(() => {});
-    return () => { live = false; };
-    // Načítá se znovu jen při změně složení košíku (key), ne při každém novém poli items.
-  }, [key]);
-
+export function CartPlans({ items, alt, onApply }: { items: CartItem[]; alt?: CartAlternatives; onApply: (items: CartItem[]) => void }) {
   const plans = useMemo(() => {
     if (!alt) return [];
     const needs: Need[] = items.map((i) => ({ listingId: i.listingId, quantity: i.quantity, candidates: alt.candidates[i.listingId] ?? [] }));
