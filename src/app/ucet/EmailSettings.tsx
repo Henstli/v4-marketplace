@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { keepForm } from '@/lib/form';
 import { Button } from '@/components/trezor';
 import { IdentityCheck } from '@/components/auth/IdentityCheck';
 import styles from '@/components/auth/auth.module.css';
@@ -29,7 +30,7 @@ export function EmailSettings({ email, method }: { email: string; method: Identi
     );
   }
   return (
-    <form action={action} className={styles.form}>
+    <form onSubmit={keepForm(action)} className={styles.form}>
       <label className={styles.field}>
         <span className="t-label muted">NOVÝ E-MAIL</span>
         <input type="email" name="newEmail" required autoComplete="email" className={styles.input} />
