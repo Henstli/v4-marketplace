@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
-import { Button, CardThumb, Price, Status } from '@/components/trezor';
+import { Button, CardThumb, ChipLink, Price, Status } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
@@ -36,13 +36,16 @@ interface OrderRow {
 interface PaymentRow { iban: string; account_name: string; amount: number; vs: number }
 type Payment = PaymentRow & { qr: string | null };
 
-type Props = { searchParams: Promise<{ nova?: string }> };
+type Props = { searchParams: Promise<{ nova?: string; tab?: string }> };
+
+// Skončené bez obchodu: sbalené dole, ať nepřekáží aktivním.
+const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
 export default async function OrdersPage({ searchParams }: Props) {
   if (!isSupabaseConfigured()) redirect('/');
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/objednavky');
-  const { nova } = await searchParams;
+  const { nova, tab: tabParam } = await searchParams;
 
   const supabase = await createClient();
   const [{ data: orders }, { data: profiles }, { data: reviews }] = await Promise.all([
@@ -78,6 +81,48 @@ export default async function OrdersPage({ searchParams }: Props) {
     }),
   ));
 
+  const boughtActive = bought.filter((o) => !ENDED.has(o.status));
+  const soldActive = sold.filter((o) => !ENDED.has(o.status));
+  // Výchozí záložka: prodeje, když na prodejce čeká potvrzení a nákupy nic nepotřebují.
+  const tab = tabParam === 'prodeje' || tabParam === 'nakupy'
+    ? tabParam
+    : sold.some((o) => o.status === 'requested') && !bought.some((o) => o.status === 'requested') ? 'prodeje' : 'nakupy';
+
+  const buyerCard = (o: OrderRow) => (
+    <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="buyer">
+      {o.status === 'requested' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit objednávku</StatusButton> : null}
+      {o.status === 'confirmed' || o.status === 'shipped' ? <StatusButton id={o.id} status="delivered">Potvrdit převzetí</StatusButton> : null}
+      {o.status === 'delivered' && o.seller_id && !reviewed.has(o.id) ? (
+        <form action={addReview} className={styles.review}>
+          <input type="hidden" name="orderId" value={o.id} />
+          <input type="hidden" name="sellerId" value={o.seller_id} />
+          <label className={styles.field}>
+            <span className="t-label muted">HODNOCENÍ</span>
+            <select name="rating" defaultValue="5" className={styles.input}>
+              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>)}
+            </select>
+          </label>
+          <label className={`${styles.field} ${styles.grow}`}>
+            <span className="t-label muted">KOMENTÁŘ (NEPOVINNÝ)</span>
+            <input name="comment" maxLength={500} className={styles.input} placeholder="Jak proběhl nákup?" />
+          </label>
+          <Button type="submit" variant="secondary">Ohodnotit prodejce</Button>
+        </form>
+      ) : null}
+      {reviewed.has(o.id) ? <p className="t-small muted">Prodejce jste ohodnotili, děkujeme.</p> : null}
+    </OrderCard>);
+  const sellerCard = (o: OrderRow) => (
+    <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="seller">
+      {o.status === 'requested' ? (
+        <>
+          <StatusButton id={o.id} status="confirmed">Potvrdit objednávku</StatusButton>
+          <StatusButton id={o.id} status="declined" variant="ghost">Odmítnout</StatusButton>
+        </>
+      ) : null}
+      {o.status === 'confirmed' || o.status === 'paid' ? <StatusButton id={o.id} status="shipped">Označit jako odeslané</StatusButton> : null}
+      {o.status === 'confirmed' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit (kupující nezaplatil)</StatusButton> : null}
+    </OrderCard>);
+
   return (
     <div className={`container ${styles.page}`}>
       <h1 className="t-heading-l">Objednávky</h1>
@@ -87,50 +132,39 @@ export default async function OrdersPage({ searchParams }: Props) {
         </p>
       ) : null}
 
-      <section className={styles.section}>
-        <h2 className="t-heading-m">Nákupy</h2>
-        {bought.length ? bought.map((o) => (
-          <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="buyer">
-            {o.status === 'requested' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit objednávku</StatusButton> : null}
-            {o.status === 'confirmed' || o.status === 'shipped' ? <StatusButton id={o.id} status="delivered">Potvrdit převzetí</StatusButton> : null}
-            {o.status === 'delivered' && o.seller_id && !reviewed.has(o.id) ? (
-              <form action={addReview} className={styles.review}>
-                <input type="hidden" name="orderId" value={o.id} />
-                <input type="hidden" name="sellerId" value={o.seller_id} />
-                <label className={styles.field}>
-                  <span className="t-label muted">HODNOCENÍ</span>
-                  <select name="rating" defaultValue="5" className={styles.input}>
-                    {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>)}
-                  </select>
-                </label>
-                <label className={`${styles.field} ${styles.grow}`}>
-                  <span className="t-label muted">KOMENTÁŘ (NEPOVINNÝ)</span>
-                  <input name="comment" maxLength={500} className={styles.input} placeholder="Jak proběhl nákup?" />
-                </label>
-                <Button type="submit" variant="secondary">Ohodnotit prodejce</Button>
-              </form>
-            ) : null}
-            {reviewed.has(o.id) ? <p className="t-small muted">Prodejce jste ohodnotili, děkujeme.</p> : null}
-          </OrderCard>
-        )) : <p className="muted">Zatím jste nic nekoupili. <Link href="/karty">Procházet karty</Link></p>}
-      </section>
+      {/* Nákupy a prodeje jako přepínač, ne pod sebou (Šimon 27. 10.). */}
+      <nav className={styles.tabs} aria-label="Nákupy nebo prodeje">
+        <ChipLink href="/objednavky?tab=nakupy" selected={tab === 'nakupy'}>Nákupy{boughtActive.length ? ` (${boughtActive.length})` : ''}</ChipLink>
+        <ChipLink href="/objednavky?tab=prodeje" selected={tab === 'prodeje'}>Prodeje{soldActive.length ? ` (${soldActive.length})` : ''}</ChipLink>
+      </nav>
 
-      <section className={styles.section}>
-        <h2 className="t-heading-m">Prodeje</h2>
-        {sold.length ? sold.map((o) => (
-          <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="seller">
-            {o.status === 'requested' ? (
-              <>
-                <StatusButton id={o.id} status="confirmed">Potvrdit objednávku</StatusButton>
-                <StatusButton id={o.id} status="declined" variant="ghost">Odmítnout</StatusButton>
-              </>
-            ) : null}
-            {o.status === 'confirmed' || o.status === 'paid' ? <StatusButton id={o.id} status="shipped">Označit jako odeslané</StatusButton> : null}
-            {o.status === 'confirmed' ? <StatusButton id={o.id} status="cancelled" variant="ghost">Zrušit (kupující nezaplatil)</StatusButton> : null}
-          </OrderCard>
-        )) : <p className="muted">Zatím nemáte žádné prodeje. <Link href="/prodat">Vystavit kartu</Link></p>}
-      </section>
+      {tab === 'nakupy' ? (
+        <section className={styles.section} aria-label="Nákupy">
+          {boughtActive.length ? boughtActive.map(buyerCard) : (
+            <p className="muted">{bought.length ? 'Žádný rozpracovaný nákup.' : 'Zatím jste nic nekoupili.'} <Link href="/karty">Procházet karty</Link></p>
+          )}
+          <Ended list={bought.filter((o) => ENDED.has(o.status))} render={buyerCard} />
+        </section>
+      ) : (
+        <section className={styles.section} aria-label="Prodeje">
+          {soldActive.length ? soldActive.map(sellerCard) : (
+            <p className="muted">{sold.length ? 'Žádný rozpracovaný prodej.' : 'Zatím nemáte žádné prodeje.'} <Link href="/prodat">Vystavit kartu</Link></p>
+          )}
+          <Ended list={sold.filter((o) => ENDED.has(o.status))} render={sellerCard} />
+        </section>
+      )}
     </div>
+  );
+}
+
+/** Zrušené, odmítnuté a vypršelé objednávky sbalené pod aktivními. */
+function Ended({ list, render }: { list: OrderRow[]; render: (o: OrderRow) => React.ReactNode }) {
+  if (!list.length) return null;
+  return (
+    <details className={styles.ended}>
+      <summary>Zrušené a vypršelé ({list.length})</summary>
+      <div className={styles.endedList}>{list.map(render)}</div>
+    </details>
   );
 }
 
