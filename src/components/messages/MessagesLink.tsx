@@ -52,11 +52,14 @@ export function MessagesLink({ initial }: { initial: number }) {
     const t = setInterval(() => { if (!document.hidden || Date.now() - lastLoad > HIDDEN_POLL_MS) load(); }, POLL_MS);
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('focus', wake);
+    // Otevřená konverzace se právě přečetla (Thread): počet hned znovu.
+    window.addEventListener('v4-messages-read', load);
     return () => {
       alive = false;
       clearInterval(t);
       document.removeEventListener('visibilitychange', wake);
       window.removeEventListener('focus', wake);
+      window.removeEventListener('v4-messages-read', load);
     };
   }, [pathname]);
 
