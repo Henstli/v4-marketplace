@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
 import { getSellerShipping, placeOrder, type SellerShipping } from '@/app/kosik/actions';
 import { thumbUrl } from '@/lib/images';
+import { CartPlans } from './CartPlans';
 import { useCart, type CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
@@ -20,7 +21,7 @@ function shippingFor(terms: SellerShipping | undefined, subtotal: number, pickup
 }
 
 export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) {
-  const { items, setQuantity, remove, clear } = useCart();
+  const { items, setQuantity, remove, clear, replace } = useCart();
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -85,6 +86,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
         <p className="muted">
           {bySeller.size === 1 ? 'Jedna zásilka od jednoho prodejce.' : `${bySeller.size} zásilky od různých prodejců, každý posílá zvlášť.`}
         </p>
+        <CartPlans items={items} onApply={replace} />
         {groups.map(({ group, sellerId, sum, terms: t, picked, shipping: ship }) => {
           return (
             <div key={sellerId} className={styles.group}>
