@@ -34,15 +34,19 @@
 .trow { display: grid; grid-template-columns: 24px minmax(180px, 1fr) 120px 96px 120px; gap: 16px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; min-width: 560px; }
 .trow[data-off] .carrier, .trow[data-off] .codCell { opacity: .55; }
 .thead { border-top: 0; padding-top: 0; font-size: 11px; letter-spacing: .06em; font-weight: 700; color: var(--ink-muted); }
-/* Nadpisy CENA a PŘÍPLATEK končí nad pravým okrajem pole, ne nad „Kč“ (DS DeliveryPayment). */
-.right { text-align: right; padding-right: 26px; }
+/* Řádky jako varianta A (Kč v poli, číslo vpravo), nadpisy CENA a PŘÍPLATEK vlevo nad polem jako B,
+   DOBÍRKA na střed se zaškrtávátkem pod ní (Šimon 27. 10.). */
+.left { padding-left: 11px; }
 .center { text-align: center; }
 .carrier { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.money { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-muted); }
-.money .input { height: 34px; text-align: right; padding: 0 8px; -moz-appearance: textfield; appearance: textfield; }
+.carrier .over { color: var(--down); }
+.money { position: relative; display: flex; align-items: center; }
+.money .input { height: 36px; text-align: right; padding: 0 32px 0 10px; -moz-appearance: textfield; appearance: textfield; }
 .money .input::-webkit-outer-spin-button, .money .input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.money > span { width: 20px; flex: none; }
-.codCell { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.money > span { position: absolute; right: 10px; font-size: 13px; color: var(--ink-muted); pointer-events: none; }
+.money:has(.input:disabled) > span { opacity: .4; }
+.money[data-over] .input { border-color: var(--down); }
+.codCell { display: flex; align-items: center; justify-content: center; }
 
 .foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
 .freeFrom { flex: 0 0 200px; }

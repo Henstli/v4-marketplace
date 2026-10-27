@@ -26,7 +26,7 @@ export default async function AccountPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/ucet/nastaveni');
   const supabase = await createClient();
-  const [{ data: profile }, { data: payment }, { data: methods }, { data: factors }, method, { heslo, email, zpet }] = await Promise.all([
+  const [{ data: profile }, { data: payment }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }] = await Promise.all([
     supabase.from('profiles')
       .select('display_name, kind, country, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km')
       .eq('id', user.id).single(),
@@ -35,6 +35,7 @@ export default async function AccountPage({ searchParams }: Props) {
     supabase.auth.mfa.listFactors(),
     identityMethod(supabase),
     searchParams,
+    supabase.from('carrier_rates').select('carrier, price_czk, cod_fee_czk, heavy_czk'),
   ]);
   const mfaEnabled = (factors?.totp.length ?? 0) > 0;
 
@@ -64,6 +65,7 @@ export default async function AccountPage({ searchParams }: Props) {
               pickupLng: profile.pickup_lng,
               pickupRadius: profile.pickup_radius_km ?? 2,
               freeFrom: profile.free_shipping_from,
+              rates: Object.fromEntries((rates ?? []).map((r) => [r.carrier, { price: r.price_czk, codFee: r.cod_fee_czk, heavy: r.heavy_czk }])),
               methods: (methods ?? []).map((m) => ({ carrier: m.carrier as Carrier, label: m.label, price: m.price_czk, cod: m.cod, codFee: m.cod_fee_czk })),
             }}
           />

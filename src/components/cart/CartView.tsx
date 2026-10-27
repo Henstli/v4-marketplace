@@ -15,10 +15,17 @@ const POINT = new Set(CARRIERS.filter((c) => c.point).map((c) => c.key as string
 const PAY_LABEL: Record<PaymentMethod, string> = { transfer: 'Převodem předem', cod: 'Dobírka', cash: 'Hotově při předání' };
 const PAY_HINT: Record<PaymentMethod, string> = { transfer: 'QR kód dostanete po potvrzení.', cod: 'Platíte při převzetí zásilky.', cash: 'Platíte prodejci na místě.' };
 
+/** Kolik z ceny dopravy je balné nad ceník dopravce (DS DeliveryPayment › Strop ceny dopravy). */
+function packingNote(price: number, list?: number | null): string | undefined {
+  if (list == null) return undefined;
+  if (price > list) return `ceník ${list} Kč + ${price - list} Kč balné`;
+  return price === list ? 'podle ceníku dopravce' : undefined;
+}
+
 /** Volby dopravy, které prodejce nabízí (osobní předání na konci). */
 function deliveries(offer: SellerOffer | undefined) {
   if (!offer) return [];
-  const out = offer.methods.map((m) => ({ key: m.carrier as string, name: methodName(m) }));
+  const out: Array<{ key: string; name: string; note?: string }> = offer.methods.map((m) => ({ key: m.carrier as string, name: methodName(m), note: packingNote(m.price, m.listPrice) }));
   if (offer.pickup) out.push({ key: 'pickup', name: 'Osobní předání' });
   return out;
 }
@@ -147,7 +154,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                           <input type="radio" name={`d_${sellerId}`} checked={choice.delivery === d.key} onChange={() => choose(sellerId, { delivery: d.key })} />
                           <span className={styles.optText}>
                             <strong>{d.name}</strong>
-                            {d.key === 'pickup' ? <small>{offer.pickupPlace}{offer.pickupRadius ? ` · do ${offer.pickupRadius} km` : ''}</small> : null}
+                            {d.key === 'pickup' ? <small>{offer.pickupPlace}{offer.pickupRadius ? ` · do ${offer.pickupRadius} km` : ''}</small> : d.note ? <small>{d.note}</small> : null}
                           </span>
                           <span className={styles.optPrice}>{price ? `${price} Kč` : 'zdarma'}</span>
                         </label>

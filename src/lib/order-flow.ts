@@ -10,6 +10,8 @@ export interface FlowOrder {
   payment: PaymentMethod | null;
   /** Kupující klikl na Zaplaceno. */
   buyerPaidAt: string | null;
+  /** Prodejce navrhl vyšší dopravu, čeká se na kupujícího. */
+  shipChange?: number | null;
 }
 
 type Role = 'buyer' | 'seller';
@@ -47,6 +49,7 @@ export function orderLabel(o: FlowOrder, role: Role, short = false): { text: str
   const seller = role === 'seller';
   const pickup = o.delivery === 'pickup';
   if (o.status === 'confirmed') {
+    if (o.shipChange != null) return seller ? { text: 'Změna dopravy · čeká na kupujícího', tone: 'info' } : { text: 'Změna dopravy · potvrďte', tone: 'warn' };
     if (p === 'transfer') {
       if (!o.buyerPaidAt) return { text: seller ? 'Potvrzeno · čeká na platbu' : 'Potvrzeno · zaplaťte', tone: 'info' };
       return seller ? { text: 'Zaplaceno · zkontrolujte', tone: 'warn' } : { text: 'Zaplaceno · čeká na prodejce', tone: 'info' };
@@ -71,6 +74,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
     case 'requested':
       return seller ? 'Potvrďte, že karty máte a prodáte je, nebo objednávku odmítněte.' : 'Prodejce objednávku potvrdí nebo odmítne. Karty jsou zatím rezervované pro vás.';
     case 'confirmed':
+      if (o.shipChange != null) return seller ? 'Kupující musí potvrdit novou cenu dopravy. Do té doby nevidí QR kód.' : 'Prodejce upravil cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
       if (p === 'transfer') {
         if (!o.buyerPaidAt) return seller ? 'Kupující zaplatí převodem. Jakmile peníze uvidíte na účtu, klikněte na Platba přišla.' : 'Zaplaťte převodem nebo QR kódem a klikněte na Zaplaceno.';
         return seller ? 'Kupující píše, že zaplatil. Zkontrolujte účet: Platba přišla, nebo Nepřišla.' : 'Prodejce zkontroluje, že platba dorazila.';
@@ -91,13 +95,19 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
 
 export type FlowAction =
   | { op: 'status'; status: string; label: string; variant: 'primary' | 'secondary' | 'ghost'; tracking?: boolean }
-  | { op: 'mark_paid' | 'not_received'; label: string; variant: 'primary' | 'secondary' | 'ghost' };
+  | { op: 'mark_paid' | 'not_received' | 'ship_accept' | 'ship_reject'; label: string; variant: 'primary' | 'secondary' | 'ghost' };
 
 /** Tlačítka podle role a stavu, co nejkratší (Šimon 27. 10.). Hlavní akce první. */
 export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   const p = pay(o);
   const pickup = o.delivery === 'pickup';
   const out: FlowAction[] = [];
+  // Čekající změna dopravy: kupující souhlasí nebo zruší, prodejce může jen zrušit.
+  if (o.status === 'confirmed' && o.shipChange != null) {
+    return role === 'buyer'
+      ? [{ op: 'ship_accept', label: 'Souhlasím', variant: 'primary' }, { op: 'ship_reject', label: 'Zrušit objednávku', variant: 'ghost' }]
+      : [{ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' }];
+  }
   if (role === 'buyer') {
     if (o.status === 'requested') out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
     if (o.status === 'confirmed' && p === 'transfer' && !o.buyerPaidAt) out.push({ op: 'mark_paid', label: 'Zaplaceno', variant: 'primary' });
@@ -118,6 +128,11 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   if (o.status === 'confirmed' && p === 'cash' && pickup) out.push({ op: 'status', status: 'delivered', label: 'Předáno', variant: 'primary' });
   if (o.status === 'confirmed') out.push({ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' });
   return out;
+}
+
+/** Smí prodejce upravit dopravu? Jen u potvrzené zásilky před zaplacením. */
+export function canChangeShipping(o: FlowOrder): boolean {
+  return o.status === 'confirmed' && o.delivery === 'ship' && !o.buyerPaidAt;
 }
 
 /** Krátký popis dopravy a platby, např. „Zásilkovna · výdejní místo a Z-BOX · dobírka“. */

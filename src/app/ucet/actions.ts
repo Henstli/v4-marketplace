@@ -97,7 +97,8 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
   if (delError) return { error: 'Dopravu se nepodařilo uložit.' };
   if (methods.length) {
     const { error: shipError } = await supabase.from('seller_shipping_methods').upsert(methods);
-    if (shipError) return { error: 'Dopravu se nepodařilo uložit.' };
+    // Strop podle ceníku dopravce hlídá databáze a vrací českou větu.
+    if (shipError) return { error: shipError.code === 'P0001' ? shipError.message : 'Dopravu se nepodařilo uložit.' };
   }
 
   revalidatePath('/', 'layout');

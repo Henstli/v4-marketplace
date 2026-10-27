@@ -75,6 +75,8 @@ export interface ChatOrder {
   /** Způsob platby (prázdné u starších objednávek) a kdy kupující klikl na Zaplaceno */
   payment: PaymentMethod | null;
   buyerPaidAt: string | null;
+  /** Navržená vyšší doprava, čeká na kupujícího */
+  shipChange: number | null;
   /** Doprava a platba jedním řádkem */
   deliveryLine: string;
   /** Počet kusů celkem */
@@ -203,7 +205,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: orders } = orderIds.length
     ? await supabase
       .from('orders')
-      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, order_items(quantity, price_czk, condition, cards(name))')
+      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, ship_change_czk, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
   const byId = new Map((orders ?? []).map((o) => {
@@ -223,6 +225,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       expiresAt: (o.expires_at as string | null) ?? null,
       payment: (o.payment as PaymentMethod | null) ?? null,
       buyerPaidAt: (o.buyer_paid_at as string | null) ?? null,
+      shipChange: (o.ship_change_czk as number | null) ?? null,
       deliveryLine: deliveryLine({ delivery: o.delivery as 'ship' | 'pickup', payment: (o.payment as PaymentMethod | null) ?? null, carrier: o.carrier as string | null, carrier_label: o.carrier_label as string | null }),
       count: items.reduce((s, i) => s + i.quantity, 0),
       items,

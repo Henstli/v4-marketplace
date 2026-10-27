@@ -3,12 +3,13 @@ import QRCode from 'qrcode';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
-import type { PaymentMethod } from '@/lib/delivery';
-import { deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder } from '@/lib/order-flow';
+import { SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
+import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder } from '@/lib/order-flow';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import type { createClient } from '@/lib/supabase/server';
 import { ExpiryStatus } from '@/components/orders/Expiry';
 import { addReview, setOrderStatus } from './actions';
+import { ShipEdit } from './ShipEdit';
 import styles from './orders.module.css';
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -18,7 +19,7 @@ export const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 // Skončené bez obchodu.
 export const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
-export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, cod_fee_czk, buyer_paid_at, tracking, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
+export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, cod_fee_czk, buyer_paid_at, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
 
 export interface OrderRow {
   id: string;
@@ -39,6 +40,9 @@ export interface OrderRow {
   cod_fee_czk: number;
   buyer_paid_at: string | null;
   tracking: string | null;
+  /** Prodejce navrhl vyšší dopravu, čeká na kupujícího. */
+  ship_change_czk: number | null;
+  ship_change_reason: string | null;
   order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null } | null }>;
 }
 
@@ -65,7 +69,7 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 }
 
 /** Objednávka pro pravidla kroků (DS DeliveryPayment). */
-export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at });
+export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, shipChange: o.ship_change_czk });
 
 /** Akce kupujícího podle stavu (stejné na seznamu, v detailu i v chatu). */
 export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }) {
@@ -94,9 +98,40 @@ export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }
   );
 }
 
-/** Akce prodejce podle stavu. */
-export function SellerActions({ o }: { o: OrderRow }) {
-  return <>{flowActions(flowOf(o), 'seller').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}</>;
+/** Akce prodejce podle stavu. `shipCap`: strop úpravy dopravy podle ceníku dopravce (null = bez stropu). */
+export function SellerActions({ o, shipCap }: { o: OrderRow; shipCap?: number | null }) {
+  return (
+    <>
+      {flowActions(flowOf(o), 'seller').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
+      {canChangeShipping(flowOf(o)) ? <ShipEdit key={o.ship_change_czk ?? o.shipping_czk} id={o.id} shipping={o.ship_change_czk ?? o.shipping_czk} total={o.total_czk - o.shipping_czk + (o.ship_change_czk ?? o.shipping_czk)} cap={shipCap ?? null} /> : null}
+    </>
+  );
+}
+
+/** Strop úpravy dopravy pro každého dopravce: ceník větší zásilky + balné (tabulka carrier_rates). */
+export async function loadShipCaps(supabase: Supabase): Promise<Map<string, number>> {
+  const { data } = await supabase.from('carrier_rates').select('carrier, price_czk, heavy_czk');
+  return new Map((data ?? []).map((r) => [r.carrier as string, Math.max(r.heavy_czk as number, r.price_czk as number) + SHIPPING_PACKING]));
+}
+
+/** Čekající změna dopravy: původní a nová cena a důvod (kupující i prodejce). */
+export function ShipChangeNotice({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
+  if (o.status !== 'confirmed' || o.ship_change_czk == null) return null;
+  const total = o.total_czk - o.shipping_czk + o.ship_change_czk;
+  return (
+    <div className={styles.shipNotice}>
+      <p>
+        <strong>{role === 'buyer' ? 'Prodejce zvýšil dopravu' : 'Navrhli jste vyšší dopravu'}</strong> z <span className="code">{o.shipping_czk} Kč</span> na <strong className="code">{o.ship_change_czk} Kč</strong>
+      </p>
+      {o.ship_change_reason ? <p className="t-small muted">Důvod: {o.ship_change_reason}</p> : null}
+      <p className="t-small">
+        Nové celkem <strong className="code">{total.toLocaleString('cs-CZ')} Kč</strong>.{' '}
+        {role === 'buyer'
+          ? (o.payment ?? 'transfer') === 'transfer' ? 'QR kód pro platbu se ukáže, až změnu potvrdíte.' : 'Na dobírce zaplatíte novou částku.'
+          : 'Kupující ji musí potvrdit, do té doby nevidí QR kód.'}
+      </p>
+    </div>
+  );
 }
 
 /** Jedno tlačítko kroku; u Odesláno i nepovinné číslo zásilky. */
@@ -175,6 +210,7 @@ export function OrderCard({ order, counterpart, contact, payment, role, children
           {role === 'seller' ? ' Potom objednávka vyprší a karty se vrátí do nabídky.' : ' Karty jsou zatím rezervované pro vás.'}
         </p>
       ) : null}
+      <ShipChangeNotice o={order} role={role} />
       <PaymentInfo payment={payment} role={role} order={order} />
       {contact ? (
         <p className="t-small">
@@ -199,7 +235,7 @@ export function OrderCard({ order, counterpart, contact, payment, role, children
 /** Účet prodejce a QR platba (DS OrderPayment), jen u převodu před zaplacením, nebo věta, co chybí. */
 export function PaymentInfo({ payment, role, order }: { payment?: Payment | null; role: 'buyer' | 'seller'; order: OrderRow }) {
   const transfer = (order.payment ?? 'transfer') === 'transfer';
-  if (order.status !== 'confirmed' || !transfer) return null;
+  if (order.status !== 'confirmed' || !transfer || order.ship_change_czk != null) return null;
   // Po kliknutí na Zaplaceno už QR kupujícímu nepřekáží, prodejce ho vidí dál.
   if (role === 'buyer' && order.buyer_paid_at) return null;
   return (

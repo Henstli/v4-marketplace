@@ -19,6 +19,14 @@ export async function setOrderStatus(form: FormData) {
     revalidatePath('/', 'layout');
     return;
   }
+  // Kupující: souhlas se zvýšenou dopravou, nebo zrušení objednávky.
+  if (op === 'ship_accept' || op === 'ship_reject') {
+    const { error } = await supabase.rpc('answer_shipping_change', { target: id, p_accept: op === 'ship_accept' });
+    if (!error && op === 'ship_reject') await scheduleWatchFlush();
+    revalidatePath('/objednavky');
+    revalidatePath('/', 'layout');
+    return;
+  }
   const status = String(form.get('status'));
   // Kdo smí jaký stav nastavit, hlídá funkce set_order_status v databázi.
   const { error } = await supabase.rpc('set_order_status', { target: id, next_status: status });
@@ -47,4 +55,23 @@ export async function addReview(form: FormData) {
   });
   revalidatePath('/objednavky');
   revalidatePath('/karty', 'layout');
+}
+
+export interface ShipChangeState { error?: string; ok?: boolean }
+
+/** Prodejce upraví dopravu u objednávky (DS DeliveryPayment › Úprava dopravy). Strop a pravidla hlídá databáze. */
+export async function changeShipping(_prev: ShipChangeState, form: FormData): Promise<ShipChangeState> {
+  const id = String(form.get('id') ?? '');
+  const price = Number(form.get('price'));
+  const preset = String(form.get('reason') ?? '').trim();
+  const note = String(form.get('note') ?? '').trim();
+  const reason = [preset === 'Jiný důvod' ? '' : preset, note].filter(Boolean).join(': ').slice(0, 200);
+  if (!Number.isInteger(price) || price < 0 || price > 1000) return { error: 'Cena dopravy musí být 0 až 1 000 Kč.' };
+  if (reason.length < 3) return { error: 'Napište kupujícímu důvod.' };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('change_order_shipping', { target: id, p_price: price, p_reason: reason });
+  if (error) return { error: error.code === 'P0001' ? `${error.message.replace(/\.$/, '')}.` : 'Dopravu se nepodařilo upravit.' };
+  revalidatePath('/objednavky');
+  revalidatePath('/', 'layout');
+  return { ok: true };
 }
