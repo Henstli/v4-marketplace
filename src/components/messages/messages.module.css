@@ -1,8 +1,11 @@
 /* Zprávy podle karty Messages v design systému. */
+.page { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-6); padding-bottom: var(--space-6); }
+.title { margin: 0; }
+
 .chat {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  height: min(760px, calc(100dvh - var(--site-header-h, 64px) - 96px));
+  grid-template-columns: 320px minmax(0, 1fr);
+  height: min(820px, calc(100dvh - 240px));
   min-height: 460px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -69,7 +72,7 @@
 .hint { font-size: 12px; color: var(--ink-muted); margin: 0; }
 
 @media (max-width: 760px) {
-  .chat { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - var(--site-header-h, 64px) - 120px); }
+  .chat { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - 260px); }
   .list { border-right: 0; }
   .chat[data-open] .list { display: none; }
   .chat:not([data-open]) > :not(.list) { display: none; }

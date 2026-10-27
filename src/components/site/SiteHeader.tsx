@@ -6,6 +6,8 @@ import { GAMES } from '@/lib/games';
 import { CartLink } from '@/components/cart/CartLink';
 import { getSignedInUser } from '@/lib/auth';
 import { HeaderAccount, HeaderAccountFallback } from '@/components/account/AccountShell';
+import { MessagesLink } from '@/components/messages/MessagesLink';
+import { unreadCount } from '@/app/zpravy/actions';
 import { Logo } from './Logo';
 import styles from './site.module.css';
 
@@ -18,6 +20,11 @@ export async function SiteHeader() {
         <SearchBox className={styles.search} placeholder="Karta, sada, hráč nebo prodejce" label="Hledat karty, sady a prodejce" shortcut groups />
         <nav className={styles.actions} aria-label="Účet">
           <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
+          {user ? (
+            <Suspense fallback={<MessagesLink initial={0} />}>
+              <HeaderMessages />
+            </Suspense>
+          ) : null}
           <CartLink />
           {user ? (
             <Suspense fallback={<HeaderAccountFallback />}>
@@ -46,4 +53,8 @@ export async function SiteHeader() {
       </nav>
     </header>
   );
+}
+
+async function HeaderMessages() {
+  return <MessagesLink initial={await unreadCount()} />;
 }

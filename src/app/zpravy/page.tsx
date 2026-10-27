@@ -13,9 +13,9 @@ export default async function MessagesPage() {
   if (!user) redirect('/prihlaseni?dalsi=/zpravy');
   return (
     <div className={styles.empty}>
-      <h1 className="t-heading-m">Zprávy</h1>
+      <h2 className="t-heading-m">Vyberte konverzaci</h2>
       <p className="muted">
-        Vyberte konverzaci vlevo. Prodejci napíšete z jeho stránky tlačítkem „Napsat zprávu“, u objednávky najdete odkaz
+        Prodejci napíšete z jeho stránky tlačítkem „Napsat zprávu“, u objednávky najdete odkaz
         na zprávy s druhou stranou. <Link href="/objednavky">Objednávky</Link>
       </p>
     </div>
