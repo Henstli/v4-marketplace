@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshCatalog } from '@/lib/catalog-refresh';
 import { createClient } from '@/lib/supabase/server';
 import { CONDITIONS, LANGUAGE_NAMES } from '@/lib/types';
 import { scheduleWatchFlush } from '@/lib/watch';
@@ -47,14 +48,14 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   if (error) return { error: 'Nabídku se nepodařilo uložit. Zkuste to prosím znovu.' };
 
   revalidatePath('/prodat');
-  revalidatePath('/karty', 'layout');
+  refreshCatalog();
   await scheduleWatchFlush();
   return { ok: true };
 }
 
 function revalidateStock() {
   revalidatePath('/prodat');
-  revalidatePath('/karty', 'layout');
+  refreshCatalog();
   revalidatePath('/prodejci', 'layout');
 }
 

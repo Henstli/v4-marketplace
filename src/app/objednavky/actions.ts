@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshCatalog } from '@/lib/catalog-refresh';
 import { after } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { siteOrigin } from '@/lib/auth-helpers';
@@ -54,7 +55,7 @@ export async function addReview(form: FormData) {
     comment: comment || null,
   });
   revalidatePath('/objednavky');
-  revalidatePath('/karty', 'layout');
+  refreshCatalog();
 }
 
 export interface ShipChangeState { error?: string; ok?: boolean }

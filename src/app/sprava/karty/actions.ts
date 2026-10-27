@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshCatalog } from '@/lib/catalog-refresh';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -14,7 +15,7 @@ async function review(form: FormData, approve: boolean) {
   });
   revalidatePath('/sprava/karty');
   if (error) redirect(`/sprava/karty?chyba=${encodeURIComponent(error.message)}`);
-  revalidatePath('/karty', 'layout');
+  refreshCatalog();
 }
 
 export async function approveSubmission(form: FormData) {
