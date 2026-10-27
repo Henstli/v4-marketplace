@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ShopLogo, shopStyle } from '@/components/trezor';
 import { formatDateTime } from '@/lib/format';
 import type { ConversationItem } from '@/lib/messages';
@@ -34,17 +34,35 @@ export function ChatShell({ list, children }: { list: ReactNode; children: React
   );
 }
 
+// Hledání bez diakritiky a velikosti písmen.
+const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 export function ConversationList({ items }: { items: ConversationItem[] }) {
   const pathname = usePathname();
+  const [q, setQ] = useState('');
+  const needle = fold(q.trim());
+  const shown = needle ? items.filter((c) => fold(`${c.other?.name ?? ''} ${c.lastBody}`).includes(needle)) : items;
   return (
     <nav className={styles.list} aria-label="Konverzace">
-      {items.length ? items.map((c) => {
+      <strong className={styles.listHead}>Konverzace</strong>
+      {items.length > 1 ? (
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Hledat v konverzacích"
+          aria-label="Hledat v konverzacích"
+          className={styles.search}
+        />
+      ) : null}
+      <div className={styles.convs}>
+      {shown.length ? shown.map((c) => {
         const href = c.other ? `/zpravy/${c.other.id}` : null;
         // Otevřená konverzace je přečtená hned po kliknutí, i než se seznam načte znovu.
         const unread = c.unread && pathname !== href;
         const inner = (
           <>
-            <span style={shopStyle(c.other?.color ?? 'blue')}><ShopLogo name={c.other?.name ?? '?'} image={c.other?.logo} size={36} /></span>
+            <span style={shopStyle(c.other?.color ?? 'blue')}><ShopLogo name={c.other?.name ?? '?'} image={c.other?.logo} size={40} /></span>
             <span className={styles.convText}>
               <span className={styles.convName}>{c.other?.name ?? 'Smazaný účet'}</span>
               <span className={styles.convLast}>{c.lastMine ? 'Vy: ' : ''}{c.lastBody}</span>
@@ -62,8 +80,9 @@ export function ConversationList({ items }: { items: ConversationItem[] }) {
           <Link key={c.id} href={href} className={cls} aria-current={pathname === href ? 'page' : undefined}>{inner}</Link>
         ) : <div key={c.id} className={cls}>{inner}</div>;
       }) : (
-        <p className={`muted t-small ${styles.listEmpty}`}>Zatím žádné zprávy.</p>
+        <p className={`muted t-small ${styles.listEmpty}`}>{items.length ? 'Nic nenalezeno.' : 'Zatím žádné zprávy.'}</p>
       )}
+      </div>
     </nav>
   );
 }

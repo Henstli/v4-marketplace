@@ -2,18 +2,28 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
-import { formatDateTime, formatPrice, plural } from '@/lib/format';
+import { formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
 const GROUP_MS = 5 * 60_000;
+
+// Den a čas v českém čase: oddělovač DNES / VČERA / 25. 10. a pod zprávou jen hodina.
+const dayKey = (iso: string) => new Date(iso).toLocaleDateString('cs-CZ', { timeZone: 'Europe/Prague' });
+const clock = (iso: string) => new Date(iso).toLocaleTimeString('cs-CZ', { hour: 'numeric', minute: '2-digit', timeZone: 'Europe/Prague' });
+function dayLabel(iso: string): string {
+  const key = dayKey(iso);
+  if (key === dayKey(new Date().toISOString())) return 'Dnes';
+  if (key === dayKey(new Date(Date.now() - 86_400_000).toISOString())) return 'Včera';
+  return new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Europe/Prague' });
+}
 
 // U skončených objednávek není na stránce Objednávky co dělat, odkaz se nezobrazí.
 const ENDED = new Set(['cancelled', 'declined', 'expired']);
@@ -163,30 +173,40 @@ export function Thread({ to, name, messages, initialText, listing, wasUnread }: 
     }
   };
 
+  const renderMessage = (m: ChatMessage, i: number) => {
+    if (m.kind === 'order') {
+      return (
+        <div key={m.id} className={styles.orderWrap} data-mine={m.mine ? '' : undefined}>
+          {m.order ? <OrderBubble o={m.order} mine={m.mine} /> : <div className={styles.event}>{m.body}</div>}
+          <span className={styles.time}>{m.mine ? 'Vy' : name} · {clock(m.createdAt)}</span>
+        </div>
+      );
+    }
+    if (m.kind === 'status') {
+      return <p key={m.id} className={styles.event}>{m.body} · {clock(m.createdAt)}</p>;
+    }
+    const next = messages[i + 1];
+    const groupEnd = !next || next.kind !== 'text' || next.mine !== m.mine
+      || Date.parse(next.createdAt) - Date.parse(m.createdAt) > GROUP_MS;
+    return (
+      <div key={m.id} className={styles.msgWrap} data-mine={m.mine ? '' : undefined}>
+        {m.listing ? <ListingLink l={m.listing} mine={m.mine} /> : null}
+        <div className={`${styles.bubble} ${m.mine ? styles.me : styles.them}`}>{m.body}</div>
+        {groupEnd ? <span className={styles.time}>{clock(m.createdAt)}</span> : null}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className={styles.msgs} ref={box} aria-live="polite">
         {messages.length ? messages.map((m, i) => {
-          if (m.kind === 'order') {
-            return (
-              <div key={m.id} className={styles.orderWrap} data-mine={m.mine ? '' : undefined}>
-                {m.order ? <OrderBubble o={m.order} mine={m.mine} /> : <div className={styles.event}>{m.body}</div>}
-                <span className={styles.time}>{m.mine ? 'Vy' : name} · {formatDateTime(m.createdAt)}</span>
-              </div>
-            );
-          }
-          if (m.kind === 'status') {
-            return <p key={m.id} className={styles.event}>{m.body} · {formatDateTime(m.createdAt)}</p>;
-          }
-          const next = messages[i + 1];
-          const groupEnd = !next || next.kind !== 'text' || next.mine !== m.mine
-            || Date.parse(next.createdAt) - Date.parse(m.createdAt) > GROUP_MS;
+          const newDay = i === 0 || dayKey(messages[i - 1].createdAt) !== dayKey(m.createdAt);
           return (
-            <div key={m.id} className={styles.msgWrap} data-mine={m.mine ? '' : undefined}>
-              {m.listing ? <ListingLink l={m.listing} mine={m.mine} /> : null}
-              <div className={`${styles.bubble} ${m.mine ? styles.me : styles.them}`}>{m.body}</div>
-              {groupEnd ? <span className={styles.time}>{formatDateTime(m.createdAt)}</span> : null}
-            </div>
+            <Fragment key={m.id}>
+              {newDay ? <div className={styles.day} suppressHydrationWarning>{dayLabel(m.createdAt)}</div> : null}
+              {renderMessage(m, i)}
+            </Fragment>
           );
         }) : (
           <p className={`muted ${styles.start}`}>Začněte konverzaci s {name}. Zpráva přijde i e-mailem.</p>

@@ -2,26 +2,36 @@
 .page { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-6); padding-bottom: var(--space-6); }
 .title { margin: 0; }
 
+/* Šimon 27. 10., varianta B: seznam a konverzace jako dva samostatné panely s mezerou. */
 .chat {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
+  gap: var(--space-4);
   height: min(820px, calc(100dvh - 240px));
   min-height: 460px;
+}
+.list, .thread, .empty {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
   overflow: hidden;
 }
 
-.list { border-right: 1px solid var(--line); overflow: auto; }
-.listEmpty { padding: var(--space-4); margin: 0; }
+.list { display: flex; flex-direction: column; min-height: 0; padding: 12px; gap: 8px; }
+.listHead { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 0; font-size: 16px; }
+.search {
+  height: 38px; box-sizing: border-box; width: 100%; padding: 0 12px; font: inherit; font-size: 14px;
+  color: var(--ink); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+}
+.convs { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
+.listEmpty { padding: var(--space-3) 6px; margin: 0; }
 .conv {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: center;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: 12px;
   color: inherit;
   text-decoration: none;
 }
@@ -33,7 +43,7 @@
 .convLast { font-size: 13px; color: var(--ink-muted); }
 .unread .convLast { color: var(--ink); font-weight: 600; }
 /* Nepřečtená konverzace (Šimon 27. 10., varianta A): zelený nádech, proužek vlevo, tučně, zelený čas a počet. */
-.conv.unread { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.conv.unread { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 3px 0 0 var(--accent); border-radius: 4px 12px 12px 4px; }
 .conv.unread:hover, .conv.unread[aria-current] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .unread .convName { font-weight: 700; }
 .unread .convSide { color: var(--accent); font-weight: 600; }
@@ -43,19 +53,24 @@
 
 .thread, .empty { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .empty { padding: var(--space-6); gap: var(--space-2); }
-.head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-.headName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.headLink { margin-left: auto; font-size: 13px; white-space: nowrap; }
+.head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.headText { display: flex; flex-direction: column; min-width: 0; }
+.headName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.headSub { font-size: 12px; color: var(--ink-muted); }
+.headLink { margin-left: auto; font-size: 13px; white-space: nowrap; color: var(--accent); }
 .back { display: none; text-decoration: none; font-size: 18px; color: var(--ink); padding-right: 4px; }
 
-.msgs { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.msgs { flex: 1; overflow: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 6px; }
+/* Oddělovač dne: DNES, VČERA, 25. 10. */
+.day { display: flex; align-items: center; gap: 12px; margin: 10px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--ink-muted); text-transform: uppercase; }
+.day::before, .day::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .start { margin: auto; text-align: center; max-width: 360px; }
 .msgWrap { display: flex; flex-direction: column; align-items: flex-start; }
 .msgWrap[data-mine] { align-items: flex-end; }
-.bubble { max-width: 75%; padding: 8px 12px; border-radius: var(--radius-lg); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bubble { max-width: 65%; padding: 8px 12px; border-radius: 14px 14px 14px 4px; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
 .them { background: var(--surface-sunken); }
-.me { background: var(--accent); color: var(--on-accent); }
-.time { font-size: 12px; color: var(--ink-muted); margin: 2px 4px 8px; }
+.me { background: var(--accent); color: var(--on-accent); border-radius: 14px 14px 4px 14px; }
+.time { font-size: 11px; color: var(--ink-muted); margin: 2px 4px 8px; }
 
 .ref { display: flex; gap: 10px; align-items: center; max-width: 75%; padding: 8px 10px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: inherit; text-decoration: none; }
 .ref:hover { border-color: var(--line-strong); }
@@ -99,9 +114,10 @@
 .track li::before { content: ""; height: 3px; border-radius: 2px; background: var(--line-strong); }
 .track li[data-done] { color: var(--ink); }
 .track li[data-done]::before { background: var(--accent); }
-.event { align-self: center; text-align: center; font-size: 12px; color: var(--ink-muted); margin: 6px 0; }
+.event { align-self: center; display: inline-flex; align-items: center; gap: 8px; max-width: 90%; text-align: center; font-size: 12px; color: var(--ink-muted); background: var(--surface-sunken); border-radius: 999px; padding: 4px 12px; margin: 6px 0; }
+.event::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--info); }
 
-.compose { border-top: 1px solid var(--line); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.compose { border-top: 1px solid var(--line); padding: 14px 20px; display: flex; flex-direction: column; gap: 6px; }
 .composeRow { display: flex; gap: 8px; align-items: flex-end; }
 .field {
   flex: 1;
@@ -119,7 +135,6 @@
 
 @media (max-width: 760px) {
   .chat { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - 260px); }
-  .list { border-right: 0; }
   .chat[data-open] .list { display: none; }
   .chat:not([data-open]) > :not(.list) { display: none; }
   .back { display: inline; }

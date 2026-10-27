@@ -40,9 +40,12 @@ export default async function ConversationPage({ params, searchParams }: Props) 
     <section className={styles.thread} aria-label={`Konverzace: ${other.name}`}>
       <div className={styles.head}>
         <Link href="/zpravy" className={styles.back} aria-label="Zpět na konverzace">←</Link>
-        <span style={shopStyle(other.color)}><ShopLogo name={other.name} image={other.logo} size={32} /></span>
-        <strong className={styles.headName}>{other.name}</strong>
-        <Link href={other.href} className={styles.headLink}>{other.kind === 'shop' ? 'Stránka obchodu' : 'Profil'}</Link>
+        <span style={shopStyle(other.color)}><ShopLogo name={other.name} image={other.logo} size={40} /></span>
+        <span className={styles.headText}>
+          <strong className={styles.headName}>{other.name}</strong>
+          <span className={styles.headSub}>{other.kind === 'shop' ? 'Obchod' : 'Sběratel'}</span>
+        </span>
+        <Link href={other.href} className={styles.headLink}>{other.kind === 'shop' ? 'Stránka obchodu' : 'Zobrazit profil'}</Link>
       </div>
       <Thread to={id} name={other.name} messages={thread.messages} initialText={text?.slice(0, 2000) ?? ''} listing={listing} wasUnread={thread.unread} />
     </section>
