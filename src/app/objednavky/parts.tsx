@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
-import { SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
+import { methodName, SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
 import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder } from '@/lib/order-flow';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import type { createClient } from '@/lib/supabase/server';
@@ -170,8 +170,17 @@ export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }
 export function SellerActions({ o, shipCap }: { o: OrderRow; shipCap?: number | null }) {
   return (
     <>
+      {canChangeShipping(flowOf(o)) ? (
+        <ShipEdit
+          key={o.ship_change_czk ?? o.shipping_czk}
+          id={o.id}
+          carrier={o.carrier ? methodName({ carrier: o.carrier, label: o.carrier_label }) : 'Doprava'}
+          shipping={o.ship_change_czk ?? o.shipping_czk}
+          total={o.total_czk - o.shipping_czk + (o.ship_change_czk ?? o.shipping_czk)}
+          cap={shipCap ?? null}
+        />
+      ) : null}
       {flowActions(flowOf(o), 'seller').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
-      {canChangeShipping(flowOf(o)) ? <ShipEdit key={o.ship_change_czk ?? o.shipping_czk} id={o.id} shipping={o.ship_change_czk ?? o.shipping_czk} total={o.total_czk - o.shipping_czk + (o.ship_change_czk ?? o.shipping_czk)} cap={shipCap ?? null} /> : null}
     </>
   );
 }
@@ -184,7 +193,7 @@ export async function loadShipCaps(supabase: Supabase): Promise<Map<string, numb
 
 /** Čekající změna dopravy: původní a nová cena a důvod (kupující i prodejce). */
 export function ShipChangeNotice({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
-  if (o.status !== 'confirmed' || o.ship_change_czk == null) return null;
+  if ((o.status !== 'requested' && o.status !== 'confirmed') || o.ship_change_czk == null) return null;
   const total = o.total_czk - o.shipping_czk + o.ship_change_czk;
   return (
     <div className={styles.shipNotice}>
@@ -196,7 +205,7 @@ export function ShipChangeNotice({ o, role }: { o: OrderRow; role: 'buyer' | 'se
         Nové celkem <strong className="code">{total.toLocaleString('cs-CZ')} Kč</strong>.{' '}
         {role === 'buyer'
           ? (o.payment ?? 'transfer') === 'transfer' ? 'QR kód pro platbu se ukáže, až změnu potvrdíte.' : 'Na dobírce zaplatíte novou částku.'
-          : 'Kupující ji musí potvrdit, do té doby nevidí QR kód.'}
+          : o.status === 'requested' ? 'Platí od potvrzení objednávky. Kupující ji musí odsouhlasit, než uvidí QR kód.' : 'Kupující ji musí potvrdit, do té doby nevidí QR kód.'}
       </p>
     </div>
   );

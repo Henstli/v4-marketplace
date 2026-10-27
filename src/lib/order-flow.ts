@@ -48,6 +48,7 @@ export function orderLabel(o: FlowOrder, role: Role, short = false): { text: str
   const p = pay(o);
   const seller = role === 'seller';
   const pickup = o.delivery === 'pickup';
+  if (o.status === 'requested' && o.shipChange != null && !seller) return { text: 'Změna dopravy · potvrďte', tone: 'warn' };
   if (o.status === 'confirmed') {
     if (o.shipChange != null) return seller ? { text: 'Změna dopravy · čeká na kupujícího', tone: 'info' } : { text: 'Změna dopravy · potvrďte', tone: 'warn' };
     if (p === 'transfer') {
@@ -72,6 +73,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
   const pickup = o.delivery === 'pickup';
   switch (o.status) {
     case 'requested':
+      if (o.shipChange != null) return seller ? 'Navrhli jste vyšší dopravu. Po potvrzení ji kupující musí odsouhlasit, než uvidí QR kód.' : 'Prodejce navrhl vyšší cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
       return seller ? 'Potvrďte, že karty máte a prodáte je, nebo objednávku odmítněte.' : 'Prodejce objednávku potvrdí nebo odmítne. Karty jsou zatím rezervované pro vás.';
     case 'confirmed':
       if (o.shipChange != null) return seller ? 'Kupující musí potvrdit novou cenu dopravy. Do té doby nevidí QR kód.' : 'Prodejce upravil cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
@@ -103,7 +105,7 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   const pickup = o.delivery === 'pickup';
   const out: FlowAction[] = [];
   // Čekající změna dopravy: kupující souhlasí nebo zruší, prodejce může jen zrušit.
-  if (o.status === 'confirmed' && o.shipChange != null) {
+  if ((o.status === 'confirmed' || (o.status === 'requested' && role === 'buyer')) && o.shipChange != null) {
     return role === 'buyer'
       ? [{ op: 'ship_accept', label: 'Souhlasím', variant: 'primary' }, { op: 'ship_reject', label: 'Zrušit objednávku', variant: 'ghost' }]
       : [{ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' }];
@@ -130,9 +132,9 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   return out;
 }
 
-/** Smí prodejce upravit dopravu? Jen u potvrzené zásilky před zaplacením. */
+/** Smí prodejce upravit dopravu? U zásilky od objednání (i před potvrzením) do zaplacení. */
 export function canChangeShipping(o: FlowOrder): boolean {
-  return o.status === 'confirmed' && o.delivery === 'ship' && !o.buyerPaidAt;
+  return (o.status === 'requested' || o.status === 'confirmed') && o.delivery === 'ship' && !o.buyerPaidAt;
 }
 
 /** Krátký popis dopravy a platby, např. „Zásilkovna · výdejní místo a Z-BOX · dobírka“. */
