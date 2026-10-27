@@ -31,9 +31,22 @@ export interface ChatMessage {
   kind: 'text' | 'order' | 'status';
   body: string;
   createdAt: string;
-  order: { id: string; number: number; total: number; status: string; items: number } | null;
+  order: ChatOrder | null;
   /** Nabídka, ke které se zpráva ptá */
   listing: ListingRef | null;
+}
+
+/** Objednávka jako bublina v konverzaci. */
+export interface ChatOrder {
+  id: string;
+  number: number;
+  total: number;
+  shipping: number;
+  pickup: boolean;
+  status: string;
+  /** Počet kusů celkem */
+  count: number;
+  items: Array<{ name: string; condition: string; quantity: number; price: number }>;
 }
 
 /** Krátký popis nabídky pro dotaz v konverzaci. */
@@ -140,15 +153,28 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const listings = await getListingRefs([...new Set(list.map((m) => m.listing_id).filter((x): x is string => !!x))]);
   const orderIds = [...new Set(list.filter((m) => m.kind === 'order' && m.order_id).map((m) => m.order_id as string))];
   const { data: orders } = orderIds.length
-    ? await supabase.from('orders').select('id, number, total_czk, status, order_items(quantity)').in('id', orderIds)
+    ? await supabase
+      .from('orders')
+      .select('id, number, total_czk, shipping_czk, delivery, status, order_items(quantity, price_czk, condition, cards(name))')
+      .in('id', orderIds)
     : { data: [] };
-  const byId = new Map((orders ?? []).map((o) => [o.id as string, {
-    id: o.id as string,
-    number: o.number as number,
-    total: o.total_czk as number,
-    status: o.status as string,
-    items: ((o.order_items ?? []) as Array<{ quantity: number }>).reduce((s, i) => s + i.quantity, 0),
-  }]));
+  const byId = new Map((orders ?? []).map((o) => {
+    const items = ((o.order_items ?? []) as unknown as Array<{ quantity: number; price_czk: number; condition: string; cards: { name: string } | { name: string }[] | null }>)
+      .map((i) => {
+        const card = Array.isArray(i.cards) ? i.cards[0] : i.cards;
+        return { name: card?.name ?? 'Karta', condition: i.condition, quantity: i.quantity, price: i.price_czk };
+      });
+    return [o.id as string, {
+      id: o.id as string,
+      number: o.number as number,
+      total: o.total_czk as number,
+      shipping: (o.shipping_czk as number | null) ?? 0,
+      pickup: o.delivery === 'pickup',
+      status: o.status as string,
+      count: items.reduce((s, i) => s + i.quantity, 0),
+      items,
+    } satisfies ChatOrder];
+  }));
   return {
     id: conv.id,
     unread: unreadFor(conv, me),

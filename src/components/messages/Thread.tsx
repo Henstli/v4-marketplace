@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useTransition, type Keybo
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { sendMessage } from '@/app/zpravy/actions';
 import { formatDateTime, plural } from '@/lib/format';
-import type { ChatMessage, ListingRef } from '@/lib/messages';
+import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
 import { ORDER_STATUS } from '@/lib/order-status';
 import styles from './messages.module.css';
 
@@ -31,6 +31,49 @@ function ListingLink({ l, mine }: { l: ListingRef; mine: boolean }) {
         <span className={styles.refMeta}>{l.condition} · {l.language} · <Price amount={l.price} /></span>
       </span>
     </Link>
+  );
+}
+
+// Pruh postupu objednávky: kolik kroků je hotových podle stavu.
+const STEPS = ['Odesláno', 'Potvrzeno', 'Zaplaceno a odesláno', 'Převzato'];
+const STEP_DONE: Record<string, number> = { requested: 1, confirmed: 2, pending_payment: 2, paid: 3, shipped: 3, delivered: 4 };
+
+/** Objednávka jako bublina od kupujícího (DS Messages, varianta A s pruhem postupu). */
+function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
+  const ended = ENDED.has(o.status);
+  const done = STEP_DONE[o.status] ?? 0;
+  return (
+    <div className={`${styles.ord} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`}>
+      <div className={styles.ordTop}>
+        <strong>Objednávka č. <span className="code">{o.number}</span></strong>
+        <Status tone={STATUS_TONE[o.status] ?? 'muted'}>{ORDER_STATUS[o.status] ?? o.status}</Status>
+      </div>
+      <ul className={styles.ordItems}>
+        {o.items.map((it, n) => (
+          <li key={n}>
+            <span>
+              {it.name} <small className="code">{it.condition}</small>
+              {it.quantity > 1 ? <small> × {it.quantity}</small> : null}
+            </span>
+            <Price amount={it.price * it.quantity} />
+          </li>
+        ))}
+      </ul>
+      <div className={styles.ordSum}>
+        <span>{plural(o.count, ['karta', 'karty', 'karet'])} · {o.pickup ? 'osobní předání' : o.shipping ? <>doprava <Price amount={o.shipping} /></> : 'doprava zdarma'}</span>
+        <span className={styles.ordTotal}><Price amount={o.total} /></span>
+      </div>
+      {ended ? null : (
+        <>
+          <ol className={styles.track} aria-label="Postup objednávky">
+            {STEPS.map((label, n) => (
+              <li key={label} data-done={n < done ? '' : undefined}>{label}</li>
+            ))}
+          </ol>
+          <Link href={`/objednavky#objednavka-${o.number}`} className="t-small">Zobrazit objednávku</Link>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -91,20 +134,9 @@ export function Thread({ to, name, messages, initialText, listing }: {
         {messages.length ? messages.map((m, i) => {
           if (m.kind === 'order') {
             return (
-              <div key={m.id} className={styles.order}>
-                <div className={styles.orderTop}>
-                  <span>Objednávka č. <span className="code">{m.order?.number ?? ''}</span></span>
-                  {m.order ? <Price amount={m.order.total} /> : null}
-                </div>
-                {m.order ? (
-                  <>
-                    <span className="t-small muted">{plural(m.order.items, ['karta', 'karty', 'karet'])}</span>
-                    <Status tone={STATUS_TONE[m.order.status] ?? 'muted'} className={styles.orderStatus}>{ORDER_STATUS[m.order.status] ?? m.order.status}</Status>
-                  </>
-                ) : null}
-                {m.order && !ENDED.has(m.order.status) ? (
-                  <Link href={`/objednavky#objednavka-${m.order.number}`} className="t-small">Zobrazit objednávku</Link>
-                ) : null}
+              <div key={m.id} className={styles.orderWrap} data-mine={m.mine ? '' : undefined}>
+                {m.order ? <OrderBubble o={m.order} mine={m.mine} /> : <div className={styles.event}>{m.body}</div>}
+                <span className={styles.time}>{m.mine ? 'Vy' : name} · {formatDateTime(m.createdAt)}</span>
               </div>
             );
           }
