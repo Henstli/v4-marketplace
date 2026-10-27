@@ -2,26 +2,53 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
-import { placeOrder } from '@/app/kosik/actions';
+import { getSellerShipping, placeOrder, type SellerShipping } from '@/app/kosik/actions';
 import { thumbUrl } from '@/lib/images';
 import { useCart, type CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
-// Odhad dopravy za jednu zásilku od prodejce (Zásilkovna), dokud nebude výběr dopravy.
-const SHIPPING_PER_SELLER = 89;
+// Výchozí doprava, než se načte ceník prodejce (stejná jako výchozí hodnota v profilu).
+const DEFAULT_SHIPPING = 89;
+
+function shippingFor(terms: SellerShipping | undefined, subtotal: number, pickup: boolean): number {
+  if (!terms) return DEFAULT_SHIPPING;
+  if (pickup && terms.pickupPlace) return 0;
+  if (terms.freeFrom !== null && subtotal >= terms.freeFrom) return 0;
+  return terms.shipping;
+}
 
 export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) {
   const { items, setQuantity, remove, clear } = useCart();
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
+  const [terms, setTerms] = useState<Record<string, SellerShipping>>({});
+  const [pickup, setPickup] = useState<Set<string>>(new Set());
+  const sellerKey = [...new Set(items.map((i) => i.sellerId))].sort().join(',');
+
+  useEffect(() => {
+    if (!sellerKey) return;
+    let live = true;
+    getSellerShipping(sellerKey.split(',')).then((t) => { if (live) setTerms(t); }).catch(() => {});
+    return () => { live = false; };
+  }, [sellerKey]);
+
+  const togglePickup = (sellerId: string, on: boolean) =>
+    setPickup((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(sellerId); else next.delete(sellerId);
+      return next;
+    });
 
   const submit = () =>
     startTransition(async () => {
       setError(undefined);
-      const result = await placeOrder(items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })));
+      const result = await placeOrder(
+        items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })),
+        [...pickup].filter((id) => terms[id]?.pickupPlace),
+      );
       if (result.error) return setError(result.error);
       clear();
       router.push('/objednavky?nova=1');
@@ -42,7 +69,14 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const bySeller = new Map<string, CartItem[]>();
   for (const item of items) bySeller.set(item.sellerId, [...(bySeller.get(item.sellerId) ?? []), item]);
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const shipping = bySeller.size * SHIPPING_PER_SELLER;
+  const groups = [...bySeller.values()].map((group) => {
+    const sellerId = group[0].sellerId;
+    const sum = group.reduce((s, i) => s + i.price * i.quantity, 0);
+    const t = terms[sellerId];
+    const picked = pickup.has(sellerId) && !!t?.pickupPlace;
+    return { group, sellerId, sum, terms: t, picked, shipping: shippingFor(t, sum, picked) };
+  });
+  const shipping = groups.reduce((s, g) => s + g.shipping, 0);
 
   return (
     <div className={`container ${styles.layout}`}>
@@ -51,14 +85,22 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
         <p className="muted">
           {bySeller.size === 1 ? 'Jedna zásilka od jednoho prodejce.' : `${bySeller.size} zásilky od různých prodejců, každý posílá zvlášť.`}
         </p>
-        {[...bySeller.values()].map((group) => {
-          const sum = group.reduce((s, i) => s + i.price * i.quantity, 0);
+        {groups.map(({ group, sellerId, sum, terms: t, picked, shipping: ship }) => {
           return (
-            <div key={group[0].sellerId} className={styles.group}>
+            <div key={sellerId} className={styles.group}>
               <div className={styles.groupHead}>
                 <h2 className="t-heading-m">{group[0].sellerName}</h2>
-                <span className="t-small muted">Doprava od <Price amount={SHIPPING_PER_SELLER} /></span>
+                <span className="t-small muted">
+                  {picked ? 'Osobní předání zdarma' : ship === 0 ? 'Doprava zdarma' : <>Doprava <Price amount={ship} /></>}
+                  {!picked && ship > 0 && t?.freeFrom ? <> · zdarma od <Price amount={t.freeFrom} /></> : null}
+                </span>
               </div>
+              {t?.pickupPlace ? (
+                <label className="t-small" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                  <input type="checkbox" checked={picked} onChange={(e) => togglePickup(sellerId, e.target.checked)} />
+                  Vyzvednu osobně ({t.pickupPlace})
+                </label>
+              ) : null}
               {group.map((item) => (
                 <div key={item.listingId} className={styles.item}>
                   <div className={styles.itemCard}>

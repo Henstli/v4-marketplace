@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { authErrorMessage } from '@/lib/auth-helpers';
 import { verifyIdentity } from '@/lib/identity';
+import { normalizeAccount } from '@/lib/payment';
 import { createClient } from '@/lib/supabase/server';
 
 export interface ProfileState {
@@ -24,6 +25,41 @@ export async function updateProfile(_prev: ProfileState, form: FormData): Promis
 
   const { error } = await supabase.from('profiles').update({ display_name: displayName, kind, country }).eq('id', auth.user.id);
   if (error) return { error: 'Profil se nepodařilo uložit.' };
+  revalidatePath('/', 'layout');
+  return { ok: true };
+}
+
+/** Doprava a bankovní účet prodejce (kupující platí přímo na něj). */
+export async function updateSellerTerms(_prev: ProfileState, form: FormData): Promise<ProfileState> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: 'Nejste přihlášeni.' };
+
+  const shipping = Number(form.get('shipping'));
+  const freeRaw = String(form.get('freeFrom') ?? '').trim();
+  const freeFrom = freeRaw ? Number(freeRaw) : null;
+  const pickup = form.get('pickup') === 'on';
+  const pickupPlace = String(form.get('pickupPlace') ?? '').trim().slice(0, 60);
+  if (!Number.isInteger(shipping) || shipping < 0 || shipping > 1000) return { error: 'Cena dopravy musí být 0 až 1 000 Kč.' };
+  if (freeFrom !== null && (!Number.isInteger(freeFrom) || freeFrom < 1 || freeFrom > 100000)) return { error: 'Doprava zdarma od: zadejte celou částku v Kč, nebo nechte prázdné.' };
+  if (pickup && pickupPlace.length < 2) return { error: 'U osobního předání napište místo (např. Praha 4).' };
+
+  const accountRaw = String(form.get('account') ?? '').trim();
+  const accountName = String(form.get('accountName') ?? '').trim();
+  const iban = accountRaw ? normalizeAccount(accountRaw) : null;
+  if (accountRaw && !iban) return { error: 'Číslo účtu není platné. Zadejte ho jako 123456789/0800 nebo jako IBAN.' };
+  if (iban && (accountName.length < 2 || accountName.length > 70)) return { error: 'Vyplňte jméno majitele účtu.' };
+
+  const { error } = await supabase.from('profiles')
+    .update({ shipping_czk: shipping, free_shipping_from: freeFrom, pickup, pickup_place: pickup ? pickupPlace : null })
+    .eq('id', auth.user.id);
+  if (error) return { error: 'Nastavení se nepodařilo uložit.' };
+
+  const { error: payError } = iban
+    ? await supabase.from('seller_payment').upsert({ user_id: auth.user.id, iban, account_name: accountName, updated_at: new Date().toISOString() })
+    : await supabase.from('seller_payment').delete().eq('user_id', auth.user.id);
+  if (payError) return { error: 'Účet se nepodařilo uložit.' };
+
   revalidatePath('/', 'layout');
   return { ok: true };
 }
