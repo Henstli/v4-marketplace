@@ -39,6 +39,8 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
     graded: graded || null,
     note: note || null,
   });
+  // 42501: databáze nepustí vystavení bez dopravy a platby (seller_ready).
+  if (error?.code === '42501') return { error: 'Nejdřív doplňte dopravu a platbu v nastavení účtu.' };
   if (error) return { error: 'Nabídku se nepodařilo uložit. Zkuste to prosím znovu.' };
 
   revalidatePath('/prodat');

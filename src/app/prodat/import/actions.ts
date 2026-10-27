@@ -114,7 +114,9 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
       if (created) revalidate();
       return {
         created,
-        error: created
+        error: error.code === '42501'
+          ? 'Nejdřív doplňte dopravu a platbu v nastavení účtu.'
+          : created
           ? `Vystavili jsme ${created} nabídek, zbytek se nepodařilo uložit. Zkuste ho nahrát znovu.`
           : 'Nabídky se nepodařilo uložit. Zkuste to prosím znovu.',
       };

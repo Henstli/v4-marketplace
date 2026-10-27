@@ -123,3 +123,7 @@
 .order:has(.title):hover { border-top-color: var(--line-strong); border-right-color: var(--line-strong); border-bottom-color: var(--line-strong); background: color-mix(in srgb, var(--surface-sunken) 50%, var(--surface)); }
 .title::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .order a:not(.title), .order button, .order form, .order select, .order input, .order .payment { position: relative; z-index: 1; }
+
+/* Odesláno s nepovinným číslem zásilky (DS DeliveryPayment) */
+.trackForm { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.trackForm .input { width: 220px; max-width: 100%; }

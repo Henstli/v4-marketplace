@@ -97,3 +97,20 @@
   .planRow { grid-template-columns: minmax(0, 1fr) auto; }
   .planAction { grid-column: 1 / -1; justify-self: stretch; }
 }
+
+/* Doprava a platba u prodejce (DS DeliveryPayment › Košík) */
+.choose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); padding: var(--space-4); border-bottom: 1px solid var(--line); }
+@media (max-width: 700px) { .choose { grid-template-columns: minmax(0, 1fr); } }
+.chooseCol { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; border: 0; margin: 0; padding: 0; }
+.chooseCol legend { padding: 0; margin-bottom: var(--space-2); font-size: 11px; letter-spacing: .06em; font-weight: 700; color: var(--ink-muted); }
+.opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; }
+.opt:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.opt input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.optText { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.optText small { font-size: 12px; color: var(--ink-muted); }
+.optPrice { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
+.point { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+.point input { height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font: 14px var(--font-sans); }
+.point input:focus { outline: none; border-color: var(--accent); }
+.footLines { display: flex; align-items: baseline; gap: var(--space-2); font-weight: 600; }
+.none { margin: 0; font-size: 13px; color: var(--ink-muted); }

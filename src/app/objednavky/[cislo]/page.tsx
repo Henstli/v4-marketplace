@@ -6,10 +6,11 @@ import { ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
-import { ORDER_STATUS, ORDER_TONE } from '@/lib/order-status';
+import { ORDER_STATUS } from '@/lib/order-status';
+import { flowSteps, nextStep, orderLabel } from '@/lib/order-flow';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { BuyerActions, ENDED, loadContact, loadPayment, ORDER_SELECT, type OrderRow, PaymentInfo, SellerActions } from '../parts';
+import { BuyerActions, DeliveryInfo, ENDED, flowOf, loadContact, loadPayment, ORDER_SELECT, type OrderRow, PaymentInfo, SellerActions } from '../parts';
 import styles from '../orders.module.css';
 
 type Props = { params: Promise<{ cislo: string }> };
@@ -19,31 +20,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Objednávka č. ${cislo}` };
 }
 
-// Postup jako v chatu (DS Messages): který krok je hotový v jakém stavu a ze které změny stavu bereme čas.
-const STEPS: Array<{ label: string; at: string[]; waiting: string }> = [
-  { label: 'Odesláno', at: [], waiting: '' },
-  { label: 'Potvrzeno', at: ['confirmed'], waiting: 'čeká na prodejce' },
-  { label: 'Zaplaceno a odesláno', at: ['paid', 'shipped'], waiting: 'čeká na platbu' },
-  { label: 'Převzato', at: ['delivered'], waiting: 'čeká na doručení' },
-];
-const STEP_DONE: Record<string, number> = { requested: 1, confirmed: 2, pending_payment: 2, paid: 3, shipped: 3, delivered: 4 };
-
-// Co dál podle stavu a role.
-const NEXT: Record<string, { buyer: string; seller: string }> = {
-  requested: { buyer: 'Prodejce objednávku potvrdí nebo odmítne. Karty jsou zatím rezervované pro vás.', seller: 'Potvrďte, že karty máte a prodáte je, nebo objednávku odmítněte.' },
-  confirmed: { buyer: 'Zaplaťte prodejci převodem nebo QR kódem. Kartu odešle, až platba dorazí.', seller: 'Počkejte na platbu a kartu odešlete. Pak ji označte jako odeslanou.' },
-  pending_payment: { buyer: 'Zaplaťte prodejci podle údajů níže.', seller: 'Počkejte na platbu od kupujícího.' },
-  paid: { buyer: 'Prodejce kartu odešle.', seller: 'Platba dorazila, kartu odešlete a označte jako odeslanou.' },
-  shipped: { buyer: 'Karta je na cestě. Až dorazí, potvrďte převzetí.', seller: 'Kupující potvrdí převzetí, až karta dorazí.' },
-  delivered: { buyer: 'Hotovo. Ohodnoťte prosím prodejce.', seller: 'Hotovo, karta je předaná.' },
-};
-
 // Kód stavu z textu zprávy o změně (trigger order_chat_event v databázi).
 const EVENT_STATUS: Array<[RegExp, string]> = [
   [/potvrdil objednávku/, 'confirmed'],
-  [/Zaplacena objednávka/, 'paid'],
+  [/Kupující zaplatil/, 'buyer_paid'],
+  [/potvrdil platbu|Zaplacena objednávka/, 'paid'],
   [/odeslal objednávku/, 'shipped'],
-  [/převzal objednávku/, 'delivered'],
+  [/převzal objednávku|Předána objednávka/, 'delivered'],
 ];
 
 export default async function OrderDetailPage({ params }: Props) {
@@ -75,7 +58,10 @@ export default async function OrderDetailPage({ params }: Props) {
     if (hit && !statusAt.has(hit[1])) statusAt.set(hit[1], h.at);
   }
   const ended = ENDED.has(order.status);
-  const done = STEP_DONE[order.status] ?? 0;
+  const flow = flowOf(order);
+  const steps = flowSteps(flow);
+  const label = orderLabel(flow, role);
+  const next = nextStep(flow, role);
   const otherName = other?.display_name ?? 'smazaný účet';
   const tab = role === 'buyer' ? 'nakupy' : 'prodeje';
   const count = order.order_items.reduce((n, i) => n + i.quantity, 0);
@@ -92,13 +78,13 @@ export default async function OrderDetailPage({ params }: Props) {
             {waiting ? (
               <ExpiryStatus expiresAt={order.expires_at!} role={role} />
             ) : (
-              <Status tone={ORDER_TONE[order.status] ?? 'muted'}>{ORDER_STATUS[order.status] ?? order.status}</Status>
+              <Status tone={label.tone}>{label.text}</Status>
             )}
           </div>
           <p className="t-small muted">
             Objednáno {formatDateTime(order.created_at)} · {role === 'buyer' ? 'prodejce' : 'kupující'} {otherName}
-            {order.delivery === 'pickup' ? ' · osobní předání' : ''}
           </p>
+          <DeliveryInfo o={order} />
         </div>
         <Price amount={order.total_czk} size="lg" />
       </header>
@@ -111,16 +97,15 @@ export default async function OrderDetailPage({ params }: Props) {
               <p className="t-small muted">{history.find((h) => /zrušil|odmítl|vypršela/.test(h.body))?.body ?? ORDER_STATUS[order.status]}.</p>
             ) : (
               <ol className={styles.steps}>
-                {STEPS.map((s, n) => {
-                  const on = n < done;
-                  const at = n === 0 ? order.created_at : s.at.map((k) => statusAt.get(k)).find(Boolean);
+                {steps.map((s, n) => {
+                  const at = s.key === 'ordered' ? order.created_at : s.key === 'buyer_paid' ? order.buyer_paid_at ?? statusAt.get('buyer_paid') : statusAt.get(s.key);
                   // Krok, na který se čeká do vypršení, má termín.
                   const due = waiting && n === 1;
                   return (
-                    <li key={s.label} data-done={on ? '' : undefined} data-due={due ? '' : undefined}>
+                    <li key={s.key} data-done={s.done ? '' : undefined} data-due={due ? '' : undefined}>
                       <strong>{s.label}</strong>
                       <span className="t-small muted">
-                        {on ? (at ? formatDateTime(at) : 'hotovo') : due ? `${role === 'seller' ? 'potvrďte do' : 'prodejce potvrdí do'} ${formatDateTime(order.expires_at!)}` : s.waiting}
+                        {s.done ? (at ? formatDateTime(at) : 'hotovo') : due ? `${role === 'seller' ? 'potvrďte do' : 'prodejce potvrdí do'} ${formatDateTime(order.expires_at!)}` : s.waiting}
                       </span>
                     </li>
                   );
@@ -150,16 +135,22 @@ export default async function OrderDetailPage({ params }: Props) {
               <span className="muted">{order.delivery === 'pickup' ? 'Osobní předání' : 'Doprava'}</span>
               <Price amount={order.shipping_czk} />
             </div>
+            {order.cod_fee_czk ? (
+              <div className={styles.sum}>
+                <span className="muted">Příplatek za dobírku</span>
+                <Price amount={order.cod_fee_czk} />
+              </div>
+            ) : null}
             <div className={`${styles.sum} ${styles.sumTotal}`}>
               <span>Celkem · {count}&nbsp;ks</span>
               <Price amount={order.total_czk} />
             </div>
           </section>
 
-          {payment || order.status === 'confirmed' ? (
+          {order.status === 'confirmed' && (order.payment ?? 'transfer') === 'transfer' && !(role === 'buyer' && order.buyer_paid_at) ? (
             <section className={styles.box} aria-labelledby="platba">
               <h2 id="platba" className={styles.boxTitle}>Platba</h2>
-              <PaymentInfo payment={payment} role={role} status={order.status} />
+              <PaymentInfo payment={payment} role={role} order={order} />
             </section>
           ) : null}
         </div>
@@ -179,7 +170,7 @@ export default async function OrderDetailPage({ params }: Props) {
           {!ended ? (
             <section className={styles.box} aria-labelledby="dal">
               <h2 id="dal" className={styles.boxTitle}>Co dál</h2>
-              {NEXT[order.status] ? <p className="t-small muted">{NEXT[order.status][role]}</p> : null}
+              {next ? <p className="t-small muted">{next}</p> : null}
               {waiting ? <ExpiryMeter createdAt={order.created_at} expiresAt={order.expires_at!} /> : null}
               <div className={`${styles.actions} ${styles.sideActions}`}>
                 {role === 'buyer' ? <BuyerActions o={order} reviewed={!!review} /> : <SellerActions o={order} />}

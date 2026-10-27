@@ -6,7 +6,8 @@ import { CONDITION_NAMES, CONDITIONS, LANGUAGE_NAMES, type Language } from '@/li
 import { createListing, type ListingState } from './actions';
 import styles from './sell.module.css';
 
-export function ListingForm({ cardId }: { cardId: string }) {
+/** `blocked`: prodejce ještě nemá dopravu a platbu (výzva nad formulářem), vystavit nejde. */
+export function ListingForm({ cardId, blocked = false }: { cardId: string; blocked?: boolean }) {
   const [state, action, pending] = useActionState<ListingState, FormData>(createListing, {});
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -14,7 +15,7 @@ export function ListingForm({ cardId }: { cardId: string }) {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className={styles.form}>
+    <form ref={formRef} action={action} className={`${styles.form} ${blocked ? styles.dimmed : ''}`}>
       <input type="hidden" name="card" value={cardId} />
       <label className={styles.field}>
         <span className="t-label muted">STAV</span>
@@ -45,7 +46,8 @@ export function ListingForm({ cardId }: { cardId: string }) {
         <input name="note" placeholder="např. drobné odření rohu" maxLength={200} className={styles.input} />
       </label>
       <div className={`${styles.wide} ${styles.submit}`}>
-        <Button type="submit" size="lg" disabled={pending}>{pending ? 'Ukládám…' : 'Vystavit kartu'}</Button>
+        <Button type="submit" size="lg" disabled={pending || blocked}>{pending ? 'Ukládám…' : 'Vystavit kartu'}</Button>
+        {blocked ? <p className={styles.blocked}>Nejdřív doplňte dopravu a platbu.</p> : null}
         {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
         {state.ok ? <p className={styles.ok} role="status">Karta je vystavená.</p> : null}
       </div>

@@ -106,3 +106,7 @@
 .mono { font-family: var(--font-mono); }
 .pager { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
 .bulkInput { width: 80px; }
+
+/* Výzva před vystavením: formulář je vidět, ale vystavit nejde (DS DeliveryPayment). */
+.dimmed > :not(:last-child) { opacity: .6; }
+.blocked { margin: 0; font-size: 13px; color: var(--down); }
