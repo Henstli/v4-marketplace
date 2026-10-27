@@ -11,6 +11,11 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+/* Odkaz „Zobrazit objednávku“ ze zpráv: objednávka pod hlavičkou a krátce zvýrazněná. */
+.order { scroll-margin-top: 96px; }
+.order:target { animation: orderFlash 2.4s ease-out; }
+@keyframes orderFlash { from { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint, var(--surface-sunken)); } }
+
 
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); }
 

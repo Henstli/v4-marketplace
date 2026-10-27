@@ -30,3 +30,6 @@ a.tz-chip { text-decoration: none; }
   border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent);
   font: 700 10px/17px var(--font-sans); text-align: center; box-shadow: 0 0 0 2px var(--bg);
 }
+
+/* Status danger: jen zrušené a odmítnuté objednávky (výjimka z pravidla červené, Šimon 27. 10.) */
+.tz-status-danger { color: var(--danger); background: var(--danger-tint); }
