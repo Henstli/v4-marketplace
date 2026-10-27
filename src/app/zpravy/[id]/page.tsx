@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ShopLogo, shopStyle } from '@/components/trezor';
 import { Thread } from '@/components/messages/Thread';
 import { getCurrentUser } from '@/lib/auth';
-import { getListingRefs, getPeople, getThread, isUserId } from '@/lib/messages';
+import { getListingRefs, getMyListings, getPeople, getThread, isUserId } from '@/lib/messages';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import styles from '@/components/messages/messages.module.css';
@@ -35,6 +35,8 @@ export default async function ConversationPage({ params, searchParams }: Props) 
   }
   // Dotaz k nabídce z katalogu (tlačítko Napsat u nabídky).
   const listing = nabidka && isUserId(nabidka) ? (await getListingRefs([nabidka])).get(nabidka) ?? null : null;
+  // Prodejce může navrhnout cenu k některé své nabídce skladem, když už si spolu píšou.
+  const myListings = thread.id ? await getMyListings(user.id) : [];
 
   return (
     <section className={styles.thread} aria-label={`Konverzace: ${other.name}`}>
@@ -47,7 +49,7 @@ export default async function ConversationPage({ params, searchParams }: Props) 
         </span>
         <Link href={other.href} className={styles.headLink}>{other.kind === 'shop' ? 'Stránka obchodu' : 'Zobrazit profil'}</Link>
       </div>
-      <Thread to={id} name={other.name} messages={thread.messages} initialText={text?.slice(0, 2000) ?? ''} listing={listing} wasUnread={thread.unread} />
+      <Thread to={id} name={other.name} messages={thread.messages} initialText={text?.slice(0, 2000) ?? ''} listing={listing} wasUnread={thread.unread} myListings={myListings} />
     </section>
   );
 }

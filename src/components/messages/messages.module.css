@@ -142,3 +142,31 @@
 .ordTrack { display: flex; gap: 8px; flex-wrap: wrap; }
 .ordTrack input { height: 36px; width: 150px; box-sizing: border-box; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font-size: 13px; }
 .ordTrack input:focus { outline: none; border-color: var(--accent); }
+
+/* Návrh ceny (DS Messages, Návrh ceny): jako objednávka, ale v barvě info. */
+.ofr {
+  width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px;
+  background: color-mix(in srgb, var(--info) 7%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--info) 35%, var(--line));
+  border-radius: 16px 16px 4px 16px;
+}
+.ofr.ordThem { border-radius: 16px 16px 16px 4px; }
+.ofrDone { background: var(--surface); border-color: var(--line); }
+.ofrCard { display: flex; gap: 10px; align-items: center; color: inherit; text-decoration: none; }
+.ofrCard:hover .refName { color: var(--accent); }
+.ofrPrice { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-mono); font-size: 22px; font-weight: 600; }
+.ofrPrice s { font-size: 14px; font-weight: 500; color: var(--ink-muted); }
+.ofrPrice small { font-family: var(--font-sans); font-size: 12px; font-weight: 400; color: var(--ink-muted); }
+.ofrOld { text-decoration: line-through; color: var(--ink-muted); }
+.ofrCounter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0; }
+.ofrInput {
+  width: 120px; height: 36px; box-sizing: border-box; padding: 0 10px; border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font: 500 14px var(--font-mono);
+}
+/* Prodejce navrhuje cenu: řádek nad polem pro psaní. */
+.propose { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-sunken); margin: 0; }
+.propose label { display: flex; flex-direction: column; gap: 4px; }
+.proposeWide { flex: 1 1 260px; min-width: 0; }
+.proposeWide select { width: 100%; font-family: var(--font-sans); }
+.proposeActions { display: flex; gap: 8px; }
+.propose > p { flex-basis: 100%; margin: 0; }

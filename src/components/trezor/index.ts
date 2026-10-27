@@ -12,6 +12,6 @@ export { CardThumb } from './CardThumb';
 export { Skeleton, SkeletonTile } from './Skeleton';
 export { Steps } from './Steps';
 export { FileDrop } from './FileDrop';
-export { Status } from './Status';
+export { Status, type StatusTone } from './Status';
 export { BulkBar } from './BulkBar';
 export { SellerBadge, ShopLogo, ShopHeader, ShopSection, ShopTicker, Achievements, CardTag, ShopDivider, shopStyle, initials, type ShopLayout } from './Shop';

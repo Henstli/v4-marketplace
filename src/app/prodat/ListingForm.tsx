@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/trezor';
 import { CONDITION_NAMES, CONDITIONS, LANGUAGE_NAMES, type Language } from '@/lib/types';
 import { createListing, type ListingState } from './actions';
@@ -10,8 +10,10 @@ import styles from './sell.module.css';
 export function ListingForm({ cardId, blocked = false }: { cardId: string; blocked?: boolean }) {
   const [state, action, pending] = useActionState<ListingState, FormData>(createListing, {});
   const formRef = useRef<HTMLFormElement>(null);
+  // Cena dohodou: bez ceny, kupující pošle návrh (DS OfferTable).
+  const [negotiable, setNegotiable] = useState(false);
   useEffect(() => {
-    if (state.ok) formRef.current?.reset();
+    if (state.ok) { formRef.current?.reset(); setNegotiable(false); }
   }, [state]);
 
   return (
@@ -29,10 +31,19 @@ export function ListingForm({ cardId, blocked = false }: { cardId: string; block
           {(Object.keys(LANGUAGE_NAMES) as Language[]).map((l) => <option key={l} value={l}>{LANGUAGE_NAMES[l]}</option>)}
         </select>
       </label>
-      <label className={styles.field}>
-        <span className="t-label muted">CENA ZA KUS (KČ)</span>
-        <input name="price" type="number" min={1} step={1} required inputMode="numeric" className={styles.input} />
-      </label>
+      <div className={styles.field}>
+        {negotiable ? null : (
+          <label className={styles.field}>
+            <span className="t-label muted">CENA ZA KUS (KČ)</span>
+            <input name="price" type="number" min={1} step={1} required inputMode="numeric" className={styles.input} />
+          </label>
+        )}
+        <label className={styles.check}>
+          <input type="checkbox" name="negotiable" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} />
+          <span>Cena dohodou</span>
+        </label>
+        {negotiable ? <span className="t-small muted">Kupující vám pošlou návrh ceny, vy ho přijmete, nebo navrhnete jinou.</span> : null}
+      </div>
       <label className={styles.field}>
         <span className="t-label muted">POČET KUSŮ</span>
         <input name="quantity" type="number" min={1} max={999} step={1} defaultValue={1} required className={styles.input} />

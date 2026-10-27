@@ -252,15 +252,31 @@ async function dbSeller(id: string): Promise<Seller | null> {
   };
 }
 
+interface DbListing {
+  id: string; card_id: string; seller_id: string; price_czk: number | null; negotiable?: boolean;
+  condition: string; language: string; quantity: number; graded: string | null; note: string | null;
+  profiles: unknown;
+}
+
+/** Nejnižší pevná cena (nabídky s cenou dohodou se nepočítají). */
+function lowest(offers: Array<{ price: number | null }>): number | null {
+  const prices = offers.map((o) => o.price).filter((p): p is number => p != null);
+  return prices.length ? Math.min(...prices) : null;
+}
+
 /** Nabídky karty skladem, nebo (s reserved) vyprodané nabídky s danými id. */
 async function dbOffers(cardId: string, reserved?: string[]): Promise<Offer[]> {
   const supabase = createPublicClient();
-  const base = supabase
-    .from('listings')
-    .select('id, card_id, seller_id, price_czk, condition, language, quantity, graded, note, profiles(display_name, kind, country)')
-    .eq('card_id', cardId);
-  const { data: listings, error } = await (reserved ? base.eq('quantity', 0).in('id', reserved) : base.gt('quantity', 0))
-    .order('price_czk');
+  const query = (cols: string) => {
+    const base = supabase.from('listings').select(cols).eq('card_id', cardId);
+    return (reserved ? base.eq('quantity', 0).in('id', reserved) : base.gt('quantity', 0))
+      .order('price_czk', { nullsFirst: false })
+      .returns<DbListing[]>();
+  };
+  const cols = 'id, card_id, seller_id, price_czk, condition, language, quantity, graded, note, profiles(display_name, kind, country)';
+  let { data: listings, error } = await query(`${cols}, negotiable`);
+  // Bez migrace price_offers sloupec negotiable ještě není.
+  if (error) ({ data: listings, error } = await query(cols));
   if (error) throw new Error(`Nabídky se nepodařilo načíst: ${error.message}`);
   const sellerIds = [...new Set((listings ?? []).map((l) => l.seller_id))];
   const { data: reviews } = sellerIds.length
@@ -277,6 +293,7 @@ async function dbOffers(cardId: string, reserved?: string[]): Promise<Offer[]> {
       cardId: l.card_id,
       sellerId: l.seller_id,
       price: l.price_czk,
+      negotiable: l.negotiable === true || l.price_czk == null,
       condition: l.condition as Condition,
       language: l.language as Language,
       quantity: l.quantity,
@@ -321,7 +338,7 @@ async function dbCardBySlug(slug: string): Promise<CardSummary | null> {
     rarity: c.rarity ?? '',
     image: c.image_url ?? undefined,
     priceHistory,
-    minPrice: offers.length ? Math.min(...offers.map((o) => o.price)) : null,
+    minPrice: lowest(offers),
     offers: offers.length,
     trend: trendOf(priceHistory),
   };
@@ -341,7 +358,7 @@ function mockSummarize(card: Card, query: CatalogQuery = {}): CardSummary {
   const offers = LISTINGS.filter((l) => l.cardId === card.id && mockMatchesListing(l, query));
   return {
     ...card,
-    minPrice: offers.length ? Math.min(...offers.map((o) => o.price)) : null,
+    minPrice: lowest(offers),
     offers: offers.length,
     trend: trendOf(card.priceHistory),
   };
@@ -485,7 +502,7 @@ export const getOffers = cache(async (cardId: string): Promise<Offer[]> => {
   if (isSupabaseConfigured()) return dbOffers(cardId);
   return LISTINGS.filter((l) => l.cardId === cardId)
     .map((l) => ({ ...l, seller: SELLERS.find((s) => s.id === l.sellerId)! }))
-    .sort((a, b) => a.price - b.price);
+    .sort((a, b) => (a.price ?? 1e12) - (b.price ?? 1e12));
 });
 
 const dbStats = unstable_cache(
