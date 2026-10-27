@@ -5,6 +5,7 @@ import { useActionState, useState } from 'react';
 import { Button } from '@/components/trezor';
 import { CARRIERS, type Carrier, type ShippingMethod } from '@/lib/delivery';
 import { updateDeliveryPayment, type ProfileState } from './actions';
+import { placeAt, PlaceInput } from './PlaceInput';
 import styles from './delivery.module.css';
 
 // Mapa jen v prohlížeči (Leaflet sahá na window).
@@ -37,6 +38,9 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
   const [cod, setCod] = useState(values.methods.some((m) => m.cod));
   const [pos, setPos] = useState<{ lat: number | null; lng: number | null }>({ lat: values.pickupLat, lng: values.pickupLng });
   const [radius, setRadius] = useState(values.pickupRadius);
+  const [place, setPlace] = useState(values.pickupPlace);
+  // Název doplněný z mapy se smí přepsat dalším kliknutím, napsaný ručně ne.
+  const [autoPlace, setAutoPlace] = useState(!values.pickupPlace);
   const [on, setOn] = useState<Set<Carrier>>(new Set(values.methods.map((m) => m.carrier)));
   const [codOn, setCodOn] = useState<Set<Carrier>>(new Set(values.methods.filter((m) => m.cod).map((m) => m.carrier)));
   const byKey = new Map(values.methods.map((m) => [m.carrier, m]));
@@ -87,20 +91,27 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
           </label>
           {pickup ? (
             <div className={styles.subCol}>
-              <PickupMap lat={pos.lat} lng={pos.lng} radiusKm={radius} onPick={(lat, lng) => setPos({ lat, lng })} />
+              <PickupMap lat={pos.lat} lng={pos.lng} radiusKm={radius} onPick={(lat, lng) => {
+                setPos({ lat, lng });
+                if (autoPlace || !place.trim()) placeAt(lat, lng).then((name) => { if (name) { setPlace(name); setAutoPlace(true); } });
+              }} />
               <input type="hidden" name="lat" value={pos.lat ?? ''} />
               <input type="hidden" name="lng" value={pos.lng ?? ''} />
               <div className={styles.sub}>
                 <label className={styles.field}>
                   <span className={styles.label}>Místo (vidí kupující)</span>
-                  <input name="pickupPlace" maxLength={60} required defaultValue={values.pickupPlace} className={styles.input} placeholder="např. Brno, Mendlovo náměstí" />
+                  <PlaceInput
+                    value={place}
+                    onChange={(v) => { setPlace(v); setAutoPlace(false); }}
+                    onPick={(p) => { setPos({ lat: p.lat, lng: p.lng }); setAutoPlace(false); }}
+                  />
                 </label>
                 <label className={`${styles.field} ${styles.narrow}`}>
                   <span className={styles.label}>Okruh (km)</span>
                   <input name="radius" type="number" min={1} max={50} value={radius} onChange={(e) => setRadius(Math.min(50, Math.max(1, Number(e.target.value) || 1)))} className={`${styles.input} code`} />
                 </label>
               </div>
-              <small className={styles.note}>Klikněte do mapy, kde předáváte. Přesnou adresu kupující neuvidí, jen místo a okruh. Domluvíte se ve zprávách.</small>
+              <small className={styles.note}>Začněte psát místo, nebo klikněte do mapy, kde předáváte. Přesnou adresu kupující neuvidí, jen místo a okruh. Domluvíte se ve zprávách.</small>
             </div>
           ) : null}
         </section>
