@@ -8,7 +8,7 @@ import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
 import { ShipChangeBlock } from '@/components/orders/ShipChange';
 import { sendMessage } from '@/app/zpravy/actions';
-import { setOrderStatus } from '@/app/objednavky/actions';
+import { orderPaymentQr, setOrderStatus, type ChatPayment } from '@/app/objednavky/actions';
 import { ShipEdit } from '@/app/objednavky/ShipEdit';
 import { answerOffer, proposePrice } from '@/app/zpravy/offers';
 import { formatDateTime, formatPrice, plural } from '@/lib/format';
@@ -64,14 +64,64 @@ function StepForm({ id, action }: { id: string; action: FlowAction }) {
 }
 
 /** Akce podle role (DS DeliveryPayment): bublinu posílá kupující, takže u kupujícího je mine = true. */
-function OrderActions({ o, buyer }: { o: ChatOrder; buyer: boolean }) {
+function OrderActions({ o, buyer, extra }: { o: ChatOrder; buyer: boolean; extra?: ReactNode }) {
   const actions = flowActions(o, buyer ? 'buyer' : 'seller');
-  return actions.length ? <div className={styles.ordActions}>{actions.map((a) => <StepForm key={a.label} id={o.id} action={a} />)}</div> : null;
+  return actions.length || extra ? <div className={styles.ordActions}>{extra}{actions.map((a) => <StepForm key={a.label} id={o.id} action={a} />)}</div> : null;
+}
+
+/** Hodnota s odkazem Kopírovat (na telefonu QR naskenovat nejde). */
+function CopyValue({ value, label }: { value: string; label: string }) {
+  const [done, setDone] = useState(false);
+  const copy = () => {
+    navigator.clipboard?.writeText(value).then(() => { setDone(true); setTimeout(() => setDone(false), 2000); }).catch(() => {});
+  };
+  return (
+    <dd className={styles.payValue}>
+      <span className="code">{value}</span>
+      <button type="button" className={styles.payCopy} onClick={copy} aria-label={`Kopírovat ${label}`}>{done ? 'Zkopírováno' : 'Kopírovat'}</button>
+    </dd>
+  );
+}
+
+/** QR platba rozbalená v bublině (DS Messages › QR platba v bublině, varianta A). */
+function PayBlock({ payment, onHide }: { payment: ChatPayment | null; onHide: () => void }) {
+  return (
+    <div className={styles.pay}>
+      <div className={styles.payHead}>
+        <span className="t-label muted">ZAPLATIT PŘEVODEM</span>
+        <button type="button" className={styles.payHide} onClick={onHide}>Skrýt</button>
+      </div>
+      {payment ? (
+        <>
+          <div className={styles.payBody}>
+            {payment.qr ? <div className={styles.payQr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
+            <dl className={styles.payLines}>
+              <div><dt>ČÁSTKA</dt><dd className={styles.payAmount}><Price amount={payment.amount} /></dd></div>
+              <div><dt>ÚČET</dt><CopyValue value={payment.account} label="číslo účtu" /></div>
+              <div><dt>VARIABILNÍ SYMBOL</dt><CopyValue value={String(payment.vs)} label="variabilní symbol" /></div>
+              <div><dt>MAJITEL</dt><dd>{payment.owner}</dd></div>
+            </dl>
+          </div>
+          <p className="t-small muted">Naskenujte v aplikaci banky. Platíte přímo prodejci, V4cards peníze nepřijímá.</p>
+        </>
+      ) : (
+        <p className="t-small muted">Prodejce nemá vyplněný účet. Napište mu, kam zaplatit.</p>
+      )}
+    </div>
+  );
 }
 
 /** Objednávka jako bublina od kupujícího (DS Messages, varianta A s pruhem postupu). */
 function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
   const ended = ENDED.has(o.status);
+  // QR platba jen pro kupujícího před kliknutím na Zaplaceno; údaje se načtou až po kliknutí.
+  const payable = mine && o.status === 'confirmed' && (o.payment ?? 'transfer') === 'transfer' && !o.buyerPaidAt && o.shipChange == null;
+  const [pay, setPay] = useState<ChatPayment | null | 'closed' | 'loading'>('closed');
+  const openPay = () => {
+    setPay('loading');
+    orderPaymentQr(o.id).then(setPay).catch(() => setPay(null));
+  };
+  const payOpen = payable && pay !== 'closed' && pay !== 'loading';
   const steps = flowSteps(o);
   const label = orderLabel(o, mine ? 'buyer' : 'seller', true);
   return (
@@ -103,6 +153,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
       </div>
       {ended ? null : (
         <>
+          {payOpen ? <PayBlock payment={pay as ChatPayment | null} onHide={() => setPay('closed')} /> : null}
           <ol className={styles.track} aria-label="Postup objednávky">
             {steps.map((s) => (
               <li key={s.key} data-done={s.done ? '' : undefined}>{s.label}</li>
@@ -129,7 +180,13 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
               cap={o.shipCap}
             />
           ) : null}
-          <OrderActions o={o} buyer={mine} />
+          <OrderActions
+            o={o}
+            buyer={mine}
+            extra={payable && !payOpen ? (
+              <Button variant="ghost" className={styles.ordBtn} disabled={pay === 'loading'} onClick={openPay}>{pay === 'loading' ? 'Načítám…' : 'Zaplatit QR kódem'}</Button>
+            ) : null}
+          />
           <Link href={`/objednavky/${o.number}`} className="t-small">Zobrazit objednávku</Link>
         </>
       )}
