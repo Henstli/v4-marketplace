@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/trezor';
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
@@ -124,10 +124,19 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
   const payOpen = payable && pay !== 'closed' && pay !== 'loading';
   const steps = flowSteps(o);
   const label = orderLabel(o, mine ? 'buyer' : 'seller', true);
+  const router = useRouter();
+  const href = `/objednavky/${o.number}`;
+  // Klik kamkoli do bubliny otevře detail; tlačítka, odkazy, pole, QR blok a označený text ne.
+  const openDetail = (e: MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('a, button, input, textarea, select, label, form, [data-stay]')) return;
+    if (window.getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey) window.open(href, '_blank');
+    else router.push(href);
+  };
   return (
-    <div className={`${styles.ord} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`}>
+    <div className={`${styles.ord} ${styles.ordLink} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`} onClick={openDetail}>
       <div className={styles.ordTop}>
-        <strong>Objednávka č. <span className="code">{o.number}</span></strong>
+        <strong><Link href={href} className={styles.ordTitle}>Objednávka č. <span className="code">{o.number}</span></Link></strong>
         {o.status === 'requested' && o.expiresAt ? (
           <ExpiryStatus expiresAt={o.expiresAt} role={mine ? 'buyer' : 'seller'} />
         ) : (
@@ -153,14 +162,14 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
       </div>
       {ended ? null : (
         <>
-          {payOpen ? <PayBlock payment={pay as ChatPayment | null} onHide={() => setPay('closed')} /> : null}
+          {payOpen ? <div data-stay className={styles.stay}><PayBlock payment={pay as ChatPayment | null} onHide={() => setPay('closed')} /></div> : null}
           <ol className={styles.track} aria-label="Postup objednávky">
             {steps.map((s) => (
               <li key={s.key} data-done={s.done ? '' : undefined}>{s.label}</li>
             ))}
           </ol>
           {o.shipChange != null && (o.status === 'requested' || o.status === 'confirmed') ? (
-            <ShipChangeBlock
+            <div data-stay className={styles.stay}><ShipChangeBlock
               shipping={o.shipping}
               change={o.shipChange}
               total={o.total}
@@ -168,26 +177,25 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
               role={mine ? 'buyer' : 'seller'}
               requested={o.status === 'requested'}
               transfer={(o.payment ?? 'transfer') === 'transfer'}
-            />
+            /></div>
           ) : null}
           {!mine && canChangeShipping(o) ? (
-            <ShipEdit
+            <div data-stay className={styles.stay}><ShipEdit
               key={o.shipChange ?? o.shipping}
               id={o.id}
               carrier={o.carrierName}
               shipping={o.shipChange ?? o.shipping}
               total={o.total - o.shipping + (o.shipChange ?? o.shipping)}
               cap={o.shipCap}
-            />
+            /></div>
           ) : null}
-          <OrderActions
+          <div data-stay className={styles.stay}><OrderActions
             o={o}
             buyer={mine}
             extra={payable && !payOpen ? (
               <Button variant="ghost" className={styles.ordBtn} disabled={pay === 'loading'} onClick={openPay}>{pay === 'loading' ? 'Načítám…' : 'Zaplatit QR kódem'}</Button>
             ) : null}
-          />
-          <Link href={`/objednavky/${o.number}`} className="t-small">Zobrazit objednávku</Link>
+          /></div>
         </>
       )}
     </div>
