@@ -124,7 +124,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
             <span role="columnheader" aria-label="Nabízím" />
             <span role="columnheader">DOPRAVCE</span>
             <span role="columnheader" className={styles.right}>CENA</span>
-            <span role="columnheader">DOBÍRKA</span>
+            <span role="columnheader" className={styles.center}>DOBÍRKA</span>
             <span role="columnheader" className={styles.right}>PŘÍPLATEK</span>
           </div>
           {CARRIERS.map((c) => {
