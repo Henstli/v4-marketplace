@@ -9,16 +9,27 @@ import styles from './orders.module.css';
 const REASONS = ['Těžší nebo větší zásilka', 'Víc kusů v krabici', 'Pojištění zásilky', 'Jiný důvod'];
 const kc = (n: number) => `${n.toLocaleString('cs-CZ')} Kč`;
 
-/** Prodejce: „Upravit dopravu“ u potvrzené objednávky před zaplacením (DS DeliveryPayment). */
-export function ShipEdit({ id, shipping, total, cap }: { id: string; shipping: number; total: number; cap: number | null }) {
+/** Prodejce: řádek Doprava s Upravit od objednání do zaplacení (DS DeliveryPayment, varianta B). */
+export function ShipEdit({ id, carrier, shipping, total, cap }: { id: string; carrier: string; shipping: number; total: number; cap: number | null }) {
   const [state, action, pending] = useActionState<ShipChangeState, FormData>(changeShipping, {});
   // Otevřeno od stavu `opened`; po úspěšném odeslání se formulář zavře.
   const [opened, setOpened] = useState<ShipChangeState | null>(null);
   const open = opened !== null && (state === opened || !state.ok);
   const [price, setPrice] = useState(shipping);
   const [reason, setReason] = useState(REASONS[0]);
-  if (!open) return <Button variant="ghost" onClick={() => { setOpened(state); setPrice(shipping); }}>Upravit dopravu</Button>;
+  if (!open) {
+    return (
+      <div className={styles.shipRow}>
+        <span className={styles.shipRowText}>
+          <span className="t-label muted">DOPRAVA</span>
+          <span>{carrier} · <span className="code">{kc(shipping)}</span></span>
+        </span>
+        <button type="button" className={styles.shipRowBtn} onClick={() => { setOpened(state); setPrice(shipping); }}>Upravit</button>
+      </div>
+    );
+  }
   const lower = price < shipping;
+  const over = cap != null && price > cap ? price - cap : 0;
   return (
     <form onSubmit={keepForm(action)} className={styles.shipEdit}>
       <input type="hidden" name="id" value={id} />
@@ -30,8 +41,12 @@ export function ShipEdit({ id, shipping, total, cap }: { id: string; shipping: n
         </label>
         <label className={styles.field}>
           <span className="t-label muted">NOVÁ CENA</span>
-          <input name="price" type="number" min={0} max={cap ?? 1000} required value={price} onChange={(e) => setPrice(Number(e.target.value) || 0)} className={`${styles.input} code`} />
-          {cap ? <span className="t-small muted">nejvýš {kc(cap)}</span> : null}
+          <input name="price" type="number" min={0} max={cap ?? 1000} required value={price} onChange={(e) => setPrice(Number(e.target.value) || 0)} className={`${styles.input} code ${over ? styles.inputOver : ''}`} aria-invalid={over > 0} aria-describedby={cap ? `cap-${id}` : undefined} />
+          {cap ? (
+            <span id={`cap-${id}`} className={`t-small ${over ? styles.over : 'muted'}`} role={over ? 'alert' : undefined}>
+              {over ? `Nejvýš ${kc(cap)}, překračujete o ${kc(over)}` : `nejvýš ${kc(cap)}`}
+            </span>
+          ) : null}
         </label>
       </div>
       <fieldset className={styles.reasons}>
@@ -52,7 +67,7 @@ export function ShipEdit({ id, shipping, total, cap }: { id: string; shipping: n
         </span>
         <span className={styles.shipBtns}>
           <Button variant="ghost" onClick={() => setOpened(null)}>Zrušit</Button>
-          <Button type="submit" disabled={pending || price === shipping}>{lower ? 'Snížit dopravu' : 'Poslat kupujícímu'}</Button>
+          <Button type="submit" disabled={pending || price === shipping || over > 0}>{lower ? 'Snížit dopravu' : 'Poslat kupujícímu'}</Button>
         </span>
       </div>
       {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
