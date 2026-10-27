@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Achievements, ButtonLink, CardTag, ChipLink, Price, SellerBadge, ShopDivider, ShopHeader, ShopSection, ShopTicker, shopStyle } from '@/components/trezor';
+import { ProposePrice } from '@/components/offers/ProposePrice';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { formatNumber, plural } from '@/lib/format';
 import { GAMES, getGame } from '@/lib/games';
@@ -106,8 +107,16 @@ function ListingTile({ l, d, p }: { l: ShopListing; d: ShopDesign; p?: ShopProfi
       </div>
     </>
   );
-  // Bez košíku i u ceny dohodou: návrh ceny se posílá na stránce karty.
-  if (!p || l.price == null) return <Link className="tz-tile" href={`/karty/${l.card.slug}`}>{body}</Link>;
+  if (!p) return <Link className="tz-tile" href={`/karty/${l.card.slug}`}>{body}</Link>;
+  // U ceny dohodou místo košíku „Nabídnout cenu“ (Šimon 27. 10.).
+  if (l.price == null) {
+    return (
+      <div className="tz-tile">
+        <Link className="tz-tile-link" href={`/karty/${l.card.slug}`}>{body}</Link>
+        <ProposePrice listingId={l.id} sellerId={p.seller.id} max={l.quantity} className="tz-tile-buy" />
+      </div>
+    );
+  }
   // S košíkem: odkaz a tlačítko vedle sebe, tlačítko nesmí být uvnitř odkazu.
   return (
     <div className="tz-tile">
