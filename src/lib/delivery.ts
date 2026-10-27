@@ -1,20 +1,53 @@
 // Doprava a platba prodejce (DS DeliveryPayment). Kupující platí přímo prodejci, V4cards peníze nepřijímá.
 
-export type Carrier = 'zasilkovna' | 'zasilkovna_home' | 'balikovna' | 'cp_doruky' | 'ppl' | 'dpd' | 'gls' | 'letter' | 'custom';
+export type Carrier = 'zasilkovna' | 'zasilkovna_home' | 'balikovna' | 'cp_doruky' | 'ppl' | 'ppl_point' | 'dpd' | 'gls' | 'letter' | 'custom';
+/** Mapa výdejních míst, ze které kupující vybírá. */
+export type PointProvider = 'zasilkovna' | 'balikovna' | 'ppl';
 export type PaymentMethod = 'transfer' | 'cod' | 'cash';
 
-/** Dopravci v pořadí, v jakém je prodejce vidí v nastavení. `point`: kupující vybírá výdejní místo. */
-export const CARRIERS: Array<{ key: Carrier; name: string; hint?: string; point?: boolean }> = [
-  { key: 'zasilkovna', name: 'Zásilkovna · výdejní místo a Z-BOX', hint: 'Kupující napíše výdejní místo v košíku.', point: true },
-  { key: 'zasilkovna_home', name: 'Zásilkovna · na adresu' },
-  { key: 'balikovna', name: 'Balíkovna', point: true },
-  { key: 'cp_doruky', name: 'Česká pošta · Balík Do ruky' },
-  { key: 'ppl', name: 'PPL' },
-  { key: 'dpd', name: 'DPD' },
-  { key: 'gls', name: 'GLS' },
-  { key: 'letter', name: 'Doporučený dopis', hint: 'Pro pár karet v obálce, bez sledování.' },
+/**
+ * Dopravci v pořadí, v jakém je prodejce vidí v nastavení. `point`: kupující vybírá výdejní místo na mapě
+ * dopravce, `home`: vyplní adresu. Stejné rozdělení má databázová funkce carrier_kind.
+ */
+export const CARRIERS: Array<{ key: Carrier; name: string; hint?: string; point?: PointProvider; home?: boolean }> = [
+  { key: 'zasilkovna', name: 'Zásilkovna · výdejní místo a Z-BOX', hint: 'Kupující vybere místo na mapě v košíku.', point: 'zasilkovna' },
+  { key: 'zasilkovna_home', name: 'Zásilkovna · na adresu', home: true },
+  { key: 'balikovna', name: 'Balíkovna', hint: 'Kupující vybere místo na mapě v košíku.', point: 'balikovna' },
+  { key: 'cp_doruky', name: 'Česká pošta · Balík Do ruky', home: true },
+  { key: 'ppl_point', name: 'PPL · výdejní místo a box', hint: 'Kupující vybere místo na mapě v košíku.', point: 'ppl' },
+  { key: 'ppl', name: 'PPL · na adresu', home: true },
+  { key: 'dpd', name: 'DPD', home: true },
+  { key: 'gls', name: 'GLS', home: true },
+  { key: 'letter', name: 'Doporučený dopis', hint: 'Pro pár karet v obálce, bez sledování.', home: true },
   { key: 'custom', name: 'Vlastní způsob', hint: 'Název si napíšete sami.' },
 ];
+
+/** Výdejní místo z mapy dopravce. */
+export interface DeliveryPoint { id?: string; name: string; address?: string }
+
+/** Příjemce a adresa. U výdejního místa stačí jméno a telefon. */
+export interface DeliveryAddress { name: string; phone: string; street: string; city: string; zip: string; country: 'CZ' | 'SK' }
+
+export const EMPTY_ADDRESS: DeliveryAddress = { name: '', phone: '', street: '', city: '', zip: '', country: 'CZ' };
+
+export function carrierKind(carrier: string | null | undefined): 'point' | 'home' | null {
+  const c = CARRIERS.find((x) => x.key === carrier);
+  return c?.point ? 'point' : c?.home ? 'home' : null;
+}
+
+/** Stejná pravidla jako place_order: co v doručovacích údajích chybí (null = vše v pořádku). */
+export function addressProblem(kind: 'point' | 'home' | null, a: DeliveryAddress, phoneOptional = false): string | null {
+  if (!kind) return null;
+  if (a.name.trim().length < 3) return 'jméno příjemce';
+  const phone = a.phone.replace(/[^0-9+]/g, '');
+  if (phone ? !/^\+?[0-9]{9,15}$/.test(phone) : !phoneOptional) return 'telefon';
+  if (kind === 'home') {
+    if (!a.street.trim()) return 'ulici';
+    if (!a.city.trim()) return 'město';
+    if (!/^[0-9]{5}$/.test(a.zip.replace(/\s/g, ''))) return 'PSČ';
+  }
+  return null;
+}
 
 export const CARRIER_NAME = Object.fromEntries(CARRIERS.map((c) => [c.key, c.name])) as Record<Carrier, string>;
 

@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
-import { getSellerOffers, placeOrder, type SellerChoice } from '@/app/kosik/actions';
-import { CARRIERS, methodName, paymentsFor, shippingPrice, type PaymentMethod, type SellerOffer } from '@/lib/delivery';
+import { getSavedAddress, getSellerOffers, placeOrder, type SellerChoice } from '@/app/kosik/actions';
+import { addressProblem, CARRIERS, carrierKind, EMPTY_ADDRESS, methodName, paymentsFor, shippingPrice, type DeliveryAddress, type DeliveryPoint, type PaymentMethod, type PointProvider, type SellerOffer } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/images';
+import { AddressBlock } from './AddressBlock';
 import { CartPlans } from './CartPlans';
+import { PointPicker } from './PointPicker';
 import { useCart, type CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
-const POINT = new Set(CARRIERS.filter((c) => c.point).map((c) => c.key as string));
+const PROVIDER = Object.fromEntries(CARRIERS.filter((c) => c.point).map((c) => [c.key, c.point])) as Record<string, PointProvider>;
+const LAST_POINTS = 'v4-vydejni-mista';
 const PAY_LABEL: Record<PaymentMethod, string> = { transfer: 'Převodem předem', cod: 'Dobírka', cash: 'Hotově při předání' };
 const PAY_HINT: Record<PaymentMethod, string> = { transfer: 'QR kód dostanete po potvrzení.', cod: 'Platíte při převzetí zásilky.', cash: 'Platíte prodejci na místě.' };
 
@@ -48,6 +51,13 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const [picked, setPicked] = useState<Record<string, Partial<SellerChoice>>>({});
   // Ručně otevřené nebo sbalené volby; bez záznamu je rozbalený jen jediný prodejce v košíku.
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  // Doručovací údaje kupujícího: jedny pro všechny prodejce v košíku.
+  const [addr, setAddr] = useState<DeliveryAddress>(EMPTY_ADDRESS);
+  const [saved, setSaved] = useState(false);
+  const [save, setSave] = useState(false);
+  const [picker, setPicker] = useState<{ sellerId: string; provider: PointProvider } | null>(null);
+  // Naposledy vybraná místa podle mapy (jen v tomto prohlížeči, nejsou to osobní údaje).
+  const [lastPoints, setLastPoints] = useState<Partial<Record<PointProvider, DeliveryPoint>>>({});
   const sellerKey = [...new Set(items.map((i) => i.sellerId))].sort().join(',');
 
   useEffect(() => {
@@ -56,6 +66,21 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
     getSellerOffers(sellerKey.split(',')).then((t) => { if (live) setOffers(t); }).catch(() => {});
     return () => { live = false; };
   }, [sellerKey]);
+
+  useEffect(() => {
+    if (checkout !== 'ready') return;
+    getSavedAddress().then((a) => { if (a) { setAddr(a); setSaved(true); setSave(true); } }).catch(() => {});
+    try { setLastPoints(JSON.parse(localStorage.getItem(LAST_POINTS) ?? '{}')); } catch {}
+  }, [checkout]);
+
+  const pickPoint = (sellerId: string, provider: PointProvider, point: DeliveryPoint) => {
+    choose(sellerId, { point });
+    setLastPoints((prev) => {
+      const next = { ...prev, [provider]: point };
+      try { localStorage.setItem(LAST_POINTS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const choose = (sellerId: string, change: Partial<SellerChoice>) =>
     setPicked((prev) => ({ ...prev, [sellerId]: { ...prev[sellerId], ...change } }));
@@ -82,9 +107,12 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
     const choice = settle(offer, picked[sellerId] ?? {});
     const ship = offer && choice.delivery ? shippingPrice(offer, choice.delivery, sum) : 0;
     const fee = offer && choice.delivery && choice.payment ? paymentsFor(offer, choice.delivery).find((p) => p.key === choice.payment)?.fee ?? 0 : 0;
-    const needsPoint = !!choice.delivery && POINT.has(choice.delivery);
-    const complete = !!choice.delivery && !!choice.payment && (!needsPoint || !!choice.point?.trim());
-    return { group, sellerId, sum, offer, choice, ship, fee, needsPoint, complete };
+    const kind = carrierKind(choice.delivery);
+    const provider = choice.delivery ? PROVIDER[choice.delivery] : undefined;
+    const point = provider ? choice.point ?? lastPoints[provider] : undefined;
+    const missing = kind === 'point' && !point?.name ? 'výdejní místo' : addressProblem(kind, addr, choice.delivery === 'letter');
+    const complete = !!choice.delivery && !!choice.payment && !missing;
+    return { group, sellerId, sum, offer, choice, ship, fee, kind, provider, point, missing, complete };
   });
   const shipping = groups.reduce((s, g) => s + g.ship, 0);
   const fees = groups.reduce((s, g) => s + g.fee, 0);
@@ -97,9 +125,15 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
       const choices: Record<string, SellerChoice> = {};
       for (const g of groups) {
         if (!g.complete) return setError('Vyberte dopravu a platbu u každého prodejce.');
-        choices[g.sellerId] = { delivery: g.choice.delivery!, payment: g.choice.payment!, point: g.needsPoint ? g.choice.point!.trim() : undefined };
+        choices[g.sellerId] = {
+          delivery: g.choice.delivery!,
+          payment: g.choice.payment!,
+          point: g.kind === 'point' ? g.point : undefined,
+          address: g.kind ? addr : undefined,
+        };
       }
-      const result = await placeOrder(items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })), choices);
+      const usesAddress = groups.some((g) => g.kind);
+      const result = await placeOrder(items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })), choices, usesAddress && save ? addr : null);
       if (result.error) return setError(result.error);
       clear();
       router.push('/objednavky?nova=1');
@@ -113,16 +147,16 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
           {bySeller.size === 1 ? 'Jedna zásilka od jednoho prodejce.' : `${bySeller.size} zásilky od různých prodejců, každý posílá zvlášť.`}
         </p>
         <CartPlans items={items} onApply={replace} />
-        {groups.map(({ group, sellerId, sum, offer, choice, ship, fee, needsPoint }) => {
+        {groups.map(({ group, sellerId, sum, offer, choice, ship, fee, kind, provider, point, missing }) => {
           const ds = deliveries(offer);
           const ps = offer && choice.delivery ? paymentsFor(offer, choice.delivery) : [];
           const count = group.reduce((n, i) => n + i.quantity, 0);
           const expanded = open[sellerId] ?? single;
           const chosen = ds.find((d) => d.key === choice.delivery);
           const summary = chosen
-            ? [chosen.name, needsPoint && choice.point?.trim() ? choice.point.trim() : null, ship ? `${ship} Kč` : 'zdarma', choice.payment ? PAY_LABEL[choice.payment] : null].filter(Boolean).join(' · ')
+            ? [chosen.name, kind === 'point' ? point?.name : kind === 'home' && !missing ? `${addr.name.trim()}, ${addr.street.trim()}, ${addr.city.trim()}` : null, ship ? `${ship} Kč` : 'zdarma', choice.payment ? PAY_LABEL[choice.payment] : null].filter(Boolean).join(' · ')
             : null;
-          const done = !!chosen && !!choice.payment && (!needsPoint || !!choice.point?.trim());
+          const done = !!chosen && !!choice.payment && !missing;
           return (
             <div key={sellerId} className={styles.group}>
               <div className={styles.groupHead}>
@@ -155,7 +189,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
               {offer ? (
                 <button type="button" className={styles.chooseHead} aria-expanded={expanded} onClick={() => setOpen((o) => ({ ...o, [sellerId]: !expanded }))}>
                   <span className={styles.chooseLabel}>DOPRAVA A PLATBA</span>
-                  <span className={`${styles.chooseSum} ${done ? '' : styles.missing}`}>{done ? summary : summary ? `${summary} · vyberte ${choice.payment ? 'výdejní místo' : 'platbu'}` : 'Vyberte dopravu a platbu'}</span>
+                  <span className={`${styles.chooseSum} ${done ? '' : styles.missing}`}>{done ? summary : summary ? `${summary} · ${choice.payment ? `doplňte ${missing}` : 'vyberte platbu'}` : 'Vyberte dopravu a platbu'}</span>
                   <span className={styles.chooseToggle}>
                     {expanded ? 'Sbalit' : done ? 'Změnit' : 'Vybrat'}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
@@ -179,18 +213,43 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                         </label>
                       );
                     }) : <p className={styles.none}>Prodejce zatím nemá nastavenou dopravu.</p>}
-                    {needsPoint ? (
-                      <label className={styles.point}>
-                        Výdejní místo
-                        <input value={choice.point ?? ''} maxLength={120} onChange={(e) => choose(sellerId, { point: e.target.value })} placeholder="např. Z-BOX Brno, Kounicova 12" />
-                      </label>
+                    {kind === 'point' && provider ? (
+                      point?.name ? (
+                        <div className={styles.picked}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
+                          <span className={styles.pickedText}>
+                            <strong>{point.name}</strong>
+                            {point.address ? <small>{point.address}</small> : null}
+                            {point.id ? <small className="code">ID {point.id}</small> : null}
+                          </span>
+                          <button type="button" className={styles.pickedChange} onClick={() => setPicker({ sellerId, provider })}>Změnit</button>
+                        </div>
+                      ) : (
+                        <button type="button" className={styles.pickButton} onClick={() => setPicker({ sellerId, provider })}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
+                          Vybrat výdejní místo
+                        </button>
+                      )
+                    ) : null}
+                    {kind ? (
+                      <AddressBlock
+                        key={saved ? 'ulozena' : 'nova'}
+                        kind={kind}
+                        value={addr}
+                        onChange={setAddr}
+                        saved={saved}
+                        save={save}
+                        onSave={setSave}
+                        phoneOptional={choice.delivery === 'letter'}
+                        shared={groups.filter((g) => g.kind).length > 1}
+                      />
                     ) : null}
                   </fieldset>
                   <fieldset className={styles.chooseCol}>
                     <legend>PLATBA</legend>
                     {!choice.delivery ? <p className={styles.none}>Nejdřív vyberte dopravu.</p> : ps.length ? ps.map((p) => (
                       <label key={p.key} className={styles.opt}>
-                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => { choose(sellerId, { payment: p.key }); if (!needsPoint && !single) setOpen((o) => ({ ...o, [sellerId]: false })); }} />
+                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => { choose(sellerId, { payment: p.key }); if (!kind && !single) setOpen((o) => ({ ...o, [sellerId]: false })); }} />
                         <span className={styles.optText}>
                           <strong>{PAY_LABEL[p.key]}</strong>
                           <small>{PAY_HINT[p.key]}</small>
@@ -212,6 +271,14 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
           );
         })}
       </section>
+
+      {picker ? (
+        <PointPicker
+          provider={picker.provider}
+          onPick={(p) => pickPoint(picker.sellerId, picker.provider, p)}
+          onClose={() => setPicker(null)}
+        />
+      ) : null}
 
       <aside className={`panel ${styles.summary}`} aria-label="Souhrn objednávky">
         <h2 className="t-heading-m">Souhrn</h2>

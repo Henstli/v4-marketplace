@@ -11,6 +11,8 @@ import { czAccountNumber } from '@/lib/payment';
 import type { Carrier } from '@/lib/delivery';
 import { ProfileForm } from '../../ProfileForm';
 import { DeliveryPaymentForm } from '../../DeliveryPaymentForm';
+import { deleteSavedAddress } from '@/app/kosik/actions';
+import { Button } from '@/components/trezor';
 
 export const metadata: Metadata = { title: 'Nastavení účtu' };
 
@@ -26,7 +28,7 @@ export default async function AccountPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/ucet/nastaveni');
   const supabase = await createClient();
-  const [{ data: profile }, { data: payment }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }] = await Promise.all([
+  const [{ data: profile }, { data: payment }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }, { data: address }] = await Promise.all([
     supabase.from('profiles')
       .select('display_name, kind, country, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
       .eq('id', user.id).single(),
@@ -36,6 +38,7 @@ export default async function AccountPage({ searchParams }: Props) {
     identityMethod(supabase),
     searchParams,
     supabase.from('carrier_rates').select('carrier, price_czk, cod_fee_czk, heavy_czk'),
+    supabase.from('buyer_addresses').select('recipient, phone, street, city, zip, country').eq('user_id', user.id).maybeSingle(),
   ]);
   const mfaEnabled = (factors?.totp.length ?? 0) > 0;
 
@@ -71,6 +74,22 @@ export default async function AccountPage({ searchParams }: Props) {
             }}
           />
         ) : null}
+      </section>
+      <section id="adresa" className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <h2 className="t-heading-m">Doručovací adresa pro nákupy</h2>
+        {address ? (
+          <>
+            <p>
+              <strong>{address.recipient}</strong>
+              {address.street ? <><br />{address.street}, {address.zip} {address.city}, {address.country === 'SK' ? 'Slovensko' : 'Česko'}</> : null}
+              {address.phone ? <><br /><span className="code">{address.phone}</span></> : null}
+            </p>
+            <p className="t-small muted">Vidíte ji jen vy. V košíku se vyplní sama, prodejce ji dostane až u potvrzené objednávky.</p>
+            <form action={deleteSavedAddress}><Button type="submit" variant="ghost">Smazat uloženou adresu</Button></form>
+          </>
+        ) : (
+          <p className="muted">Nemáte uloženou adresu. Uložit ji můžete v košíku při objednávce.</p>
+        )}
       </section>
       <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <h2 className="t-heading-m">Zabezpečení</h2>

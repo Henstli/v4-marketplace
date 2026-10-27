@@ -129,6 +129,37 @@
 .optPrice { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
 .point { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
 .point input { height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font: 14px var(--font-sans); }
-.point input:focus { outline: none; border-color: var(--accent); }
+.point input, .point select { height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font: 14px var(--font-sans); }
+.point input:focus, .point select:focus { outline: none; border-color: var(--accent); }
+.point input.code { font-family: var(--font-mono); }
+
+/* Výdejní místo a adresa (DS DeliveryPayment › Výdejní místo, Doručení na adresu) */
+.pickButton { display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; border-radius: var(--radius-md); border: 1px dashed var(--accent); background: transparent; color: var(--accent); font: 600 14px var(--font-sans); cursor: pointer; }
+.pickButton:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.picked { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--accent); }
+.picked > svg { flex: none; margin-top: 2px; }
+.pickedText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; color: var(--ink); font-size: 14px; }
+.pickedText small { font-size: 13px; color: var(--ink-muted); }
+.pickedChange { flex: none; background: none; border: 0; padding: 0; color: var(--accent); font: 600 13px var(--font-sans); text-decoration: underline; cursor: pointer; }
+.addrBlock { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+.addrLabel { font-size: 11px; letter-spacing: .06em; font-weight: 700; color: var(--ink-muted); }
+.addrRow { display: flex; gap: var(--space-3); }
+.addrRow > .point { flex: 1; min-width: 0; }
+.addrRow > .addrZip { flex: 0 0 96px; }
+.addrRow > .addrCountry { flex: 0 0 128px; }
+.addrHint { font-size: 12px; font-weight: 400; color: var(--ink-muted); }
+.addrSave { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.addrSave input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.addrSave span { display: flex; flex-direction: column; gap: 2px; }
+.addrSave small { font-size: 12px; color: var(--ink-muted); }
+.pickDialog { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgb(0 0 0 / .5); }
+.pickDialog::backdrop { background: rgb(0 0 0 / .6); }
+.pickHead { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.pickClose { background: none; border: 0; color: var(--ink-muted); font: 13px var(--font-sans); cursor: pointer; min-height: 44px; }
+.pickFrame { display: block; width: 100%; height: min(640px, calc(100vh - 140px)); border: 0; background: #fff; }
+.pickPpl { height: min(640px, calc(100vh - 140px)); overflow: auto; background: #fff; color: #111; }
+.pickManual { display: flex; flex-direction: column; gap: var(--space-3); padding: 18px; }
+.pickManual p { margin: 0; }
+.pickNote { margin: 0; padding: 10px 18px 14px; }
 .footLines { display: flex; align-items: baseline; gap: var(--space-2); font-weight: 600; }
 .none { margin: 0; font-size: 13px; color: var(--ink-muted); }
