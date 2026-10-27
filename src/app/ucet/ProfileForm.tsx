@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { keepForm } from '@/lib/form';
 import { Button } from '@/components/trezor';
 import { updateProfile, type ProfileState } from './actions';
 import styles from '../prodat/sell.module.css';
@@ -8,7 +9,7 @@ import styles from '../prodat/sell.module.css';
 export function ProfileForm({ profile }: { profile: { display_name: string; kind: string; country: string } }) {
   const [state, action, pending] = useActionState<ProfileState, FormData>(updateProfile, {});
   return (
-    <form action={action} className={styles.form}>
+    <form onSubmit={keepForm(action)} className={styles.form}>
       <label className={styles.field}>
         <span className="t-label muted">JMÉNO NEBO NÁZEV OBCHODU</span>
         <input name="displayName" defaultValue={profile.display_name} required minLength={2} maxLength={40} className={styles.input} />

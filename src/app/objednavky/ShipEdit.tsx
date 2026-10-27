@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { keepForm } from '@/lib/form';
 import { Button } from '@/components/trezor';
 import { changeShipping, type ShipChangeState } from './actions';
 import styles from './orders.module.css';
@@ -19,7 +20,7 @@ export function ShipEdit({ id, shipping, total, cap }: { id: string; shipping: n
   if (!open) return <Button variant="ghost" onClick={() => { setOpened(state); setPrice(shipping); }}>Upravit dopravu</Button>;
   const lower = price < shipping;
   return (
-    <form action={action} className={styles.shipEdit}>
+    <form onSubmit={keepForm(action)} className={styles.shipEdit}>
       <input type="hidden" name="id" value={id} />
       <strong>Upravit dopravu</strong>
       <div className={styles.shipPrices}>

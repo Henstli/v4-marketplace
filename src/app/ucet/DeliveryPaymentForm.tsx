@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useActionState, useState } from 'react';
+import { keepForm } from '@/lib/form';
 import { Button } from '@/components/trezor';
 import { CARRIERS, COD_MARGIN, SHIPPING_PACKING, type Carrier, type CarrierRate, type ShippingMethod } from '@/lib/delivery';
 import { updateDeliveryPayment, type ProfileState } from './actions';
@@ -57,7 +58,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
   };
 
   return (
-    <form action={action} className={styles.form}>
+    <form onSubmit={keepForm(action)} className={styles.form}>
       {back ? <input type="hidden" name="back" value={back} /> : null}
       <div className={styles.cols}>
         <section className={styles.card} aria-labelledby="platba">
