@@ -7,14 +7,18 @@ import { sendMessageEmail } from '@/lib/email';
 import { isUserId } from '@/lib/messages';
 import { createClient } from '@/lib/supabase/server';
 
-export async function sendMessage(to: string, body: string): Promise<{ ok?: true; error?: string }> {
+export async function sendMessage(to: string, body: string, listingId?: string | null): Promise<{ ok?: true; error?: string }> {
   if (!isUserId(String(to))) return { error: 'Příjemce neexistuje.' };
   const text = String(body ?? '').trim();
   if (!text) return { error: 'Napište zprávu.' };
   if (text.length > 2000) return { error: 'Zpráva může mít nejvýš 2 000 znaků.' };
   const supabase = await createClient();
   // Přihlášení, limity proti spamu a dvoufázové ověření hlídá funkce send_message.
-  const { data, error } = await supabase.rpc('send_message', { p_to: to, p_body: text });
+  // Dotaz k nabídce nese její id; databáze ověří, že nabídka patří jednomu z účastníků.
+  const listing = listingId && isUserId(String(listingId)) ? String(listingId) : null;
+  let { data, error } = await supabase.rpc('send_message', listing ? { p_to: to, p_body: text, p_listing: listing } : { p_to: to, p_body: text });
+  // Bez migrace message_listing funkce s nabídkou ještě není, zpráva odejde bez odkazu.
+  if (error && listing && error.code === 'PGRST202') ({ data, error } = await supabase.rpc('send_message', { p_to: to, p_body: text }));
   if (error) return { error: error.message || 'Zprávu se nepodařilo odeslat. Zkuste to prosím znovu.' };
   const conversation = data as string;
   const [origin, { data: auth }] = await Promise.all([siteOrigin(), supabase.auth.getUser()]);

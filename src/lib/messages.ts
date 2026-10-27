@@ -3,6 +3,7 @@ import { PLANS } from './plans';
 import { getSellerBrands, getSellerPlans } from './shop';
 import { planColor, shopHref } from './shop-config';
 import { createClient } from './supabase/server';
+import { LANGUAGE_NAMES, type Language } from './types';
 
 export interface Person {
   id: string;
@@ -31,6 +32,20 @@ export interface ChatMessage {
   body: string;
   createdAt: string;
   order: { id: string; number: number; total: number; status: string; items: number } | null;
+  /** Nabídka, ke které se zpráva ptá */
+  listing: ListingRef | null;
+}
+
+/** Krátký popis nabídky pro dotaz v konverzaci. */
+export interface ListingRef {
+  id: string;
+  cardName: string;
+  cardSlug: string;
+  setLabel: string;
+  image: string | null;
+  condition: string;
+  language: string;
+  price: number;
 }
 
 interface ConversationRow {
@@ -111,13 +126,18 @@ export async function getThread(me: string, other: string): Promise<{ id: string
     .eq('user_b', b)
     .maybeSingle<ConversationRow>();
   if (!conv) return { id: null, unread: false, messages: [] };
-  const { data: rows } = await supabase
+  const query = (cols: string) => supabase
     .from('messages')
-    .select('id, sender_id, kind, body, created_at, order_id')
+    .select(cols)
     .eq('conversation_id', conv.id)
     .order('id', { ascending: false })
-    .limit(200);
+    .limit(200)
+    .returns<Array<{ id: number; sender_id: string | null; kind: string; body: string; created_at: string; order_id: string | null; listing_id?: string | null }>>();
+  let { data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id');
+  // Bez migrace message_listing sloupec listing_id ještě není.
+  if (error) ({ data: rows } = await query('id, sender_id, kind, body, created_at, order_id'));
   const list = (rows ?? []).reverse();
+  const listings = await getListingRefs([...new Set(list.map((m) => m.listing_id).filter((x): x is string => !!x))]);
   const orderIds = [...new Set(list.filter((m) => m.kind === 'order' && m.order_id).map((m) => m.order_id as string))];
   const { data: orders } = orderIds.length
     ? await supabase.from('orders').select('id, number, total_czk, status, order_items(quantity)').in('id', orderIds)
@@ -139,6 +159,36 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       body: m.body as string,
       createdAt: m.created_at as string,
       order: m.kind === 'order' && m.order_id ? byId.get(m.order_id as string) ?? null : null,
+      listing: m.listing_id ? listings.get(m.listing_id) ?? null : null,
     })),
   };
+}
+
+/** Nabídky pro dotazy v konverzaci (i vyprodané, aby šlo poznat, o co šlo). */
+export async function getListingRefs(ids: string[]): Promise<Map<string, ListingRef>> {
+  const out = new Map<string, ListingRef>();
+  if (!ids.length) return out;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('listings')
+    .select('id, price_czk, condition, language, graded, cards(name, slug, number, image_url, card_sets(code))')
+    .in('id', ids);
+  for (const l of data ?? []) {
+    const card = (Array.isArray(l.cards) ? l.cards[0] : l.cards) as
+      | { name: string; slug: string; number: string; image_url: string | null; card_sets: { code: string } | { code: string }[] | null }
+      | null;
+    if (!card) continue;
+    const set = Array.isArray(card.card_sets) ? card.card_sets[0] : card.card_sets;
+    out.set(l.id as string, {
+      id: l.id as string,
+      cardName: card.name,
+      cardSlug: card.slug,
+      setLabel: [set?.code, card.number].filter(Boolean).join(' '),
+      image: card.image_url,
+      condition: (l.condition as string) + (l.graded ? ` · ${l.graded}` : ''),
+      language: LANGUAGE_NAMES[l.language as Language] ?? String(l.language),
+      price: l.price_czk as number,
+    });
+  }
+  return out;
 }

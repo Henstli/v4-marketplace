@@ -161,7 +161,22 @@ export default async function CardDetailPage({ params }: Props) {
                     <td className={`${styles.num} ${styles.wide} t-price`}>{o.quantity}</td>
                     <td className={styles.num}><Price amount={o.price} /></td>
                     <td className={styles.num}>
-                      {'reservedUntil' in o ? <WatchButton cardId={card.id} size="md" compact /> : <AddToCartButton item={cartItem(card, o)} />}
+                      <div className={styles.actions}>
+                        {/* Dotaz k nabídce: konverzace s prodejcem s odkazem na tuto nabídku. */}
+                        <ButtonLink
+                          href={`/zpravy/${o.seller.id}?nabidka=${o.id}`}
+                          variant="secondary"
+                          className={styles.ask}
+                          title={`Napsat prodejci ${o.seller.name}`}
+                          aria-label={`Napsat prodejci ${o.seller.name} k této nabídce`}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+                          </svg>
+                          <span className={styles.askText}>Napsat</span>
+                        </ButtonLink>
+                        {'reservedUntil' in o ? <WatchButton cardId={card.id} size="md" compact /> : <AddToCartButton item={cartItem(card, o)} />}
+                      </div>
                     </td>
                   </tr>
                 ))}

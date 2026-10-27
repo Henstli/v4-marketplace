@@ -3,19 +3,45 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent } from 'react';
-import { Button, Price } from '@/components/trezor';
+import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { sendMessage } from '@/app/zpravy/actions';
 import { formatDateTime, plural } from '@/lib/format';
-import type { ChatMessage } from '@/lib/messages';
+import type { ChatMessage, ListingRef } from '@/lib/messages';
 import { ORDER_STATUS } from '@/lib/order-status';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
 const GROUP_MS = 5 * 60_000;
 
-export function Thread({ to, name, messages, initialText }: { to: string; name: string; messages: ChatMessage[]; initialText: string }) {
+// Štítek stavu objednávky: čeká = warn, domluveno = ok, skončilo bez obchodu = muted.
+const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted'> = {
+  requested: 'warn', pending_payment: 'warn',
+  confirmed: 'ok', paid: 'ok', shipped: 'ok', delivered: 'ok',
+};
+
+function ListingLink({ l, mine }: { l: ListingRef; mine: boolean }) {
+  return (
+    <Link href={`/karty/${l.cardSlug}`} className={styles.ref} data-mine={mine ? '' : undefined}>
+      <CardThumb image={l.image ?? undefined} size="sm" />
+      <span className={styles.refText}>
+        <span className={styles.refName}>{l.cardName}{l.setLabel ? ` · ${l.setLabel}` : ''}</span>
+        <span className={styles.refMeta}>{l.condition} · {l.language} · <Price amount={l.price} /></span>
+      </span>
+    </Link>
+  );
+}
+
+export function Thread({ to, name, messages, initialText, listing }: {
+  to: string;
+  name: string;
+  messages: ChatMessage[];
+  initialText: string;
+  /** Nabídka, ke které se píše dotaz (z katalogu karty) */
+  listing?: ListingRef | null;
+}) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
+  const [about, setAbout] = useState<ListingRef | null>(listing ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const box = useRef<HTMLDivElement>(null);
@@ -40,9 +66,12 @@ export function Thread({ to, name, messages, initialText }: { to: string; name: 
     if (!body || pending) return;
     setError(null);
     start(async () => {
-      const r = await sendMessage(to, body);
+      const r = await sendMessage(to, body, about?.id);
       if (r.error) return setError(r.error);
       setText('');
+      // Odkaz na nabídku patří jen k první zprávě.
+      setAbout(null);
+      if (listing) router.replace(`/zpravy/${to}`, { scroll: false });
       router.refresh();
     });
   };
@@ -65,7 +94,10 @@ export function Thread({ to, name, messages, initialText }: { to: string; name: 
                   {m.order ? <Price amount={m.order.total} /> : null}
                 </div>
                 {m.order ? (
-                  <span className="t-small muted">{plural(m.order.items, ['karta', 'karty', 'karet'])} · {ORDER_STATUS[m.order.status] ?? m.order.status}</span>
+                  <>
+                    <span className="t-small muted">{plural(m.order.items, ['karta', 'karty', 'karet'])}</span>
+                    <Status tone={STATUS_TONE[m.order.status] ?? 'muted'} className={styles.orderStatus}>{ORDER_STATUS[m.order.status] ?? m.order.status}</Status>
+                  </>
                 ) : null}
                 <Link href="/objednavky" className="t-small">Zobrazit objednávku</Link>
               </div>
@@ -79,6 +111,7 @@ export function Thread({ to, name, messages, initialText }: { to: string; name: 
             || Date.parse(next.createdAt) - Date.parse(m.createdAt) > GROUP_MS;
           return (
             <div key={m.id} className={styles.msgWrap} data-mine={m.mine ? '' : undefined}>
+              {m.listing ? <ListingLink l={m.listing} mine={m.mine} /> : null}
               <div className={`${styles.bubble} ${m.mine ? styles.me : styles.them}`}>{m.body}</div>
               {groupEnd ? <span className={styles.time}>{formatDateTime(m.createdAt)}</span> : null}
             </div>
@@ -88,6 +121,15 @@ export function Thread({ to, name, messages, initialText }: { to: string; name: 
         )}
       </div>
       <form className={styles.compose} onSubmit={(e) => { e.preventDefault(); send(); }}>
+        {about ? (
+          <div className={styles.ctx}>
+            <CardThumb image={about.image ?? undefined} size="sm" />
+            <span className={styles.ctxText}>
+              Dotaz k nabídce: <strong>{about.cardName}{about.setLabel ? ` · ${about.setLabel}` : ''}</strong> · {about.condition} · <Price amount={about.price} />
+            </span>
+            <button type="button" className={styles.ctxClose} onClick={() => setAbout(null)} aria-label="Zrušit odkaz na nabídku">×</button>
+          </div>
+        ) : null}
         <div className={styles.composeRow}>
           <textarea
             ref={field}
