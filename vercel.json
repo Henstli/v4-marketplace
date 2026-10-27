@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["dub1"],
-  "ignoreCommand": "[ \"$VERCEL_ENV\" != \"production\" ]",
+  "git": { "deploymentEnabled": { "claude/**": false } },
   "crons": [{ "path": "/api/cron/upozorneni", "schedule": "0 7 * * *" }]
 }
