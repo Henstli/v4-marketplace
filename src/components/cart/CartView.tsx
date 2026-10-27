@@ -99,15 +99,17 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
           <div className={styles.total}><dt>Celkem</dt><dd><Price amount={subtotal + shipping} size="lg" /></dd></div>
         </dl>
         {checkout === 'ready' ? (
-          <Button size="lg" onClick={submit} disabled={pending}>{pending ? 'Odesílám…' : 'Odeslat testovací objednávku'}</Button>
+          <Button size="lg" onClick={submit} disabled={pending}>{pending ? 'Odesílám…' : 'Objednat s povinností platby'}</Button>
         ) : checkout === 'login' ? (
           <ButtonLink href="/prihlaseni?dalsi=/kosik" size="lg">Přihlásit se a objednat</ButtonLink>
         ) : (
-          <Button size="lg" disabled title="Objednávky zapneme po připojení databáze">Pokračovat k platbě</Button>
+          <Button size="lg" disabled title="Objednávky zapneme po připojení databáze">Objednat</Button>
         )}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <p className="t-small muted">
-          Peníze držíme v úschově, prodejce je dostane až po doručení. V betě se zatím nic neplatí, objednávka je jen testovací.
+          {bySeller.size === 1 ? 'Prodejce objednávku' : 'Každý prodejce svou objednávku'} do 48 hodin potvrdí. Do té doby
+          jsou karty rezervované jen pro vás. Platíte přímo prodejci podle domluvy, kupní smlouvu uzavíráte s ním,
+          V4cards není její stranou a peníze nepřijímá.
         </p>
       </aside>
     </div>

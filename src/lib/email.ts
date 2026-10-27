@@ -46,3 +46,57 @@ function welcomeHtml(siteUrl: string): string {
   <p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6E7681;text-align:center">V4cards · sběratelské karty · <a href="${siteUrl}" style="color:#6E7681">www.v4cards.com</a> · <a href="mailto:podpora@v4cards.com" style="color:#6E7681">podpora@v4cards.com</a></p>
 </div>`;
 }
+
+export type OrderEmail = 'requested' | 'confirmed' | 'declined';
+
+const ORDER_EMAILS: Record<OrderEmail, { subject: string; title: string; text: (name: string) => string; button: string }> = {
+  requested: {
+    subject: 'Nová objednávka na V4cards',
+    title: 'Máte novou objednávku',
+    text: (name) => `${name} u vás objednal karty. Potvrďte nebo odmítněte objednávku do 48 hodin, jinak vyprší a karty se vrátí do nabídky. Po potvrzení se s kupujícím domluvíte na platbě a předání.`,
+    button: 'Zobrazit objednávku',
+  },
+  confirmed: {
+    subject: 'Prodejce potvrdil vaši objednávku',
+    title: 'Objednávka je potvrzená',
+    text: (name) => `${name} potvrdil vaši objednávku. Platíte přímo prodejci podle domluvy. Kontakt na něj najdete u objednávky.`,
+    button: 'Zobrazit objednávku',
+  },
+  declined: {
+    subject: 'Prodejce odmítl vaši objednávku',
+    title: 'Objednávka je odmítnutá',
+    text: (name) => `${name} vaši objednávku nemůže vyřídit. Nic neplatíte a karty se vrátily do nabídky, můžete zkusit jiného prodejce.`,
+    button: 'Hledat jiné nabídky',
+  },
+};
+
+/**
+ * Upozorní druhou stranu objednávky. Volá se po akci přihlášeného uživatele,
+ * adresu vrací databáze jen účastníkům objednávky (order_counterpart).
+ */
+export async function sendOrderEmail(supabase: Supabase, orderId: string, kind: OrderEmail, actorName: string, siteUrl: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  const { data } = await supabase.rpc('order_counterpart', { target: orderId });
+  const to = (data as Array<{ email: string | null }> | null)?.[0]?.email;
+  if (!to) return;
+  const e = ORDER_EMAILS[kind];
+  const href = kind === 'declined' ? `${siteUrl}/karty` : `${siteUrl}/objednavky`;
+  await send(to, e.subject, layoutHtml(siteUrl, `
+    <h1 style="font-size:20px;margin:0 0 12px">${e.title}</h1>
+    <p style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 20px">${escapeHtml(e.text(actorName))}</p>
+    <a href="${href}" style="display:inline-block;margin-top:4px;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">${e.button}</a>`));
+}
+
+function layoutHtml(siteUrl: string, body: string): string {
+  return `<div style="background:#0E1116;padding:32px 16px;font-family:Arial,Helvetica,sans-serif">
+  <div style="max-width:480px;margin:0 auto;background:#161B22;border-radius:12px;padding:32px;color:#E6EDF3">
+    <div style="font-size:22px;font-weight:bold;letter-spacing:-0.5px;margin-bottom:24px">V4<span style="color:#7CF2C8">cards</span></div>
+    ${body}
+  </div>
+  <p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6E7681;text-align:center">V4cards · sběratelské karty · <a href="${siteUrl}" style="color:#6E7681">www.v4cards.com</a> · <a href="mailto:podpora@v4cards.com" style="color:#6E7681">podpora@v4cards.com</a></p>
+</div>`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}

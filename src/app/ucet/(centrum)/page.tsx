@@ -48,15 +48,15 @@ export default async function AccountOverviewPage() {
 
       <div className="tz-acct-tiles">
         <Link href="/objednavky" className="tz-acct-tile">
-          <span className="tz-acct-tile-title"><Icon name="orders" />Prodeje k odeslání</span>
+          <span className="tz-acct-tile-title"><Icon name="orders" />Prodeje k vyřízení</span>
           <span className="tz-acct-tile-num">{a.toShip}</span>
-          {a.toShip ? `${plural(a.toShip, 'Zaplacená objednávka čeká', 'Zaplacené objednávky čekají', 'Zaplacených objednávek čeká')} na odeslání` : 'Nic nečeká na odeslání'}
+          {a.toShip ? `${plural(a.toShip, 'Objednávka čeká', 'Objednávky čekají', 'Objednávek čeká')} na potvrzení nebo odeslání` : 'Nic nečeká na vyřízení'}
           <span className="tz-acct-tile-link">Objednávky</span>
         </Link>
         <Link href="/objednavky" className="tz-acct-tile">
-          <span className="tz-acct-tile-title"><Icon name="orders" />Nákupy na cestě</span>
+          <span className="tz-acct-tile-title"><Icon name="orders" />Rozpracované nákupy</span>
           <span className="tz-acct-tile-num">{a.toConfirm}</span>
-          {a.toConfirm ? 'Po doručení potvrďte převzetí' : 'Žádný nákup není na cestě'}
+          {a.toConfirm ? 'Po převzetí karet to potvrďte' : 'Žádný nákup neprobíhá'}
           <span className="tz-acct-tile-link">Objednávky</span>
         </Link>
         <Link href="/prodat" className="tz-acct-tile">
