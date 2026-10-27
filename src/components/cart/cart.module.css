@@ -99,6 +99,16 @@
 }
 
 /* Doprava a platba u prodejce (DS DeliveryPayment › Košík) */
+.chooseHead { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 48px; padding: 10px var(--space-4); background: var(--surface); border: 0; border-bottom: 1px solid var(--line); color: var(--ink); font: 14px var(--font-sans); text-align: left; cursor: pointer; }
+.chooseHead:hover { background: var(--surface-sunken); }
+.chooseHead:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.chooseLabel { flex: none; font-size: 11px; letter-spacing: .06em; font-weight: 700; color: var(--ink-muted); }
+.chooseSum { flex: 1; min-width: 0; }
+.chooseSum.missing { color: var(--down); }
+.chooseToggle { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+.chooseToggle svg { transition: transform .15s; }
+.chooseHead[aria-expanded="true"] .chooseToggle svg { transform: rotate(180deg); }
+@media (max-width: 700px) { .chooseHead { flex-wrap: wrap; } .chooseSum { order: 3; flex-basis: 100%; } .chooseToggle { margin-left: auto; } }
 .choose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); padding: var(--space-4); border-bottom: 1px solid var(--line); }
 @media (max-width: 700px) { .choose { grid-template-columns: minmax(0, 1fr); } }
 .chooseCol { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; border: 0; margin: 0; padding: 0; }
