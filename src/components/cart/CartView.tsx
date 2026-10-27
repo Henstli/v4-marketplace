@@ -154,7 +154,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                           <input type="radio" name={`d_${sellerId}`} checked={choice.delivery === d.key} onChange={() => choose(sellerId, { delivery: d.key })} />
                           <span className={styles.optText}>
                             <strong>{d.name}</strong>
-                            {d.key === 'pickup' ? <small>{offer.pickupPlace}{offer.pickupRadius ? ` · do ${offer.pickupRadius} km` : ''}</small> : d.note ? <small>{d.note}</small> : null}
+                            {d.key === 'pickup' ? <small>{offer.pickupExact ? `Adresa: ${offer.pickupPlace}` : `${offer.pickupPlace}${offer.pickupRadius ? ` · do ${offer.pickupRadius} km` : ''}`}</small> : d.note ? <small>{d.note}</small> : null}
                           </span>
                           <span className={styles.optPrice}>{price ? `${price} Kč` : 'zdarma'}</span>
                         </label>
