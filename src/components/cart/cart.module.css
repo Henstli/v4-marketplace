@@ -28,7 +28,8 @@
 
 .item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  /* Pevné sloupce, aby kusy, ceny a Odebrat byly pod sebou ve všech řádcích. */
+  grid-template-columns: minmax(0, 1fr) 92px 112px auto;
   gap: var(--space-4);
   align-items: center;
   padding: var(--space-4);
@@ -42,7 +43,11 @@
 .itemName { font-weight: 600; text-decoration: none; }
 .itemName:hover { color: var(--accent); }
 
+.itemPrice { text-align: right; white-space: nowrap; }
+.qty { display: block; }
+
 .qty select {
+  width: 100%;
   height: 44px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
@@ -66,7 +71,10 @@
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   .summary { position: static; }
-  .item { grid-template-columns: minmax(0, 1fr) auto; }
+}
+
+@media (max-width: 640px) {
+  .item { grid-template-columns: minmax(0, 1fr) 92px; }
 }
 
 .error { color: var(--down); background: var(--down-tint); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }

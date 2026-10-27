@@ -148,7 +148,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                       ))}
                     </select>
                   </label>
-                  <Price amount={item.price * item.quantity} />
+                  <span className={styles.itemPrice}><Price amount={item.price * item.quantity} /></span>
                   <Button variant="ghost" onClick={() => remove(item.listingId)} aria-label={`Odebrat ${item.cardName}`}>Odebrat</Button>
                 </div>
               ))}
