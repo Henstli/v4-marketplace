@@ -15,8 +15,8 @@ export default async function MessagesPage() {
     <div className={styles.empty}>
       <h2 className="t-heading-m">Vyberte konverzaci</h2>
       <p className="muted">
-        Prodejci napíšete z jeho stránky tlačítkem „Napsat zprávu“, u objednávky najdete odkaz
-        na zprávy s druhou stranou. <Link href="/objednavky">Objednávky</Link>
+        Prodejci napíšete z jeho stránky tlačítkem „Napsat zprávu“ nebo u nabídky v katalogu karty
+        tlačítkem „Napsat“. U objednávky najdete odkaz na zprávy s druhou stranou. <Link href="/objednavky">Objednávky</Link>
       </p>
     </div>
   );
