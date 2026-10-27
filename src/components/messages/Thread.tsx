@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
+import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { sendMessage } from '@/app/zpravy/actions';
+import { setOrderStatus } from '@/app/objednavky/actions';
 import { formatDateTime, plural } from '@/lib/format';
 import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
 import { ORDER_STATUS, ORDER_TONE } from '@/lib/order-status';
@@ -31,6 +33,34 @@ function ListingLink({ l, mine }: { l: ListingRef; mine: boolean }) {
 // Pruh postupu objednávky: kolik kroků je hotových podle stavu.
 const STEPS = ['Odesláno', 'Potvrzeno', 'Zaplaceno a odesláno', 'Převzato'];
 const STEP_DONE: Record<string, number> = { requested: 1, confirmed: 2, pending_payment: 2, paid: 3, shipped: 3, delivered: 4 };
+
+// Změna stavu objednávky z chatu (stejná akce jako na stránce Objednávky).
+function StatusSubmit({ variant, children }: { variant: 'primary' | 'secondary' | 'ghost'; children: ReactNode }) {
+  const { pending } = useFormStatus();
+  return <Button type="submit" variant={variant} disabled={pending} className={styles.ordBtn}>{pending ? 'Ukládám…' : children}</Button>;
+}
+function StatusForm({ id, status, variant, children }: { id: string; status: string; variant: 'primary' | 'secondary' | 'ghost'; children: ReactNode }) {
+  return (
+    <form action={setOrderStatus}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="status" value={status} />
+      <StatusSubmit variant={variant}>{children}</StatusSubmit>
+    </form>
+  );
+}
+
+/** Akce podle role: bublinu posílá kupující, takže u kupujícího je mine = true. */
+function OrderActions({ o, buyer }: { o: ChatOrder; buyer: boolean }) {
+  const forms: ReactNode[] = [];
+  if (!buyer && o.status === 'requested') {
+    forms.push(<StatusForm key="c" id={o.id} status="confirmed" variant="primary">Potvrdit objednávku</StatusForm>);
+    forms.push(<StatusForm key="d" id={o.id} status="declined" variant="ghost">Odmítnout</StatusForm>);
+  }
+  if (buyer && o.status === 'requested') forms.push(<StatusForm key="x" id={o.id} status="cancelled" variant="ghost">Zrušit objednávku</StatusForm>);
+  if (!buyer && (o.status === 'confirmed' || o.status === 'paid')) forms.push(<StatusForm key="s" id={o.id} status="shipped" variant="secondary">Označit jako odeslané</StatusForm>);
+  if (buyer && (o.status === 'confirmed' || o.status === 'shipped')) forms.push(<StatusForm key="r" id={o.id} status="delivered" variant="secondary">Potvrdit převzetí</StatusForm>);
+  return forms.length ? <div className={styles.ordActions}>{forms}</div> : null;
+}
 
 /** Objednávka jako bublina od kupujícího (DS Messages, varianta A s pruhem postupu). */
 function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
@@ -64,7 +94,8 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
               <li key={label} data-done={n < done ? '' : undefined}>{label}</li>
             ))}
           </ol>
-          <Link href={`/objednavky#objednavka-${o.number}`} className="t-small">Zobrazit objednávku</Link>
+          <OrderActions o={o} buyer={mine} />
+          <Link href={`/objednavky?tab=${mine ? 'nakupy' : 'prodeje'}#objednavka-${o.number}`} className="t-small">Zobrazit objednávku</Link>
         </>
       )}
     </div>

@@ -84,6 +84,9 @@
 .ordSum { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13px; color: var(--ink-muted); }
 .ordTotal { font-weight: 600; font-size: 15px; color: var(--ink); }
 .ordEnded .ordItems li, .ordEnded .ordTotal { text-decoration: line-through; color: var(--ink-muted); }
+.ordActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ordActions form { margin: 0; }
+.ordBtn.ordBtn { height: 36px; padding: 0 14px; font-size: 13px; }
 .track { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; }
 .track li { flex: 1; display: flex; flex-direction: column; gap: 5px; font-size: 11px; line-height: 1.3; color: var(--ink-muted); }
 .track li::before { content: ""; height: 3px; border-radius: 2px; background: var(--line-strong); }
