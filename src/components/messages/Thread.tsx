@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/trezor';
+import { ActionIcon, isDismiss } from '@/components/orders/ActionIcon';
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
@@ -56,7 +57,7 @@ function StepForm({ id, action }: { id: string; action: FlowAction }) {
       <input type="hidden" name="op" value={action.op} />
       {action.op === 'status' ? <input type="hidden" name="status" value={action.status} /> : null}
       {tracking ? <input name="tracking" maxLength={60} className="code" placeholder="Číslo zásilky" aria-label="Číslo zásilky (nepovinné)" /> : null}
-      <StatusSubmit variant={action.variant}>{action.label}</StatusSubmit>
+      <StatusSubmit variant={action.variant}>{isDismiss(action) ? <ActionIcon kind="x" /> : null}{action.label}</StatusSubmit>
     </form>
   );
 }
@@ -184,12 +185,12 @@ function OfferBubble({ o, l, mine, sellerSent, other }: { o: ChatOffer; l: Listi
           ) : (
             <div className={styles.ordActions}>
               {o.lastByMe ? (
-                <Button variant="ghost" disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, o.buyer ? 'cancel' : 'decline'))}>Stáhnout návrh</Button>
+                <Button variant="ghost" disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, o.buyer ? 'cancel' : 'decline'))}><ActionIcon kind="undo" />Stáhnout návrh</Button>
               ) : (
                 <>
                   <Button disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, 'accept'))}>Přijmout {formatPrice(price * o.quantity)}</Button>
                   <Button variant="secondary" disabled={pending} className={styles.ordBtn} onClick={() => setCounter(true)}>Jiná cena</Button>
-                  <Button variant="ghost" disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, o.buyer ? 'cancel' : 'decline'))}>Odmítnout</Button>
+                  <Button variant="ghost" disabled={pending} className={styles.ordBtn} onClick={() => run(() => answerOffer(o.id, o.buyer ? 'cancel' : 'decline'))}><ActionIcon kind="x" />Odmítnout</Button>
                 </>
               )}
             </div>
