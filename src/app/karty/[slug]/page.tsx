@@ -5,10 +5,10 @@ import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Trend } from '@/co
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { WatchButton } from '@/components/WatchButton';
-import { getCardBySlug, getOffers, type Offer } from '@/lib/catalog';
+import { getCardBySlug, getOffers, getReservedOffers, type Offer, type ReservedOffer } from '@/lib/catalog';
 import type { CardSummary } from '@/lib/types';
 import { getGame } from '@/lib/games';
-import { formatNumber } from '@/lib/format';
+import { formatDateTime, formatNumber } from '@/lib/format';
 import { getOfferBrands, sortOffers } from '@/lib/shop';
 import { safeColor } from '@/lib/shop-config';
 import { CONDITION_NAMES, LANGUAGE_NAMES } from '@/lib/types';
@@ -24,9 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CardDetailPage({ params }: Props) {
   const card = await getCardBySlug((await params).slug);
   if (!card) notFound();
-  const unsorted = await getOffers(card.id);
-  const brands = await getOfferBrands(unsorted.map((o) => o.seller));
+  const [unsorted, reservedUnsorted] = await Promise.all([getOffers(card.id), getReservedOffers(card.id)]);
+  const brands = await getOfferBrands([...unsorted, ...reservedUnsorted].map((o) => o.seller));
   const offers = sortOffers(unsorted, brands);
+  // Rezervované (čekají na potvrzení prodejce) jsou pod volnými, místo košíku jde na ně čekat.
+  const reserved = sortOffers(reservedUnsorted, brands);
+  const rows: Array<Offer | ReservedOffer> = [...offers, ...reserved];
   const game = getGame(card.game);
   const avg = card.priceHistory.length
     ? Math.round(card.priceHistory.reduce((a, b) => a + b, 0) / card.priceHistory.length)
@@ -102,7 +105,7 @@ export default async function CardDetailPage({ params }: Props) {
           <h2 className="t-heading-l">Nabídky</h2>
           <p className="t-small muted">Seřazeno od nejlevnější, při stejné ceně od nejlepšího stavu</p>
         </div>
-        {offers.length ? (
+        {rows.length ? (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -116,7 +119,7 @@ export default async function CardDetailPage({ params }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {offers.map((o) => (
+                {rows.map((o) => (
                   <tr key={o.id}>
                     <td>
                       {(() => {
@@ -140,6 +143,11 @@ export default async function CardDetailPage({ params }: Props) {
                                 {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} ·{' '}
                                 {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
                               </div>
+                              {'reservedUntil' in o ? (
+                                <div className="t-small muted">
+                                  Rezervováno{o.reservedUntil ? `, prodejce potvrdí do ${formatDateTime(o.reservedUntil)}` : ''}
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         );
@@ -153,7 +161,7 @@ export default async function CardDetailPage({ params }: Props) {
                     <td className={`${styles.num} ${styles.wide} t-price`}>{o.quantity}</td>
                     <td className={styles.num}><Price amount={o.price} /></td>
                     <td className={styles.num}>
-                      <AddToCartButton item={cartItem(card, o)} />
+                      {'reservedUntil' in o ? <WatchButton cardId={card.id} size="md" compact /> : <AddToCartButton item={cartItem(card, o)} />}
                     </td>
                   </tr>
                 ))}

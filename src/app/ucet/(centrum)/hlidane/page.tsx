@@ -36,14 +36,14 @@ export default async function WatchedPage() {
       <div>
         <h1 className="t-heading-l">Hlídané karty</h1>
         <p className="muted">
-          Když karta není skladem, klikněte u ní na „Dát vědět, až bude skladem“. Jakmile ji někdo vystaví nebo se uvolní
-          rezervace, pošleme e-mail všem, kdo ji hlídají. Kdo objedná dřív, ten ji má.
+          Když karta nemá nabídku, klikněte u ní na „Dát vědět, až se objeví nabídka“, u rezervované nabídky na „Čekat“.
+          Jakmile ji někdo vystaví nebo se uvolní rezervace, pošleme e-mail všem, kdo ji hlídají. Kdo objedná dřív, ten ji má.
         </p>
       </div>
 
       {alerts?.length ? (
         <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <h2 className="t-heading-m">Znovu skladem</h2>
+          <h2 className="t-heading-m">Nové nabídky</h2>
           {alerts.map((a) => a.cards ? (
             <div key={a.id} style={row}>
               <CardThumb image={thumbUrl(a.cards.image_url ?? undefined)} color={a.cards.game_id ? `var(--game-${a.cards.game_id}-art)` : undefined} />

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export type WatchResult = { ok: true } | { error: 'login' | 'failed' };
 
-/** Přidá kartu do čekacího pořadníku. Upozornění přijde, až bude znovu skladem. */
+/** Přidá kartu do čekacího pořadníku. Upozornění přijde, až se objeví nabídka. */
 export async function watchCard(cardId: string): Promise<WatchResult> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
