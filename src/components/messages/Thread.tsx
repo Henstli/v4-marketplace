@@ -102,13 +102,15 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
   );
 }
 
-export function Thread({ to, name, messages, initialText, listing }: {
+export function Thread({ to, name, messages, initialText, listing, wasUnread }: {
   to: string;
   name: string;
   messages: ChatMessage[];
   initialText: string;
   /** Nabídka, ke které se píše dotaz (z katalogu karty) */
   listing?: ListingRef | null;
+  /** Konverzace byla při otevření nepřečtená (stránka ji právě označila jako přečtenou) */
+  wasUnread?: boolean;
 }) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
@@ -118,6 +120,14 @@ export function Thread({ to, name, messages, initialText, listing }: {
   const box = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const last = messages.at(-1)?.id;
+
+  // Právě přečtená konverzace: hned zhasnout počet v hlavičce i zvýraznění v seznamu
+  // (seznam je v layoutu, který se při přechodu mezi konverzacemi sám nenačte).
+  useEffect(() => {
+    if (!wasUnread) return;
+    window.dispatchEvent(new Event('v4-messages-read'));
+    router.refresh();
+  }, [wasUnread, to, router]);
 
   // Při nové zprávě dolů.
   useLayoutEffect(() => {

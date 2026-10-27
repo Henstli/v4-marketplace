@@ -40,6 +40,8 @@ export function ConversationList({ items }: { items: ConversationItem[] }) {
     <nav className={styles.list} aria-label="Konverzace">
       {items.length ? items.map((c) => {
         const href = c.other ? `/zpravy/${c.other.id}` : null;
+        // Otevřená konverzace je přečtená hned po kliknutí, i než se seznam načte znovu.
+        const unread = c.unread && pathname !== href;
         const inner = (
           <>
             <span style={shopStyle(c.other?.color ?? 'blue')}><ShopLogo name={c.other?.name ?? '?'} image={c.other?.logo} size={36} /></span>
@@ -49,13 +51,13 @@ export function ConversationList({ items }: { items: ConversationItem[] }) {
             </span>
             <span className={styles.convSide}>
               {formatDateTime(c.lastAt)}
-              {c.unread ? (
+              {unread ? (
                 <span className={styles.count} aria-label={`${c.unreadCount} nepřečtené`}>{c.unreadCount > 99 ? '99+' : c.unreadCount}</span>
               ) : null}
             </span>
           </>
         );
-        const cls = `${styles.conv} ${c.unread ? styles.unread : ''}`;
+        const cls = `${styles.conv} ${unread ? styles.unread : ''}`;
         return href ? (
           <Link key={c.id} href={href} className={cls} aria-current={pathname === href ? 'page' : undefined}>{inner}</Link>
         ) : <div key={c.id} className={cls}>{inner}</div>;

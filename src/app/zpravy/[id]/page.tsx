@@ -44,7 +44,7 @@ export default async function ConversationPage({ params, searchParams }: Props) 
         <strong className={styles.headName}>{other.name}</strong>
         <Link href={other.href} className={styles.headLink}>{other.kind === 'shop' ? 'Stránka obchodu' : 'Profil'}</Link>
       </div>
-      <Thread to={id} name={other.name} messages={thread.messages} initialText={text?.slice(0, 2000) ?? ''} listing={listing} />
+      <Thread to={id} name={other.name} messages={thread.messages} initialText={text?.slice(0, 2000) ?? ''} listing={listing} wasUnread={thread.unread} />
     </section>
   );
 }
