@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/trezor';
-import { ExpiryStatus } from '@/components/orders/Expiry';
+import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
 import { answerOffer, proposePrice } from '@/app/zpravy/offers';
@@ -129,8 +129,11 @@ function OfferBubble({ o, l, mine, sellerSent, other }: { o: ChatOffer; l: Listi
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const old = !o.current;
-  const [label, tone] = old ? ['Nahrazeno', 'muted' as StatusTone] : OFFER_STATUS[o.status];
-  const open = o.current && o.status === 'open';
+  // Po 48 hodinách návrh vyprší hned, i když ho databáze (cron po 10 min) ještě nezavřela.
+  const left = useLeft(o.expiresAt);
+  const expired = o.status === 'open' && left <= 0;
+  const [label, tone] = old ? ['Nahrazeno', 'muted' as StatusTone] : expired ? OFFER_STATUS.expired : OFFER_STATUS[o.status];
+  const open = o.current && o.status === 'open' && !expired;
   const run = (fn: () => Promise<{ error?: string; orderNumber?: number }>) => {
     setError(null);
     start(async () => {
@@ -145,7 +148,9 @@ function OfferBubble({ o, l, mine, sellerSent, other }: { o: ChatOffer; l: Listi
     <div className={`${styles.ofr} ${mine ? '' : styles.ordThem} ${old || !open ? styles.ofrDone : ''}`}>
       <div className={styles.ordTop}>
         <strong>{sellerSent ? 'Cena od prodejce' : 'Návrh ceny'}</strong>
-        <Status tone={tone}>{label}</Status>
+        {open ? (
+          <ExpiryStatus expiresAt={o.expiresAt} role={o.lastByMe ? 'buyer' : 'seller'} label={o.lastByMe ? 'Čeká na odpověď' : 'Čeká na vás'} act="Odpovězte do" />
+        ) : <Status tone={tone}>{label}</Status>}
       </div>
       {l ? (
         <Link href={`/karty/${l.cardSlug}`} className={styles.ofrCard}>
@@ -166,7 +171,7 @@ function OfferBubble({ o, l, mine, sellerSent, other }: { o: ChatOffer; l: Listi
       ) : null}
       {open ? (
         <>
-          <span className="t-small muted">Platí do {formatDateTime(o.expiresAt)}</span>
+          <span className="t-small muted">Platí do {formatDateTime(o.expiresAt)}, pak návrh zmizí</span>
           {counter ? (
             <form
               className={styles.ofrCounter}

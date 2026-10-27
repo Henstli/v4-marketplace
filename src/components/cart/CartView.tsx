@@ -46,7 +46,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const [pending, startTransition] = useTransition();
   const [offers, setOffers] = useState<Record<string, SellerOffer>>({});
   const [picked, setPicked] = useState<Record<string, Partial<SellerChoice>>>({});
-  // Ručně otevřené nebo sbalené volby; bez záznamu je otevřený jen první nevyplněný prodejce.
+  // Ručně otevřené nebo sbalené volby; bez záznamu je rozbalený jen jediný prodejce v košíku.
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const sellerKey = [...new Set(items.map((i) => i.sellerId))].sort().join(',');
 
@@ -89,7 +89,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const shipping = groups.reduce((s, g) => s + g.ship, 0);
   const fees = groups.reduce((s, g) => s + g.fee, 0);
   const ready = groups.every((g) => g.complete);
-  const firstOpen = groups.find((g) => !g.complete && open[g.sellerId] === undefined)?.sellerId;
+  const single = groups.length === 1;
 
   const submit = () =>
     startTransition(async () => {
@@ -117,7 +117,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
           const ds = deliveries(offer);
           const ps = offer && choice.delivery ? paymentsFor(offer, choice.delivery) : [];
           const count = group.reduce((n, i) => n + i.quantity, 0);
-          const expanded = open[sellerId] ?? sellerId === firstOpen;
+          const expanded = open[sellerId] ?? single;
           const chosen = ds.find((d) => d.key === choice.delivery);
           const summary = chosen
             ? [chosen.name, needsPoint && choice.point?.trim() ? choice.point.trim() : null, ship ? `${ship} Kč` : 'zdarma', choice.payment ? PAY_LABEL[choice.payment] : null].filter(Boolean).join(' · ')
@@ -190,7 +190,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                     <legend>PLATBA</legend>
                     {!choice.delivery ? <p className={styles.none}>Nejdřív vyberte dopravu.</p> : ps.length ? ps.map((p) => (
                       <label key={p.key} className={styles.opt}>
-                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => { choose(sellerId, { payment: p.key }); if (!needsPoint) setOpen((o) => ({ ...o, [sellerId]: false })); }} />
+                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => { choose(sellerId, { payment: p.key }); if (!needsPoint && !single) setOpen((o) => ({ ...o, [sellerId]: false })); }} />
                         <span className={styles.optText}>
                           <strong>{PAY_LABEL[p.key]}</strong>
                           <small>{PAY_HINT[p.key]}</small>

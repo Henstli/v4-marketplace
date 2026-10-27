@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CardThumb, ChipLink, Price, Status } from '@/components/trezor';
-import { formatDateTime } from '@/lib/format';
+import { CardThumb, ChipLink, Price } from '@/components/trezor';
 import { thumbUrl } from '@/lib/images';
+import { ExpiryStatus } from '@/components/orders/Expiry';
 import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -39,6 +39,7 @@ export default async function OrdersPage({ searchParams }: Props) {
       .from('price_offers')
       .select('id, buyer_id, seller_id, last_by, price_czk, quantity, expires_at, listings(cards(name, image_url, game_id))')
       .eq('status', 'open')
+      .gt('expires_at', new Date().toISOString())
       .order('updated_at', { ascending: false })
       .returns<OfferRow[]>(),
   ]);
@@ -95,11 +96,11 @@ export default async function OrdersPage({ searchParams }: Props) {
                       <strong>{card?.name ?? 'Karta'}</strong>
                       <span className="t-small muted">
                         {o.buyer_id === user.id ? 'Prodejce' : 'Kupující'} {names.get(other) ?? 'smazaný účet'}
-                        {o.quantity > 1 ? ` · ${o.quantity} ks` : ''} · platí do {formatDateTime(o.expires_at)}
+                        {o.quantity > 1 ? ` · ${o.quantity} ks` : ''}
                       </span>
                     </span>
                     <Price amount={o.price_czk} />
-                    <Status tone={myTurn ? 'warn' : 'info'}>{myTurn ? 'Čeká na vás' : 'Čeká na odpověď'}</Status>
+                    <ExpiryStatus expiresAt={o.expires_at} role={myTurn ? 'seller' : 'buyer'} label={myTurn ? 'Čeká na vás' : 'Čeká na odpověď'} act="Odpovězte do" />
                   </Link>
                 </li>
               );

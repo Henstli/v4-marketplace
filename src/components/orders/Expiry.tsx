@@ -7,7 +7,7 @@ import { formatDateTime } from '@/lib/format';
 const URGENT_MS = 6 * 3600_000;
 
 /** Aktuální čas, obnovovaný každou sekundu v posledních 6 hodinách, jinak každých 30 s. */
-function useLeft(expiresAt: string): number {
+export function useLeft(expiresAt: string): number {
   const end = Date.parse(expiresAt);
   const [now, setNow] = useState(() => Date.now());
   const left = end - now;
@@ -32,14 +32,16 @@ export function formatLeft(ms: number): string {
 }
 
 /** Štítek „Čeká na potvrzení“ s hodinami a zbývajícím časem. */
-export function ExpiryStatus({ expiresAt, role, label = 'Čeká na potvrzení', className }: { expiresAt: string; role: 'buyer' | 'seller'; label?: string; className?: string }) {
+export function ExpiryStatus({ expiresAt, role, label = 'Čeká na potvrzení', act = 'Potvrďte do', className }: {
+  expiresAt: string; role: 'buyer' | 'seller'; label?: string; act?: string; className?: string;
+}) {
   const left = useLeft(expiresAt);
   const urgent = left < URGENT_MS;
   const tone = left <= 0 ? 'muted' : urgent ? 'danger' : 'warn';
   const text = left <= 0
     ? 'Vypršelo'
     : urgent
-      ? `${role === 'seller' ? 'Potvrďte do' : 'Vyprší za'} ${formatLeft(left)}`
+      ? `${role === 'seller' ? act : 'Vyprší za'} ${formatLeft(left)}`
       : `${label} · zbývá ${formatLeft(left)}`;
   return (
     <span

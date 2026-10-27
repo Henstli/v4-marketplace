@@ -146,8 +146,8 @@
 /* Návrh ceny (DS Messages, Návrh ceny): jako objednávka, ale v barvě info. */
 .ofr {
   width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px;
-  background: color-mix(in srgb, var(--info) 7%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--info) 35%, var(--line));
+  background: color-mix(in srgb, var(--info) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--info) 40%, var(--line));
   border-radius: 16px 16px 4px 16px;
 }
 .ofr.ordThem { border-radius: 16px 16px 16px 4px; }
