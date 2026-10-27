@@ -21,3 +21,21 @@ export async function unwatchCard(form: FormData) {
   await supabase.from('card_watches').delete().eq('card_id', String(form.get('cardId')));
   revalidatePath('/ucet/hlidane');
 }
+
+/** Hlídá přihlášený uživatel kartu? (tlačítko Čekat po obnovení stránky) */
+export async function isWatching(cardId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return false;
+  const { data } = await supabase.from('card_watches').select('card_id').eq('card_id', cardId).maybeSingle();
+  return !!data;
+}
+
+/** Zruší hlídání karty přímo z tlačítka Hlídáte. */
+export async function stopWatching(cardId: string): Promise<WatchResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from('card_watches').delete().eq('card_id', cardId);
+  if (error) return { error: 'failed' };
+  revalidatePath('/ucet/hlidane');
+  return { ok: true };
+}

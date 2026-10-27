@@ -71,6 +71,13 @@
 .actions :global(.tz-qty-label) { display: none; }
 .actions p { margin: 0; }
 
+/* Rezervované nabídky (DS OfferTable): oddělovací řádek, ztlumené řádky, štítek Rezervováno. */
+.groupRow td { background: var(--surface-sunken); font-size: 12px; color: var(--ink-muted); padding-top: 10px; padding-bottom: 10px; border-top: 1px solid var(--line); }
+.groupRow strong { color: var(--ink); font-weight: 600; margin-right: 6px; }
+.reserved td { background: color-mix(in srgb, var(--surface-sunken) 60%, transparent); }
+.reserved td:not(:last-child), .reserved .seller, .reserved :global(.tz-price) { color: var(--ink-muted); }
+.reservedTag { align-self: flex-start; margin-top: 4px; }
+
 .sellerCell { display: flex; gap: var(--space-3); align-items: center; }
 .sellerText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sellerName { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
