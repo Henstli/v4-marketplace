@@ -5,8 +5,9 @@ import { isSupabaseConfigured, SUPABASE_KEY, SUPABASE_URL } from '@/lib/supabase
 // Stránky, které jdou otevřít i před dokončením dvoufázového ověření.
 const MFA_EXEMPT = ['/prihlaseni/overeni', '/auth/'];
 
-// Obnoví přihlášení (cookie se session) při každém požadavku a pošle na druhý krok ověření,
-// kdo má zapnuté dvoufázové ověření a zatím zadal jen heslo.
+// Obnoví přihlášení (cookie se session) a pošle na druhý krok ověření, kdo má zapnuté dvoufázové
+// ověření a zatím zadal jen heslo. Běží jen na stránkách za přihlášením (matcher dole): veřejné stránky
+// jdou z mezipaměti a přihlášení tam obnovuje klient Supabase v prohlížeči (HeaderUser).
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   if (!isSupabaseConfigured()) return response;
@@ -39,5 +40,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|api/naseptavac|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/ucet/:path*', '/kosik', '/objednavky/:path*', '/zpravy/:path*', '/prodat/:path*', '/sprava/:path*', '/hlidani/:path*',
+    '/prihlaseni/:path*', '/registrace', '/nove-heslo', '/zapomenute-heslo', '/auth/:path*',
+  ],
 };

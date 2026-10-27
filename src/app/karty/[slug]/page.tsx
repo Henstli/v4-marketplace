@@ -18,6 +18,13 @@ import styles from './detail.module.css';
 
 type Props = { params: Promise<{ slug: string }> };
 
+// Detail karty jde z mezipaměti a obnoví se nejpozději po minutě; nová nebo prodaná nabídka ho obnoví
+// hned (revalidatePath('/karty', 'layout') v akcích). Žádné stránky se nepředgenerují při sestavení.
+export const revalidate = 60;
+export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
+  return [];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const card = await getCardBySlug((await params).slug);
   return card ? { title: `${card.name} · ${card.setName}` } : {};

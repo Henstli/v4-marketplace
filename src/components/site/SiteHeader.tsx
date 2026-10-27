@@ -1,18 +1,14 @@
 import Link from 'next/link';
-import { Suspense } from 'react';
 import { ButtonLink } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { GAMES } from '@/lib/games';
-import { CartLink } from '@/components/cart/CartLink';
-import { getSignedInUser } from '@/lib/auth';
-import { HeaderAccount, HeaderAccountFallback } from '@/components/account/AccountShell';
-import { MessagesLink } from '@/components/messages/MessagesLink';
-import { unreadCount } from '@/app/zpravy/actions';
+import { HeaderUser } from './HeaderUser';
 import { Logo } from './Logo';
 import styles from './site.module.css';
 
-export async function SiteHeader() {
-  const user = await getSignedInUser();
+// Hlavička je pro všechny stejná (přihlášení doplní HeaderUser v prohlížeči), takže nečte cookies
+// a veřejné stránky můžou jít z mezipaměti.
+export function SiteHeader() {
   return (
     <header className={styles.header}>
       <div className={`container ${styles.headerRow}`}>
@@ -20,19 +16,7 @@ export async function SiteHeader() {
         <SearchBox className={styles.search} placeholder="Karta, sada, hráč nebo prodejce" label="Hledat karty, sady a prodejce" shortcut groups />
         <nav className={styles.actions} aria-label="Účet">
           <ButtonLink href="/prodat" variant="secondary">Prodat</ButtonLink>
-          {user ? (
-            <Suspense fallback={<MessagesLink initial={0} />}>
-              <HeaderMessages />
-            </Suspense>
-          ) : null}
-          <CartLink />
-          {user ? (
-            <Suspense fallback={<HeaderAccountFallback />}>
-              <HeaderAccount />
-            </Suspense>
-          ) : (
-            <ButtonLink href="/prihlaseni">Přihlásit</ButtonLink>
-          )}
+          <HeaderUser />
         </nav>
       </div>
       <nav className={`container ${styles.games}`} aria-label="Kategorie">
@@ -55,6 +39,3 @@ export async function SiteHeader() {
   );
 }
 
-async function HeaderMessages() {
-  return <MessagesLink initial={await unreadCount()} />;
-}
