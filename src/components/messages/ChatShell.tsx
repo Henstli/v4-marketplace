@@ -12,10 +12,17 @@ import styles from './messages.module.css';
 export function ChatShell({ list, children }: { list: ReactNode; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  // Nové zprávy: obnovení stránky každých 10 s, jen když je karta prohlížeče vidět.
+  // Nové zprávy: obnovení každých 5 s, když je karta prohlížeče vidět, a hned po návratu na ni.
   useEffect(() => {
-    const t = setInterval(() => { if (!document.hidden) router.refresh(); }, 10_000);
-    return () => clearInterval(t);
+    const refresh = () => { if (!document.hidden) router.refresh(); };
+    const t = setInterval(refresh, 5_000);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [router]);
   return (
     <div className={styles.chat} data-open={pathname !== '/zpravy' ? '' : undefined}>
