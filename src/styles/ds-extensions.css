@@ -51,3 +51,17 @@ a.tz-chip { text-decoration: none; }
 .tz-toast-close:hover { color: var(--ink); }
 @keyframes tz-toast-in { from { transform: translateY(12px); opacity: 0; } }
 @media (max-width: 640px) { .tz-toast { left: 16px; right: 16px; bottom: 16px; width: auto; max-width: none; } }
+
+/* Odpočet do vypršení objednávky (DS Status, varianta B): hodiny místo tečky, číslice pevné šířky. */
+.tz-status-clock { font-variant-numeric: tabular-nums; }
+.tz-status-clock::before {
+  width: 13px; height: 13px; border-radius: 0;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.tz-expiry { --tone: var(--down); display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--surface-sunken); border-radius: var(--radius-md); }
+.tz-expiry[data-tone="danger"] { --tone: var(--danger); }
+.tz-expiry[data-tone="muted"] { --tone: var(--ink-muted); }
+.tz-expiry-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tz-expiry-row strong { font-size: 15px; font-weight: 600; color: var(--tone); font-variant-numeric: tabular-nums; }
+.tz-expiry-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--tone) var(--left), var(--line) var(--left)); }

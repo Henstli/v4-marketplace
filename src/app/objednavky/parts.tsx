@@ -6,6 +6,7 @@ import { thumbUrl } from '@/lib/images';
 import { ORDER_STATUS as STATUS, ORDER_TONE } from '@/lib/order-status';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import type { createClient } from '@/lib/supabase/server';
+import { ExpiryStatus } from '@/components/orders/Expiry';
 import { addReview, setOrderStatus } from './actions';
 import styles from './orders.module.css';
 
@@ -122,7 +123,11 @@ export function OrderCard({ order, counterpart, contact, payment, role, children
     <article className={styles.order} id={`objednavka-${order.number}`} data-tone={ORDER_TONE[order.status] ?? 'muted'}>
       <div className={styles.head}>
         <div>
-          <Status tone={ORDER_TONE[order.status] ?? 'muted'} className={styles.status}>{STATUS[order.status] ?? order.status}</Status>
+          {order.status === 'requested' && order.expires_at ? (
+            <ExpiryStatus expiresAt={order.expires_at} role={role} className={styles.status} />
+          ) : (
+            <Status tone={ORDER_TONE[order.status] ?? 'muted'} className={styles.status}>{STATUS[order.status] ?? order.status}</Status>
+          )}
           <p className="t-small muted">
             <Link href={`/objednavky/${order.number}`} className={styles.title}>Objednávka č. <span className="code">{order.number}</span></Link>
             {' · '}{counterpart} · {formatDate(order.created_at)}

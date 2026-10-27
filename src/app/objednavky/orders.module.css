@@ -101,6 +101,8 @@
 .steps li::before { content: ""; height: 4px; border-radius: 2px; background: var(--line-strong); margin-bottom: 2px; }
 .steps li[data-done] { color: var(--ink); }
 .steps li[data-done]::before { background: var(--accent); }
+.steps li[data-due], .steps li[data-due] .muted { color: var(--down); }
+.steps li[data-due]::before { background: var(--down); }
 @media (max-width: 520px) { .steps { flex-direction: column; } }
 .sum { display: flex; justify-content: space-between; gap: var(--space-3); font-size: 14px; }
 .sum:first-of-type { border-top: 1px solid var(--line); padding-top: var(--space-3); }

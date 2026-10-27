@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status } from '@/components/trezor';
+import { ExpiryStatus } from '@/components/orders/Expiry';
 import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
 import { formatPrice, plural } from '@/lib/format';
@@ -80,7 +81,11 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
     <div className={`${styles.ord} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`}>
       <div className={styles.ordTop}>
         <strong>Objednávka č. <span className="code">{o.number}</span></strong>
-        <Status tone={ORDER_TONE[o.status] ?? 'muted'}>{ORDER_STATUS_SHORT[o.status] ?? o.status}</Status>
+        {o.status === 'requested' && o.expiresAt ? (
+          <ExpiryStatus expiresAt={o.expiresAt} role={mine ? 'buyer' : 'seller'} />
+        ) : (
+          <Status tone={ORDER_TONE[o.status] ?? 'muted'}>{ORDER_STATUS_SHORT[o.status] ?? o.status}</Status>
+        )}
       </div>
       <ul className={styles.ordItems}>
         {o.items.map((it, n) => (
