@@ -19,15 +19,14 @@ a.tz-chip { text-decoration: none; }
 /* Dlaždice karty bez nabídky (katalog obsahuje i karty, které zatím nikdo neprodává). */
 .tz-tile-empty { font-size: var(--t-small-size); line-height: var(--t-small-lh); color: var(--ink-muted); }
 
-/* Zprávy v hlavičce (DS Messages): ikona s odznakem nepřečtených, na telefonu bez textu. */
-.tz-msgs-btn { gap: var(--space-2); }
-.tz-msgs-ico { position: relative; display: inline-flex; }
-.tz-msgs-badge {
-  position: absolute; top: -7px; right: -9px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent);
-  font: 700 10px/16px var(--font-sans); text-align: center;
+/* Ikony Zprávy a Košík v hlavičce s odznakem počtu (DS Messages, varianta B). */
+.tz-hdr-ico {
+  position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px;
+  border-radius: var(--radius-md); color: var(--ink); text-decoration: none;
 }
-@media (max-width: 640px) {
-  .tz-msgs-label { display: none; }
-  .tz-msgs-btn { padding-left: 10px; padding-right: 10px; }
+.tz-hdr-ico:hover, .tz-hdr-ico[aria-current] { background: var(--surface-sunken); }
+.tz-hdr-badge {
+  position: absolute; top: 4px; right: 3px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent);
+  font: 700 10px/17px var(--font-sans); text-align: center; box-shadow: 0 0 0 2px var(--bg);
 }

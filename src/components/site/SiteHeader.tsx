@@ -19,7 +19,7 @@ export async function SiteHeader() {
         <Logo />
         <SearchBox className={styles.search} placeholder="Karta, sada, hráč nebo prodejce" label="Hledat karty, sady a prodejce" shortcut groups />
         <nav className={styles.actions} aria-label="Účet">
-          <ButtonLink href="/prodat" variant="ghost">Prodat</ButtonLink>
+          <ButtonLink href="/prodat" variant="secondary">Prodat</ButtonLink>
           {user ? (
             <Suspense fallback={<MessagesLink initial={0} />}>
               <HeaderMessages />
