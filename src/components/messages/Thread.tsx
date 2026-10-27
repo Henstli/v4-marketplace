@@ -10,7 +10,7 @@ import { sendMessage } from '@/app/zpravy/actions';
 import { setOrderStatus } from '@/app/objednavky/actions';
 import { formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOrder, ListingRef } from '@/lib/messages';
-import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
+import { flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
@@ -41,42 +41,35 @@ function ListingLink({ l, mine }: { l: ListingRef; mine: boolean }) {
   );
 }
 
-// Pruh postupu objednávky: kolik kroků je hotových podle stavu.
-const STEPS = ['Odesláno', 'Potvrzeno', 'Zaplaceno a odesláno', 'Převzato'];
-const STEP_DONE: Record<string, number> = { requested: 1, confirmed: 2, pending_payment: 2, paid: 3, shipped: 3, delivered: 4 };
-
 // Změna stavu objednávky z chatu (stejná akce jako na stránce Objednávky).
 function StatusSubmit({ variant, children }: { variant: 'primary' | 'secondary' | 'ghost'; children: ReactNode }) {
   const { pending } = useFormStatus();
   return <Button type="submit" variant={variant} disabled={pending} className={styles.ordBtn}>{pending ? 'Ukládám…' : children}</Button>;
 }
-function StatusForm({ id, status, variant, children }: { id: string; status: string; variant: 'primary' | 'secondary' | 'ghost'; children: ReactNode }) {
+function StepForm({ id, action }: { id: string; action: FlowAction }) {
+  const tracking = action.op === 'status' && action.tracking;
   return (
-    <form action={setOrderStatus}>
+    <form action={setOrderStatus} className={tracking ? styles.ordTrack : undefined}>
       <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="status" value={status} />
-      <StatusSubmit variant={variant}>{children}</StatusSubmit>
+      <input type="hidden" name="op" value={action.op} />
+      {action.op === 'status' ? <input type="hidden" name="status" value={action.status} /> : null}
+      {tracking ? <input name="tracking" maxLength={60} className="code" placeholder="Číslo zásilky" aria-label="Číslo zásilky (nepovinné)" /> : null}
+      <StatusSubmit variant={action.variant}>{action.label}</StatusSubmit>
     </form>
   );
 }
 
-/** Akce podle role: bublinu posílá kupující, takže u kupujícího je mine = true. */
+/** Akce podle role (DS DeliveryPayment): bublinu posílá kupující, takže u kupujícího je mine = true. */
 function OrderActions({ o, buyer }: { o: ChatOrder; buyer: boolean }) {
-  const forms: ReactNode[] = [];
-  if (!buyer && o.status === 'requested') {
-    forms.push(<StatusForm key="c" id={o.id} status="confirmed" variant="primary">Potvrdit objednávku</StatusForm>);
-    forms.push(<StatusForm key="d" id={o.id} status="declined" variant="ghost">Odmítnout</StatusForm>);
-  }
-  if (buyer && o.status === 'requested') forms.push(<StatusForm key="x" id={o.id} status="cancelled" variant="ghost">Zrušit objednávku</StatusForm>);
-  if (!buyer && (o.status === 'confirmed' || o.status === 'paid')) forms.push(<StatusForm key="s" id={o.id} status="shipped" variant="secondary">Označit jako odeslané</StatusForm>);
-  if (buyer && (o.status === 'confirmed' || o.status === 'shipped')) forms.push(<StatusForm key="r" id={o.id} status="delivered" variant="secondary">Potvrdit převzetí</StatusForm>);
-  return forms.length ? <div className={styles.ordActions}>{forms}</div> : null;
+  const actions = flowActions(o, buyer ? 'buyer' : 'seller');
+  return actions.length ? <div className={styles.ordActions}>{actions.map((a) => <StepForm key={a.label} id={o.id} action={a} />)}</div> : null;
 }
 
 /** Objednávka jako bublina od kupujícího (DS Messages, varianta A s pruhem postupu). */
 function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
   const ended = ENDED.has(o.status);
-  const done = STEP_DONE[o.status] ?? 0;
+  const steps = flowSteps(o);
+  const label = orderLabel(o, mine ? 'buyer' : 'seller', true);
   return (
     <div className={`${styles.ord} ${mine ? '' : styles.ordThem} ${ended ? styles.ordEnded : ''}`}>
       <div className={styles.ordTop}>
@@ -84,7 +77,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
         {o.status === 'requested' && o.expiresAt ? (
           <ExpiryStatus expiresAt={o.expiresAt} role={mine ? 'buyer' : 'seller'} />
         ) : (
-          <Status tone={ORDER_TONE[o.status] ?? 'muted'}>{ORDER_STATUS_SHORT[o.status] ?? o.status}</Status>
+          <Status tone={label.tone}>{label.text}</Status>
         )}
       </div>
       <ul className={styles.ordItems}>
@@ -99,14 +92,14 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
         ))}
       </ul>
       <div className={styles.ordSum}>
-        <span>{plural(o.count, ['karta', 'karty', 'karet'])} · {o.pickup ? 'osobní předání' : o.shipping ? `doprava ${formatPrice(o.shipping)}` : 'doprava zdarma'}</span>
+        <span>{plural(o.count, ['karta', 'karty', 'karet'])} · {o.deliveryLine}{o.pickup ? '' : o.shipping ? ` ${formatPrice(o.shipping)}` : ' zdarma'}</span>
         <span className={styles.ordTotal}><Price amount={o.total} /></span>
       </div>
       {ended ? null : (
         <>
           <ol className={styles.track} aria-label="Postup objednávky">
-            {STEPS.map((label, n) => (
-              <li key={label} data-done={n < done ? '' : undefined}>{label}</li>
+            {steps.map((s) => (
+              <li key={s.key} data-done={s.done ? '' : undefined}>{s.label}</li>
             ))}
           </ol>
           <OrderActions o={o} buyer={mine} />

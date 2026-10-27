@@ -1,0 +1,62 @@
+/* Nastavení › Doprava a platba (DS DeliveryPayment) */
+.form { display: flex; flex-direction: column; gap: var(--space-5); }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); align-items: start; }
+@media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.cardTitle { font-size: 15px; font-weight: 600; margin: 0; }
+
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.check input, .trow > input[type='checkbox'], .codCell input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.check > span { display: flex; flex-direction: column; gap: 2px; }
+.check small, .carrier small { font-size: 12px; color: var(--ink-muted); }
+
+.sub { display: flex; gap: 12px; padding-left: 28px; flex-wrap: wrap; }
+.subCol { display: flex; flex-direction: column; gap: 10px; padding-left: 28px; }
+.subCol .sub { padding-left: 0; }
+
+.field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 180px; min-width: 0; }
+.narrow { flex: 0 0 110px; }
+.label { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+.input { height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font: 14px var(--font-sans); min-width: 0; width: 100%; }
+.input:global(.code) { font-family: var(--font-mono); }
+.input:focus { outline: none; border-color: var(--accent); }
+.input:disabled { opacity: .4; }
+.note { margin: 0; font-size: 12px; color: var(--ink-muted); }
+
+.map { height: 170px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); overflow: hidden; background: var(--surface-sunken); z-index: 0; }
+.radius { stroke: var(--accent); fill: var(--accent); }
+.pin span { display: block; width: 24px; height: 32px; background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 30'%3E%3Cpath d='M12 0C5.4 0 0 5.2 0 11.6 0 20.3 12 30 12 30s12-9.7 12-18.4C24 5.2 18.6 0 12 0zm0 7a4.5 4.5 0 110 9 4.5 4.5 0 010-9z' fill-rule='evenodd'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 30'%3E%3Cpath d='M12 0C5.4 0 0 5.2 0 11.6 0 20.3 12 30 12 30s12-9.7 12-18.4C24 5.2 18.6 0 12 0zm0 7a4.5 4.5 0 110 9 4.5 4.5 0 010-9z' fill-rule='evenodd'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+.table { display: flex; flex-direction: column; overflow-x: auto; }
+.trow { display: grid; grid-template-columns: 24px minmax(180px, 1fr) 110px 90px 110px; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; min-width: 560px; }
+.trow[data-off] .carrier, .trow[data-off] .codCell { opacity: .55; }
+.thead { border-top: 0; padding-top: 0; font-size: 11px; letter-spacing: .06em; font-weight: 700; color: var(--ink-muted); }
+.right { text-align: right; }
+.carrier { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.money { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-muted); }
+.money .input { height: 34px; text-align: right; padding: 0 8px; }
+.codCell { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+
+.foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+.freeFrom { flex: 0 0 200px; }
+.save { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.error, .ok { margin: 0; border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 14px; }
+.error { color: var(--down); background: var(--down-tint); }
+.ok { color: var(--up); background: var(--up-tint); }
+
+/* Výzva před vystavením (Prodat, hromadné nahrávání) */
+.gate { background: var(--surface); border: 1px solid color-mix(in srgb, var(--down) 45%, transparent); border-left: 4px solid var(--down); border-radius: var(--radius-lg); padding: 20px 22px; display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+.gateMain { flex: 1 1 360px; display: flex; flex-direction: column; gap: 14px; }
+.gateTitle { font-size: 17px; font-weight: 600; margin: 0; }
+.todo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.todo li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; }
+.todo li::before { content: ""; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; border: 1.5px dashed var(--down); }
+.todo li > span { display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+.todo li small { font-weight: 400; font-size: 12px; color: var(--ink-muted); }
+.todo li[data-done] > span { font-weight: 400; color: var(--ink-muted); text-decoration: line-through; }
+.todo li[data-done]::before { border: 0; background: var(--up-tint) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237cf2c8' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center / 13px no-repeat; }
+.gateActions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.gateSide { flex: 0 0 280px; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--radius-md); background: var(--surface-sunken); }
+.gateBar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--done), var(--line) var(--done)); }
+.dimmed { opacity: .6; }

@@ -7,6 +7,7 @@ import { ButtonLink } from '@/components/trezor';
 import { PLANS, toPlan } from '@/lib/plans';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
+import { loadReadiness, SellGate } from '@/components/delivery/SellGate';
 import { ImportWizard } from './ImportWizard';
 import styles from './import.module.css';
 
@@ -20,7 +21,7 @@ export default async function ImportPage() {
   if (!user) redirect('/prihlaseni?dalsi=/prodat/import');
 
   const supabase = await createClient();
-  const { data: plan } = await supabase.rpc('current_plan');
+  const [{ data: plan }, ready] = await Promise.all([supabase.rpc('current_plan'), loadReadiness(supabase, user.id)]);
 
   return (
     <div className={`container ${styles.page}`}>
@@ -30,7 +31,14 @@ export default async function ImportPage() {
         <p className="muted">Nahrajte celý sklad z tabulky: karty spárujeme s katalogem, zkontrolujete je a vystavíte jedním tlačítkem.</p>
       </div>
       {PLANS[toPlan(plan)].bulkImport ? (
-        <ImportWizard />
+        ready.ready ? (
+          <ImportWizard />
+        ) : (
+          <>
+            <SellGate r={ready} back="import" />
+            <div inert style={{ opacity: 0.6 }}><ImportWizard /></div>
+          </>
+        )
       ) : (
         <section className={`panel ${styles.upsell}`}>
           <h2 className="t-heading-m">Hromadné nahrávání je součástí tarifu Pro</h2>

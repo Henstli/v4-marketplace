@@ -1,4 +1,6 @@
 // Zprávy mezi uživateli (jen na serveru). Čte se přes RLS, zapisuje přes funkce v databázi.
+import type { PaymentMethod } from './delivery';
+import { deliveryLine } from './order-flow';
 import { PLANS } from './plans';
 import { getSellerBrands, getSellerPlans } from './shop';
 import { planColor, shopHref } from './shop-config';
@@ -45,9 +47,15 @@ export interface ChatOrder {
   total: number;
   shipping: number;
   pickup: boolean;
+  delivery: 'ship' | 'pickup';
   status: string;
   /** Do kdy musí prodejce potvrdit (jen u čekající objednávky) */
   expiresAt: string | null;
+  /** Způsob platby (prázdné u starších objednávek) a kdy kupující klikl na Zaplaceno */
+  payment: PaymentMethod | null;
+  buyerPaidAt: string | null;
+  /** Doprava a platba jedním řádkem */
+  deliveryLine: string;
   /** Počet kusů celkem */
   count: number;
   items: Array<{ name: string; condition: string; quantity: number; price: number }>;
@@ -171,7 +179,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: orders } = orderIds.length
     ? await supabase
       .from('orders')
-      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, order_items(quantity, price_czk, condition, cards(name))')
+      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
   const byId = new Map((orders ?? []).map((o) => {
@@ -186,8 +194,12 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       total: o.total_czk as number,
       shipping: (o.shipping_czk as number | null) ?? 0,
       pickup: o.delivery === 'pickup',
+      delivery: o.delivery === 'pickup' ? 'pickup' : 'ship',
       status: o.status as string,
       expiresAt: (o.expires_at as string | null) ?? null,
+      payment: (o.payment as PaymentMethod | null) ?? null,
+      buyerPaidAt: (o.buyer_paid_at as string | null) ?? null,
+      deliveryLine: deliveryLine({ delivery: o.delivery as 'ship' | 'pickup', payment: (o.payment as PaymentMethod | null) ?? null, carrier: o.carrier as string | null, carrier_label: o.carrier_label as string | null }),
       count: items.reduce((s, i) => s + i.quantity, 0),
       items,
     } satisfies ChatOrder];

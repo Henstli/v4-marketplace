@@ -11,6 +11,7 @@ import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { formatNumber } from '@/lib/format';
+import { loadReadiness, SellGate } from '@/components/delivery/SellGate';
 import { ListingForm } from './ListingForm';
 import { StockTable, type StockItem } from './StockTable';
 import styles from './sell.module.css';
@@ -39,6 +40,7 @@ export default async function SellPage({ searchParams }: Props) {
   ]);
 
   const supabase = await createClient();
+  const ready = await loadReadiness(supabase, user.id);
   // Supabase vrací nejvýš 1000 řádků na dotaz, velký sklad obchodu čteme po stránkách.
   const mine = [];
   for (let from = 0; from < 5000; from += 1000) {
@@ -75,6 +77,8 @@ export default async function SellPage({ searchParams }: Props) {
         <p className="muted">Vystavujete jako {user.displayName}. Profil upravíte v <Link href="/ucet/nastaveni">nastavení účtu</Link>.</p>
       </div>
 
+      {ready.ready ? null : <SellGate r={ready} back="prodat" />}
+
       <section className="panel">
         <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Nová nabídka</h2>
         {selected ? (
@@ -90,7 +94,7 @@ export default async function SellPage({ searchParams }: Props) {
               </div>
               <ButtonLink href="/prodat" variant="ghost">Změnit kartu</ButtonLink>
             </div>
-            <ListingForm cardId={selected.id} />
+            <ListingForm cardId={selected.id} blocked={!ready.ready} />
           </>
         ) : (
           <>

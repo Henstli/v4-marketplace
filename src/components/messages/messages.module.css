@@ -139,3 +139,6 @@
   .chat:not([data-open]) > :not(.list) { display: none; }
   .back { display: inline; }
 }
+.ordTrack { display: flex; gap: 8px; flex-wrap: wrap; }
+.ordTrack input { height: 36px; width: 150px; box-sizing: border-box; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); font-size: 13px; }
+.ordTrack input:focus { outline: none; border-color: var(--accent); }

@@ -1,9 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { authErrorMessage } from '@/lib/auth-helpers';
 import { verifyIdentity } from '@/lib/identity';
 import { normalizeAccount } from '@/lib/payment';
+import { CARRIERS, type Carrier } from '@/lib/delivery';
 import { createClient } from '@/lib/supabase/server';
 
 export interface ProfileState {
@@ -29,38 +31,78 @@ export async function updateProfile(_prev: ProfileState, form: FormData): Promis
   return { ok: true };
 }
 
-/** Doprava a bankovní účet prodejce (kupující platí přímo na něj). */
-export async function updateSellerTerms(_prev: ProfileState, form: FormData): Promise<ProfileState> {
+/** Doprava a platba prodejce (DS DeliveryPayment). Kupující platí přímo prodejci. */
+export async function updateDeliveryPayment(_prev: ProfileState, form: FormData): Promise<ProfileState> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: 'Nejste přihlášeni.' };
+  const me = auth.user.id;
 
-  const shipping = Number(form.get('shipping'));
-  const freeRaw = String(form.get('freeFrom') ?? '').trim();
-  const freeFrom = freeRaw ? Number(freeRaw) : null;
+  const transfer = form.get('transfer') === 'on';
+  const cash = form.get('cash') === 'on';
   const pickup = form.get('pickup') === 'on';
   const pickupPlace = String(form.get('pickupPlace') ?? '').trim().slice(0, 60);
-  if (!Number.isInteger(shipping) || shipping < 0 || shipping > 1000) return { error: 'Cena dopravy musí být 0 až 1 000 Kč.' };
+  const radius = Number(form.get('radius') ?? 2);
+  const lat = Number(form.get('lat'));
+  const lng = Number(form.get('lng'));
+  const hasPos = pickup && String(form.get('lat') ?? '') !== '' && Number.isFinite(lat) && Number.isFinite(lng);
+  const freeRaw = String(form.get('freeFrom') ?? '').trim();
+  const freeFrom = freeRaw ? Number(freeRaw) : null;
+  if (pickup && pickupPlace.length < 2) return { error: 'U osobního předání napište místo (např. Brno, Mendlovo náměstí).' };
+  if (pickup && (!Number.isInteger(radius) || radius < 1 || radius > 50)) return { error: 'Okruh předání musí být 1 až 50 km.' };
+  if (cash && !pickup) return { error: 'Platba hotově jde jen s osobním předáním. Zapněte ho, nebo hotovost vypněte.' };
   if (freeFrom !== null && (!Number.isInteger(freeFrom) || freeFrom < 1 || freeFrom > 100000)) return { error: 'Doprava zdarma od: zadejte celou částku v Kč, nebo nechte prázdné.' };
-  if (pickup && pickupPlace.length < 2) return { error: 'U osobního předání napište místo (např. Praha 4).' };
 
   const accountRaw = String(form.get('account') ?? '').trim();
   const accountName = String(form.get('accountName') ?? '').trim();
-  const iban = accountRaw ? normalizeAccount(accountRaw) : null;
-  if (accountRaw && !iban) return { error: 'Číslo účtu není platné. Zadejte ho jako 123456789/0800 nebo jako IBAN.' };
+  const iban = transfer && accountRaw ? normalizeAccount(accountRaw) : null;
+  if (transfer && !iban) return { error: 'Číslo účtu není platné. Zadejte ho jako 123456789/0800 nebo jako IBAN.' };
   if (iban && (accountName.length < 2 || accountName.length > 70)) return { error: 'Vyplňte jméno majitele účtu.' };
 
-  const { error } = await supabase.from('profiles')
-    .update({ shipping_czk: shipping, free_shipping_from: freeFrom, pickup, pickup_place: pickup ? pickupPlace : null })
-    .eq('id', auth.user.id);
+  const methods: Array<{ seller_id: string; carrier: Carrier; label: string | null; price_czk: number; cod: boolean; cod_fee_czk: number }> = [];
+  for (const c of CARRIERS) {
+    if (form.get(`c_${c.key}`) !== 'on') continue;
+    const price = Number(form.get(`p_${c.key}`));
+    const cod = form.get(`cod_${c.key}`) === 'on';
+    const fee = cod ? Number(form.get(`fee_${c.key}`) ?? 0) : 0;
+    const label = c.key === 'custom' ? String(form.get('label_custom') ?? '').trim().slice(0, 40) : null;
+    if (!Number.isInteger(price) || price < 0 || price > 1000) return { error: `${c.name}: cena musí být 0 až 1 000 Kč.` };
+    if (!Number.isInteger(fee) || fee < 0 || fee > 500) return { error: `${c.name}: příplatek za dobírku musí být 0 až 500 Kč.` };
+    if (c.key === 'custom' && (!label || label.length < 2)) return { error: 'Napište název vlastního způsobu dopravy.' };
+    methods.push({ seller_id: me, carrier: c.key, label, price_czk: price, cod, cod_fee_czk: fee });
+  }
+
+  // Polohu zaokrouhlíme na ~1 km: profil je veřejný, přesná adresa do něj nepatří.
+  const round = (x: number) => Math.round(x * 100) / 100;
+  const { error } = await supabase.from('profiles').update({
+    pay_transfer: transfer,
+    cash_on_pickup: cash,
+    pickup,
+    pickup_place: pickup ? pickupPlace : null,
+    pickup_lat: hasPos ? round(lat) : null,
+    pickup_lng: hasPos ? round(lng) : null,
+    pickup_radius_km: pickup ? radius : null,
+    free_shipping_from: freeFrom,
+  }).eq('id', me);
   if (error) return { error: 'Nastavení se nepodařilo uložit.' };
 
-  const { error: payError } = iban
-    ? await supabase.from('seller_payment').upsert({ user_id: auth.user.id, iban, account_name: accountName, updated_at: new Date().toISOString() })
-    : await supabase.from('seller_payment').delete().eq('user_id', auth.user.id);
-  if (payError) return { error: 'Účet se nepodařilo uložit.' };
+  if (iban) {
+    const { error: payError } = await supabase.from('seller_payment').upsert({ user_id: me, iban, account_name: accountName, updated_at: new Date().toISOString() });
+    if (payError) return { error: 'Účet se nepodařilo uložit.' };
+  }
+
+  const keep = methods.map((m) => m.carrier);
+  const del = supabase.from('seller_shipping_methods').delete().eq('seller_id', me);
+  const { error: delError } = keep.length ? await del.not('carrier', 'in', `(${keep.join(',')})`) : await del;
+  if (delError) return { error: 'Dopravu se nepodařilo uložit.' };
+  if (methods.length) {
+    const { error: shipError } = await supabase.from('seller_shipping_methods').upsert(methods);
+    if (shipError) return { error: 'Dopravu se nepodařilo uložit.' };
+  }
 
   revalidatePath('/', 'layout');
+  const back = String(form.get('back') ?? '');
+  if (back.startsWith('/') && !back.startsWith('//')) redirect(back);
   return { ok: true };
 }
 

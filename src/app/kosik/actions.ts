@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { siteOrigin } from '@/lib/auth-helpers';
 import type { Candidate, ShippingTerms } from '@/lib/cart-optimize';
 import { sendOrderEmail } from '@/lib/email';
+import { CARRIERS, type Carrier, type PaymentMethod, type SellerOffer } from '@/lib/delivery';
 import { createClient } from '@/lib/supabase/server';
 
 export interface PlaceOrderResult {
@@ -13,26 +14,28 @@ export interface PlaceOrderResult {
   orderIds?: string[];
 }
 
-export interface SellerShipping {
-  shipping: number;
-  freeFrom: number | null;
-  /** Místo osobního předání, null když ho prodejce nenabízí */
-  pickupPlace: string | null;
-}
-
-/** Ceník dopravy prodejců v košíku (profily jsou veřejné). */
-export async function getSellerShipping(sellerIds: string[]): Promise<Record<string, SellerShipping>> {
+/** Doprava a platba prodejců v košíku (profily a ceníky jsou veřejné, číslo účtu ne). */
+export async function getSellerOffers(sellerIds: string[]): Promise<Record<string, SellerOffer>> {
   if (!sellerIds.length) return {};
+  const ids = sellerIds.slice(0, 100);
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('profiles')
-    .select('id, shipping_czk, free_shipping_from, pickup, pickup_place')
-    .in('id', sellerIds.slice(0, 100));
-  return Object.fromEntries((data ?? []).map((p) => [p.id, {
-    shipping: p.shipping_czk,
-    freeFrom: p.free_shipping_from,
+  const [{ data: profiles }, { data: methods }] = await Promise.all([
+    supabase.from('profiles').select('id, free_shipping_from, pickup, pickup_place, pickup_radius_km, cash_on_pickup, pay_transfer').in('id', ids),
+    supabase.from('seller_shipping_methods').select('seller_id, carrier, label, price_czk, cod, cod_fee_czk').in('seller_id', ids),
+  ]);
+  const order = new Map(CARRIERS.map((c, i) => [c.key, i]));
+  return Object.fromEntries((profiles ?? []).map((p) => [p.id, {
+    pickup: p.pickup,
     pickupPlace: p.pickup ? p.pickup_place || 'po domluvě' : null,
-  }]));
+    pickupRadius: p.pickup_radius_km,
+    cashOnPickup: p.cash_on_pickup,
+    transfer: p.pay_transfer,
+    freeFrom: p.free_shipping_from,
+    methods: (methods ?? [])
+      .filter((m) => m.seller_id === p.id)
+      .map((m) => ({ carrier: m.carrier as Carrier, label: m.label, price: m.price_czk, cod: m.cod, codFee: m.cod_fee_czk }))
+      .sort((a, b) => (order.get(a.carrier) ?? 99) - (order.get(b.carrier) ?? 99)),
+  } satisfies SellerOffer]));
 }
 
 const CONDITIONS = ['MT', 'NM', 'EX', 'GD', 'LP', 'PL'];
@@ -86,15 +89,17 @@ export async function getCartAlternatives(listingIds: string[]): Promise<CartAlt
   return { candidates, terms };
 }
 
-export async function placeOrder(items: Array<{ listingId: string; quantity: number }>, pickup: string[] = []): Promise<PlaceOrderResult> {
+/** Volba kupujícího u jednoho prodejce: doprava (dopravce nebo osobní předání), platba a výdejní místo. */
+export interface SellerChoice { delivery: string; payment: PaymentMethod; point?: string }
+
+export async function placeOrder(items: Array<{ listingId: string; quantity: number }>, choices: Record<string, SellerChoice>): Promise<PlaceOrderResult> {
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { error: 'Pro objednávku se nejdřív přihlaste.' };
 
   const { data, error } = await supabase.rpc('place_order', {
     items: items.map((i) => ({ listing_id: i.listingId, quantity: i.quantity })),
-    // Bez osobního předání parametr neposíláme, funkce má výchozí prázdný seznam.
-    ...(pickup.length ? { pickup } : {}),
+    choices,
   });
   // Chyby z databáze jsou psané česky pro zákazníka (viz place_order).
   if (error) return { error: error.message || 'Objednávku se nepodařilo vytvořit.' };

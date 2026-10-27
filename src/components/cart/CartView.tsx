@@ -4,20 +4,32 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { Button, ButtonLink, CardThumb, Price } from '@/components/trezor';
-import { getSellerShipping, placeOrder, type SellerShipping } from '@/app/kosik/actions';
+import { getSellerOffers, placeOrder, type SellerChoice } from '@/app/kosik/actions';
+import { CARRIERS, methodName, paymentsFor, shippingPrice, type PaymentMethod, type SellerOffer } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/images';
 import { CartPlans } from './CartPlans';
 import { useCart, type CartItem } from './CartProvider';
 import styles from './cart.module.css';
 
-// Výchozí doprava, než se načte ceník prodejce (stejná jako výchozí hodnota v profilu).
-const DEFAULT_SHIPPING = 89;
+const POINT = new Set(CARRIERS.filter((c) => c.point).map((c) => c.key as string));
+const PAY_LABEL: Record<PaymentMethod, string> = { transfer: 'Převodem předem', cod: 'Dobírka', cash: 'Hotově při předání' };
+const PAY_HINT: Record<PaymentMethod, string> = { transfer: 'QR kód dostanete po potvrzení.', cod: 'Platíte při převzetí zásilky.', cash: 'Platíte prodejci na místě.' };
 
-function shippingFor(terms: SellerShipping | undefined, subtotal: number, pickup: boolean): number {
-  if (!terms) return DEFAULT_SHIPPING;
-  if (pickup && terms.pickupPlace) return 0;
-  if (terms.freeFrom !== null && subtotal >= terms.freeFrom) return 0;
-  return terms.shipping;
+/** Volby dopravy, které prodejce nabízí (osobní předání na konci). */
+function deliveries(offer: SellerOffer | undefined) {
+  if (!offer) return [];
+  const out = offer.methods.map((m) => ({ key: m.carrier as string, name: methodName(m) }));
+  if (offer.pickup) out.push({ key: 'pickup', name: 'Osobní předání' });
+  return out;
+}
+
+/** Doplní jedinou možnost a zahodí platbu, která k vybrané dopravě nepasuje. */
+function settle(offer: SellerOffer | undefined, choice: Partial<SellerChoice>): Partial<SellerChoice> {
+  const ds = deliveries(offer);
+  const delivery = choice.delivery && ds.some((d) => d.key === choice.delivery) ? choice.delivery : ds.length === 1 ? ds[0].key : undefined;
+  const ps = offer && delivery ? paymentsFor(offer, delivery) : [];
+  const payment = choice.payment && ps.some((p) => p.key === choice.payment) ? choice.payment : ps.length === 1 ? ps[0].key : undefined;
+  return { delivery, payment, point: choice.point };
 }
 
 export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) {
@@ -25,35 +37,19 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
-  const [terms, setTerms] = useState<Record<string, SellerShipping>>({});
-  const [pickup, setPickup] = useState<Set<string>>(new Set());
+  const [offers, setOffers] = useState<Record<string, SellerOffer>>({});
+  const [picked, setPicked] = useState<Record<string, Partial<SellerChoice>>>({});
   const sellerKey = [...new Set(items.map((i) => i.sellerId))].sort().join(',');
 
   useEffect(() => {
     if (!sellerKey) return;
     let live = true;
-    getSellerShipping(sellerKey.split(',')).then((t) => { if (live) setTerms(t); }).catch(() => {});
+    getSellerOffers(sellerKey.split(',')).then((t) => { if (live) setOffers(t); }).catch(() => {});
     return () => { live = false; };
   }, [sellerKey]);
 
-  const togglePickup = (sellerId: string, on: boolean) =>
-    setPickup((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(sellerId); else next.delete(sellerId);
-      return next;
-    });
-
-  const submit = () =>
-    startTransition(async () => {
-      setError(undefined);
-      const result = await placeOrder(
-        items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })),
-        [...pickup].filter((id) => terms[id]?.pickupPlace),
-      );
-      if (result.error) return setError(result.error);
-      clear();
-      router.push('/objednavky?nova=1');
-    });
+  const choose = (sellerId: string, change: Partial<SellerChoice>) =>
+    setPicked((prev) => ({ ...prev, [sellerId]: { ...prev[sellerId], ...change } }));
 
   if (!items.length) {
     return (
@@ -73,11 +69,31 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const groups = [...bySeller.values()].map((group) => {
     const sellerId = group[0].sellerId;
     const sum = group.reduce((s, i) => s + i.price * i.quantity, 0);
-    const t = terms[sellerId];
-    const picked = pickup.has(sellerId) && !!t?.pickupPlace;
-    return { group, sellerId, sum, terms: t, picked, shipping: shippingFor(t, sum, picked) };
+    const offer = offers[sellerId];
+    const choice = settle(offer, picked[sellerId] ?? {});
+    const ship = offer && choice.delivery ? shippingPrice(offer, choice.delivery, sum) : 0;
+    const fee = offer && choice.delivery && choice.payment ? paymentsFor(offer, choice.delivery).find((p) => p.key === choice.payment)?.fee ?? 0 : 0;
+    const needsPoint = !!choice.delivery && POINT.has(choice.delivery);
+    const complete = !!choice.delivery && !!choice.payment && (!needsPoint || !!choice.point?.trim());
+    return { group, sellerId, sum, offer, choice, ship, fee, needsPoint, complete };
   });
-  const shipping = groups.reduce((s, g) => s + g.shipping, 0);
+  const shipping = groups.reduce((s, g) => s + g.ship, 0);
+  const fees = groups.reduce((s, g) => s + g.fee, 0);
+  const ready = groups.every((g) => g.complete);
+
+  const submit = () =>
+    startTransition(async () => {
+      setError(undefined);
+      const choices: Record<string, SellerChoice> = {};
+      for (const g of groups) {
+        if (!g.complete) return setError('Vyberte dopravu a platbu u každého prodejce.');
+        choices[g.sellerId] = { delivery: g.choice.delivery!, payment: g.choice.payment!, point: g.needsPoint ? g.choice.point!.trim() : undefined };
+      }
+      const result = await placeOrder(items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })), choices);
+      if (result.error) return setError(result.error);
+      clear();
+      router.push('/objednavky?nova=1');
+    });
 
   return (
     <div className={`container ${styles.layout}`}>
@@ -87,22 +103,16 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
           {bySeller.size === 1 ? 'Jedna zásilka od jednoho prodejce.' : `${bySeller.size} zásilky od různých prodejců, každý posílá zvlášť.`}
         </p>
         <CartPlans items={items} onApply={replace} />
-        {groups.map(({ group, sellerId, sum, terms: t, picked, shipping: ship }) => {
+        {groups.map(({ group, sellerId, sum, offer, choice, ship, fee, needsPoint }) => {
+          const ds = deliveries(offer);
+          const ps = offer && choice.delivery ? paymentsFor(offer, choice.delivery) : [];
+          const count = group.reduce((n, i) => n + i.quantity, 0);
           return (
             <div key={sellerId} className={styles.group}>
               <div className={styles.groupHead}>
                 <h2 className="t-heading-m">{group[0].sellerName}</h2>
-                <span className="t-small muted">
-                  {picked ? 'Osobní předání zdarma' : ship === 0 ? 'Doprava zdarma' : <>Doprava <Price amount={ship} /></>}
-                  {!picked && ship > 0 && t?.freeFrom ? <> · zdarma od <Price amount={t.freeFrom} /></> : null}
-                </span>
+                <span className="t-small muted">{count} {count === 1 ? 'karta' : count < 5 ? 'karty' : 'karet'} · <Price amount={sum} /></span>
               </div>
-              {t?.pickupPlace ? (
-                <label className="t-small" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                  <input type="checkbox" checked={picked} onChange={(e) => togglePickup(sellerId, e.target.checked)} />
-                  Vyzvednu osobně ({t.pickupPlace})
-                </label>
-              ) : null}
               {group.map((item) => (
                 <div key={item.listingId} className={styles.item}>
                   <div className={styles.itemCard}>
@@ -126,9 +136,51 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                   <Button variant="ghost" onClick={() => remove(item.listingId)} aria-label={`Odebrat ${item.cardName}`}>Odebrat</Button>
                 </div>
               ))}
+              {offer ? (
+                <div className={styles.choose}>
+                  <fieldset className={styles.chooseCol}>
+                    <legend>DOPRAVA</legend>
+                    {ds.length ? ds.map((d) => {
+                      const price = shippingPrice(offer, d.key, sum);
+                      return (
+                        <label key={d.key} className={styles.opt}>
+                          <input type="radio" name={`d_${sellerId}`} checked={choice.delivery === d.key} onChange={() => choose(sellerId, { delivery: d.key })} />
+                          <span className={styles.optText}>
+                            <strong>{d.name}</strong>
+                            {d.key === 'pickup' ? <small>{offer.pickupPlace}{offer.pickupRadius ? ` · do ${offer.pickupRadius} km` : ''}</small> : null}
+                          </span>
+                          <span className={styles.optPrice}>{price ? `${price} Kč` : 'zdarma'}</span>
+                        </label>
+                      );
+                    }) : <p className={styles.none}>Prodejce zatím nemá nastavenou dopravu.</p>}
+                    {needsPoint ? (
+                      <label className={styles.point}>
+                        Výdejní místo
+                        <input value={choice.point ?? ''} maxLength={120} onChange={(e) => choose(sellerId, { point: e.target.value })} placeholder="např. Z-BOX Brno, Kounicova 12" />
+                      </label>
+                    ) : null}
+                  </fieldset>
+                  <fieldset className={styles.chooseCol}>
+                    <legend>PLATBA</legend>
+                    {!choice.delivery ? <p className={styles.none}>Nejdřív vyberte dopravu.</p> : ps.length ? ps.map((p) => (
+                      <label key={p.key} className={styles.opt}>
+                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => choose(sellerId, { payment: p.key })} />
+                        <span className={styles.optText}>
+                          <strong>{PAY_LABEL[p.key]}</strong>
+                          <small>{PAY_HINT[p.key]}</small>
+                        </span>
+                        {p.fee ? <span className={styles.optPrice}>+{p.fee} Kč</span> : null}
+                      </label>
+                    )) : <p className={styles.none}>K této dopravě prodejce nemá platbu.</p>}
+                  </fieldset>
+                </div>
+              ) : null}
               <div className={styles.groupFoot}>
-                <span className="t-small muted">Mezisoučet</span>
-                <Price amount={sum} />
+                <span className="t-small muted">
+                  {choice.delivery ? <>Doprava <Price amount={ship} />{fee ? <> · dobírka <Price amount={fee} /></> : null}</> : 'Vyberte dopravu'}
+                  {choice.delivery && choice.delivery !== 'pickup' && ship > 0 && offer?.freeFrom ? <> · zdarma od <Price amount={offer.freeFrom} /></> : null}
+                </span>
+                <strong className={styles.footLines}>Celkem <Price amount={sum + ship + fee} /></strong>
               </div>
             </div>
           );
@@ -140,19 +192,21 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
         <dl className={styles.lines}>
           <div><dt>Karty</dt><dd><Price amount={subtotal} /></dd></div>
           <div><dt>Doprava ({bySeller.size}×)</dt><dd><Price amount={shipping} /></dd></div>
-          <div className={styles.total}><dt>Celkem</dt><dd><Price amount={subtotal + shipping} size="lg" /></dd></div>
+          {fees ? <div><dt>Příplatek za dobírku</dt><dd><Price amount={fees} /></dd></div> : null}
+          <div className={styles.total}><dt>Celkem</dt><dd><Price amount={subtotal + shipping + fees} size="lg" /></dd></div>
         </dl>
         {checkout === 'ready' ? (
-          <Button size="lg" onClick={submit} disabled={pending}>{pending ? 'Odesílám…' : 'Objednat s povinností platby'}</Button>
+          <Button size="lg" onClick={submit} disabled={pending || !ready}>{pending ? 'Odesílám…' : 'Objednat s povinností platby'}</Button>
         ) : checkout === 'login' ? (
           <ButtonLink href="/prihlaseni?dalsi=/kosik" size="lg">Přihlásit se a objednat</ButtonLink>
         ) : (
           <Button size="lg" disabled title="Objednávky zapneme po připojení databáze">Objednat</Button>
         )}
+        {checkout === 'ready' && !ready ? <p className="t-small muted">Vyberte dopravu a platbu u {bySeller.size === 1 ? 'prodejce' : 'každého prodejce'}.</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <p className="t-small muted">
           {bySeller.size === 1 ? 'Prodejce objednávku' : 'Každý prodejce svou objednávku'} do 48 hodin potvrdí. Do té doby
-          jsou karty rezervované jen pro vás. Platíte přímo prodejci podle domluvy, kupní smlouvu uzavíráte s ním,
+          jsou karty rezervované jen pro vás. Platíte přímo prodejci zvoleným způsobem, kupní smlouvu uzavíráte s ním,
           V4cards není její stranou a peníze nepřijímá.
         </p>
       </aside>
