@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { ExpiryMeter, ExpiryStatus } from '@/components/orders/Expiry';
 import { ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
@@ -78,6 +79,8 @@ export default async function OrderDetailPage({ params }: Props) {
   const otherName = other?.display_name ?? 'smazaný účet';
   const tab = role === 'buyer' ? 'nakupy' : 'prodeje';
   const count = order.order_items.reduce((n, i) => n + i.quantity, 0);
+  // Čeká na prodejce: odpočet do vypršení (DS Status, varianta B).
+  const waiting = order.status === 'requested' && !!order.expires_at;
 
   return (
     <div className={`container ${styles.page} ${styles.detail}`}>
@@ -86,7 +89,11 @@ export default async function OrderDetailPage({ params }: Props) {
         <div>
           <div className={styles.detailTitle}>
             <h1 className="t-heading-l">Objednávka č. <span className="code">{order.number}</span></h1>
-            <Status tone={ORDER_TONE[order.status] ?? 'muted'}>{ORDER_STATUS[order.status] ?? order.status}</Status>
+            {waiting ? (
+              <ExpiryStatus expiresAt={order.expires_at!} role={role} />
+            ) : (
+              <Status tone={ORDER_TONE[order.status] ?? 'muted'}>{ORDER_STATUS[order.status] ?? order.status}</Status>
+            )}
           </div>
           <p className="t-small muted">
             Objednáno {formatDateTime(order.created_at)} · {role === 'buyer' ? 'prodejce' : 'kupující'} {otherName}
@@ -107,10 +114,14 @@ export default async function OrderDetailPage({ params }: Props) {
                 {STEPS.map((s, n) => {
                   const on = n < done;
                   const at = n === 0 ? order.created_at : s.at.map((k) => statusAt.get(k)).find(Boolean);
+                  // Krok, na který se čeká do vypršení, má termín.
+                  const due = waiting && n === 1;
                   return (
-                    <li key={s.label} data-done={on ? '' : undefined}>
+                    <li key={s.label} data-done={on ? '' : undefined} data-due={due ? '' : undefined}>
                       <strong>{s.label}</strong>
-                      <span className="t-small muted">{on ? (at ? formatDateTime(at) : 'hotovo') : s.waiting}</span>
+                      <span className="t-small muted">
+                        {on ? (at ? formatDateTime(at) : 'hotovo') : due ? `${role === 'seller' ? 'potvrďte do' : 'prodejce potvrdí do'} ${formatDateTime(order.expires_at!)}` : s.waiting}
+                      </span>
                     </li>
                   );
                 })}
@@ -169,9 +180,7 @@ export default async function OrderDetailPage({ params }: Props) {
             <section className={styles.box} aria-labelledby="dal">
               <h2 id="dal" className={styles.boxTitle}>Co dál</h2>
               {NEXT[order.status] ? <p className="t-small muted">{NEXT[order.status][role]}</p> : null}
-              {order.status === 'requested' && order.expires_at ? (
-                <p className="t-small muted">{role === 'seller' ? 'Potvrďte do' : 'Prodejce potvrdí nejpozději'} {formatDateTime(order.expires_at)}.</p>
-              ) : null}
+              {waiting ? <ExpiryMeter createdAt={order.created_at} expiresAt={order.expires_at!} /> : null}
               <div className={`${styles.actions} ${styles.sideActions}`}>
                 {role === 'buyer' ? <BuyerActions o={order} reviewed={!!review} /> : <SellerActions o={order} />}
               </div>

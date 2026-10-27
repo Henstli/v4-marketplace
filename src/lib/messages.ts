@@ -46,6 +46,8 @@ export interface ChatOrder {
   shipping: number;
   pickup: boolean;
   status: string;
+  /** Do kdy musí prodejce potvrdit (jen u čekající objednávky) */
+  expiresAt: string | null;
   /** Počet kusů celkem */
   count: number;
   items: Array<{ name: string; condition: string; quantity: number; price: number }>;
@@ -169,7 +171,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: orders } = orderIds.length
     ? await supabase
       .from('orders')
-      .select('id, number, total_czk, shipping_czk, delivery, status, order_items(quantity, price_czk, condition, cards(name))')
+      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
   const byId = new Map((orders ?? []).map((o) => {
@@ -185,6 +187,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       shipping: (o.shipping_czk as number | null) ?? 0,
       pickup: o.delivery === 'pickup',
       status: o.status as string,
+      expiresAt: (o.expires_at as string | null) ?? null,
       count: items.reduce((s, i) => s + i.quantity, 0),
       items,
     } satisfies ChatOrder];
