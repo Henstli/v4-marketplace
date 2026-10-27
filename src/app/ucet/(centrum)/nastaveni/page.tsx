@@ -7,7 +7,9 @@ import { createClient } from '@/lib/supabase/server';
 import { identityMethod } from '@/lib/identity';
 import { EmailSettings } from '../../EmailSettings';
 import { MfaSettings } from '../../MfaSettings';
+import { czAccountNumber } from '@/lib/payment';
 import { ProfileForm } from '../../ProfileForm';
+import { SellerTermsForm } from '../../SellerTermsForm';
 
 export const metadata: Metadata = { title: 'Nastavení účtu' };
 
@@ -23,8 +25,9 @@ export default async function AccountPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/ucet/nastaveni');
   const supabase = await createClient();
-  const [{ data: profile }, { data: factors }, method, { heslo, email }] = await Promise.all([
-    supabase.from('profiles').select('display_name, kind, country').eq('id', user.id).single(),
+  const [{ data: profile }, { data: payment }, { data: factors }, method, { heslo, email }] = await Promise.all([
+    supabase.from('profiles').select('display_name, kind, country, shipping_czk, free_shipping_from, pickup, pickup_place').eq('id', user.id).single(),
+    supabase.from('seller_payment').select('iban, account_name').eq('user_id', user.id).maybeSingle(),
     supabase.auth.mfa.listFactors(),
     identityMethod(supabase),
     searchParams,
@@ -40,6 +43,21 @@ export default async function AccountPage({ searchParams }: Props) {
       <section className="panel">
         <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Profil prodejce</h2>
         {profile ? <ProfileForm profile={profile} /> : <p className="muted">Profil se nepodařilo načíst.</p>}
+      </section>
+      <section className="panel" id="doprava-platba">
+        <h2 className="t-heading-m" style={{ marginBottom: 'var(--space-4)' }}>Doprava a platba</h2>
+        {profile ? (
+          <SellerTermsForm
+            terms={{
+              shipping_czk: profile.shipping_czk,
+              free_shipping_from: profile.free_shipping_from,
+              pickup: profile.pickup,
+              pickup_place: profile.pickup_place,
+              account: payment ? czAccountNumber(payment.iban) ?? payment.iban : '',
+              account_name: payment?.account_name ?? '',
+            }}
+          />
+        ) : null}
       </section>
       <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <h2 className="t-heading-m">Zabezpečení</h2>

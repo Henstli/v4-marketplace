@@ -47,7 +47,8 @@ export default function PrivacyPage() {
         <p>
           Údaje ukládáme u poskytovatele databáze Supabase (servery v Irsku, EU). Web běží na hostingu Vercel. Při
           přihlášení přes Google zpracovává údaje i Google. Kupujícímu a prodejci předáme údaje nutné k vyřízení
-          objednávky: jméno a po potvrzení objednávky i e-mail, aby se mohli domluvit na platbě a předání. E-maily
+          objednávky: jméno a po potvrzení objednávky i e-mail, aby se mohli domluvit na platbě a předání. Číslo účtu,
+          které prodejce vyplní, uvidí jen kupující jeho potvrzené objednávky. E-maily
           posíláme přes službu Resend. Údaje neprodáváme.
         </p>
 
