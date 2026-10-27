@@ -1,5 +1,5 @@
 // Zprávy mezi uživateli (jen na serveru). Čte se přes RLS, zapisuje přes funkce v databázi.
-import type { PaymentMethod } from './delivery';
+import { methodName, SHIPPING_PACKING, type PaymentMethod } from './delivery';
 import { deliveryLine } from './order-flow';
 import { PLANS } from './plans';
 import { getSellerBrands, getSellerPlans } from './shop';
@@ -79,6 +79,9 @@ export interface ChatOrder {
   shipChange: number | null;
   /** Doprava a platba jedním řádkem */
   deliveryLine: string;
+  /** Název dopravce pro řádek Doprava a strop úpravy dopravy (null = bez stropu) */
+  carrierName: string;
+  shipCap: number | null;
   /** Počet kusů celkem */
   count: number;
   items: Array<{ name: string; condition: string; quantity: number; price: number }>;
@@ -208,6 +211,12 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, ship_change_czk, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
+  // Strop úpravy dopravy: ceník větší zásilky + balné (jako na stránce Objednávky).
+  const carriers = [...new Set((orders ?? []).map((o) => o.carrier as string | null).filter((c): c is string => !!c))];
+  const { data: rates } = carriers.length
+    ? await supabase.from('carrier_rates').select('carrier, price_czk, heavy_czk').in('carrier', carriers)
+    : { data: [] };
+  const caps = new Map((rates ?? []).map((r) => [r.carrier as string, Math.max(r.heavy_czk as number, r.price_czk as number) + SHIPPING_PACKING]));
   const byId = new Map((orders ?? []).map((o) => {
     const items = ((o.order_items ?? []) as unknown as Array<{ quantity: number; price_czk: number; condition: string; cards: { name: string } | { name: string }[] | null }>)
       .map((i) => {
@@ -227,6 +236,8 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       buyerPaidAt: (o.buyer_paid_at as string | null) ?? null,
       shipChange: (o.ship_change_czk as number | null) ?? null,
       deliveryLine: deliveryLine({ delivery: o.delivery as 'ship' | 'pickup', payment: (o.payment as PaymentMethod | null) ?? null, carrier: o.carrier as string | null, carrier_label: o.carrier_label as string | null }),
+      carrierName: o.carrier ? methodName({ carrier: o.carrier as string, label: o.carrier_label as string | null }) : 'Doprava',
+      shipCap: (o.carrier && caps.get(o.carrier as string)) ?? null,
       count: items.reduce((s, i) => s + i.quantity, 0),
       items,
     } satisfies ChatOrder];
