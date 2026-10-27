@@ -8,6 +8,9 @@ import { getProShops } from '@/lib/shop';
 import { safeColor, shopHref } from '@/lib/shop-config';
 import styles from './home.module.css';
 
+// Úvodní stránka je pro všechny stejná, z mezipaměti se obnoví nejpozději po minutě.
+export const revalidate = 60;
+
 export default async function HomePage() {
   const [trending, stats, proShops] = await Promise.all([getTrending(8), getStats(), getProShops(6)]);
   const top = trending[0];
