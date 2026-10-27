@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Achievements, ChipLink, initials } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
+import { MessageSeller } from '@/components/shop/ShopClient';
+import { getCurrentUser } from '@/lib/auth';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { PLANS } from '@/lib/plans';
@@ -29,7 +31,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
   const about = shop?.saved.about ?? '';
   const n = Number((await searchParams).strana);
   const page = Number.isInteger(n) && n > 1 ? n : 1;
-  const { cards, total } = await searchCards({ sellerId: seller.id, page });
+  const [{ cards, total }, viewer] = await Promise.all([searchCards({ sellerId: seller.id, page }), getCurrentUser()]);
   const pages = Math.ceil(total / PAGE_SIZE);
   const pageHref = (p: number) => (p <= 1 ? `/prodejci/${seller.id}` : `/prodejci/${seller.id}?strana=${p}`);
 
@@ -53,6 +55,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
         {about ? <p className={styles.about}>{about}</p> : null}
         <Achievements items={shop?.achievements ?? achievementsFor(seller, null)} />
         </div>
+        {viewer?.id !== seller.id ? <MessageSeller sellerId={seller.id} /> : null}
       </section>
 
       {cards.length ? (

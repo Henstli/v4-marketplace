@@ -1,0 +1,56 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, type ReactNode } from 'react';
+import { ShopLogo, shopStyle } from '@/components/trezor';
+import { formatDateTime } from '@/lib/format';
+import type { ConversationItem } from '@/lib/messages';
+import styles from './messages.module.css';
+
+/** Dva sloupce; na telefonu buď seznam (/zpravy), nebo otevřená konverzace. */
+export function ChatShell({ list, children }: { list: ReactNode; children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  // Nové zprávy: obnovení stránky každých 10 s, jen když je karta prohlížeče vidět.
+  useEffect(() => {
+    const t = setInterval(() => { if (!document.hidden) router.refresh(); }, 10_000);
+    return () => clearInterval(t);
+  }, [router]);
+  return (
+    <div className={styles.chat} data-open={pathname !== '/zpravy' ? '' : undefined}>
+      {list}
+      {children}
+    </div>
+  );
+}
+
+export function ConversationList({ items }: { items: ConversationItem[] }) {
+  const pathname = usePathname();
+  return (
+    <nav className={styles.list} aria-label="Konverzace">
+      {items.length ? items.map((c) => {
+        const href = c.other ? `/zpravy/${c.other.id}` : null;
+        const inner = (
+          <>
+            <span style={shopStyle(c.other?.color ?? 'blue')}><ShopLogo name={c.other?.name ?? '?'} image={c.other?.logo} size={36} /></span>
+            <span className={styles.convText}>
+              <span className={styles.convName}>{c.other?.name ?? 'Smazaný účet'}</span>
+              <span className={styles.convLast}>{c.lastMine ? 'Vy: ' : ''}{c.lastBody}</span>
+            </span>
+            <span className={styles.convSide}>
+              {formatDateTime(c.lastAt)}
+              {c.unread ? <span className={styles.dot} aria-label="Nepřečteno" /> : null}
+            </span>
+          </>
+        );
+        const cls = `${styles.conv} ${c.unread ? styles.unread : ''}`;
+        return href ? (
+          <Link key={c.id} href={href} className={cls} aria-current={pathname === href ? 'page' : undefined}>{inner}</Link>
+        ) : <div key={c.id} className={cls}>{inner}</div>;
+      }) : (
+        <p className={`muted t-small ${styles.listEmpty}`}>Zatím žádné zprávy.</p>
+      )}
+    </nav>
+  );
+}

@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 // Drobné interaktivní části stránky obchodu: holo lesk, odpočet, video a mapa po kliknutí,
 // výška hlavičky webu pro lepkavé záložky a propojení náhledu s editorem.
-import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 /** Holo lesk: karty s třídou tz-holo se natáčí za kurzorem (jen zařízení s myší). */
@@ -443,50 +444,16 @@ export function PreviewBridge({ sideDrop }: { sideDrop: boolean }) {
   return null;
 }
 
-/** Tlačítko Napsat zprávu v hlavičce. Dokud nejsou zprávy na webu, nabídne kontakty prodejce. */
-export function MessageSeller({ name, contacts, label = 'Napsat zprávu', intro = 'Zatím se s prodejcem spojte přímo:', small }: {
-  name: string; contacts: { label: string; value: string; href: string | null }[]; label?: string; intro?: string; small?: boolean;
+/** Tlačítko Napsat zprávu (v hlavičce) nebo Nabídnout (u karty v Hledám, s předvyplněným textem). */
+export function MessageSeller({ sellerId, label = 'Napsat zprávu', text, small }: {
+  sellerId: string; label?: string; text?: string; small?: boolean;
 }) {
-  const [pos, setPos] = useState<CSSProperties | null>(null);
-  const open = !!pos;
-  const ref = useRef<HTMLDivElement>(null);
-  // Okno je fixed, aby ho neořízla hlavička s oblými rohy; při posunu stránky se zavře.
-  const toggle = () => {
-    if (open) return setPos(null);
-    const r = ref.current!.getBoundingClientRect();
-    const w = Math.min(320, window.innerWidth - 32);
-    setPos({ top: r.bottom + 8, left: Math.max(16, Math.min(r.right - w, window.innerWidth - w - 16)), width: w });
-  };
-  const setOpen = (v: boolean) => { if (!v) setPos(null); };
-  useEffect(() => {
-    if (!open) return;
-    const scroll = () => setPos(null);
-    window.addEventListener('scroll', scroll, { passive: true, once: true });
-    const away = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); window.removeEventListener('scroll', scroll); };
-  }, [open]);
+  const href = `/zpravy/${sellerId}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
   return (
-    <div className="tz-msg" ref={ref}>
-      <button type="button" className={`tz-btn tz-btn-md ${small ? 'tz-btn-primary tz-wanted-sell' : 'tz-btn-secondary'}`} aria-expanded={open} onClick={toggle}>
-        {small ? null : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>}
-        {label}
-      </button>
-      {open ? (
-        <div className="tz-msg-pop" style={pos!} role="dialog" aria-label={`Napsat: ${name}`}>
-          <strong>Zprávy na V4cards připravujeme</strong>
-          <p>{contacts.length ? intro : 'Prodejce zatím nevyplnil žádný kontakt.'}</p>
-          {contacts.map((c) => (
-            <div key={c.label} className="tz-msg-row">
-              <span>{c.label}</span>
-              {c.href ? <a href={c.href} rel="nofollow noopener noreferrer" target={c.href.startsWith('http') ? '_blank' : undefined}>{c.value}</a> : <span>{c.value}</span>}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    <Link href={href} className={`tz-btn tz-btn-md ${small ? 'tz-btn-primary tz-wanted-sell' : 'tz-btn-secondary'}`}>
+      {small ? null : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>}
+      {label}
+    </Link>
   );
 }
 

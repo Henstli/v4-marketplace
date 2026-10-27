@@ -6,6 +6,7 @@ import { Button, CardThumb, Price } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
+import { ORDER_STATUS as STATUS } from '@/lib/order-status';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -13,18 +14,6 @@ import { addReview, setOrderStatus } from './actions';
 import styles from './orders.module.css';
 
 export const metadata: Metadata = { title: 'Objednávky' };
-
-const STATUS: Record<string, string> = {
-  requested: 'Čeká na potvrzení prodejce',
-  confirmed: 'Potvrzeno, domluvte platbu a předání',
-  pending_payment: 'Čeká na platbu',
-  paid: 'Zaplaceno, čeká na odeslání',
-  shipped: 'Odesláno',
-  delivered: 'Převzato',
-  cancelled: 'Zrušeno',
-  declined: 'Prodejce odmítl',
-  expired: 'Vypršelo bez potvrzení',
-};
 
 // Stavy, ve kterých si strany vidí kontakt a domlouvají platbu a předání.
 const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
@@ -163,6 +152,7 @@ function OrderCard({ order, counterpart, contact, payment, role, children }: {
   role: 'buyer' | 'seller';
   children?: React.ReactNode;
 }) {
+  const counterpartId = role === 'buyer' ? order.seller_id : order.buyer_id;
   return (
     <article className={styles.order}>
       <div className={styles.head}>
@@ -229,6 +219,12 @@ function OrderCard({ order, counterpart, contact, payment, role, children }: {
               ? ' · Platbu a předání si domluvte přímo s prodejcem. V4cards peníze nepřijímá.'
               : ' · Napište kupujícímu, jak zaplatit a jak kartu předáte.'}
           </span>
+        </p>
+      ) : null}
+      {counterpartId ? (
+        <p className="t-small">
+          <Link href={`/zpravy/${counterpartId}`}>{role === 'buyer' ? 'Napsat prodejci' : 'Napsat kupujícímu'}</Link>
+          <span className="muted"> · Ve zprávách najdete i celou historii objednávek mezi vámi.</span>
         </p>
       ) : null}
       {children ? <div className={styles.actions}>{children}</div> : null}
