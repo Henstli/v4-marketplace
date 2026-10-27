@@ -19,10 +19,12 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
   if (!sellerIds.length) return {};
   const ids = sellerIds.slice(0, 100);
   const supabase = await createClient();
-  const [{ data: profiles }, { data: methods }] = await Promise.all([
+  const [{ data: profiles }, { data: methods }, { data: rates }] = await Promise.all([
     supabase.from('profiles').select('id, free_shipping_from, pickup, pickup_place, pickup_radius_km, cash_on_pickup, pay_transfer').in('id', ids),
     supabase.from('seller_shipping_methods').select('seller_id, carrier, label, price_czk, cod, cod_fee_czk').in('seller_id', ids),
+    supabase.from('carrier_rates').select('carrier, price_czk'),
   ]);
+  const list = new Map((rates ?? []).map((r) => [r.carrier as string, r.price_czk as number]));
   const order = new Map(CARRIERS.map((c, i) => [c.key, i]));
   return Object.fromEntries((profiles ?? []).map((p) => [p.id, {
     pickup: p.pickup,
@@ -33,7 +35,7 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
     freeFrom: p.free_shipping_from,
     methods: (methods ?? [])
       .filter((m) => m.seller_id === p.id)
-      .map((m) => ({ carrier: m.carrier as Carrier, label: m.label, price: m.price_czk, cod: m.cod, codFee: m.cod_fee_czk }))
+      .map((m) => ({ carrier: m.carrier as Carrier, label: m.label, price: m.price_czk, cod: m.cod, codFee: m.cod_fee_czk, listPrice: list.get(m.carrier) ?? null }))
       .sort((a, b) => (order.get(a.carrier) ?? 99) - (order.get(b.carrier) ?? 99)),
   } satisfies SellerOffer]));
 }

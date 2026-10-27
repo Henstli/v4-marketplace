@@ -7,7 +7,7 @@ import { thumbUrl } from '@/lib/images';
 import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { BuyerActions, ENDED, loadContact, loadPayment, ORDER_SELECT, OrderCard, type OrderRow, SellerActions } from './parts';
+import { BuyerActions, ENDED, loadContact, loadPayment, loadShipCaps, ORDER_SELECT, OrderCard, type OrderRow, SellerActions } from './parts';
 import styles from './orders.module.css';
 
 export const metadata: Metadata = { title: 'Objednávky' };
@@ -47,9 +47,10 @@ export default async function OrdersPage({ searchParams }: Props) {
   const bought = (orders ?? []).filter((o) => o.buyer_id === user.id);
   const sold = (orders ?? []).filter((o) => o.seller_id === user.id);
   const all = orders ?? [];
-  const [contacts, payments] = await Promise.all([
+  const [contacts, payments, caps] = await Promise.all([
     Promise.all(all.map((o) => loadContact(supabase, o))).then((r) => new Map(all.map((o, i) => [o.id, r[i]]))),
     Promise.all(all.map((o) => loadPayment(supabase, o))).then((r) => new Map(all.map((o, i) => [o.id, r[i]]))),
+    loadShipCaps(supabase),
   ]);
 
   const boughtActive = bought.filter((o) => !ENDED.has(o.status));
@@ -65,7 +66,7 @@ export default async function OrdersPage({ searchParams }: Props) {
     </OrderCard>);
   const sellerCard = (o: OrderRow) => (
     <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} role="seller">
-      <SellerActions o={o} />
+      <SellerActions o={o} shipCap={o.carrier ? caps.get(o.carrier) : null} />
     </OrderCard>);
 
   return (

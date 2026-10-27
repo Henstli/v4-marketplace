@@ -10,7 +10,7 @@ import { ORDER_STATUS } from '@/lib/order-status';
 import { flowSteps, nextStep, orderLabel } from '@/lib/order-flow';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { BuyerActions, DeliveryInfo, ENDED, flowOf, loadContact, loadPayment, ORDER_SELECT, type OrderRow, PaymentInfo, SellerActions } from '../parts';
+import { BuyerActions, DeliveryInfo, ENDED, flowOf, loadContact, loadPayment, loadShipCaps, ORDER_SELECT, type OrderRow, PaymentInfo, SellerActions, ShipChangeNotice } from '../parts';
 import styles from '../orders.module.css';
 
 type Props = { params: Promise<{ cislo: string }> };
@@ -44,12 +44,13 @@ export default async function OrderDetailPage({ params }: Props) {
   const role = order.buyer_id === user.id ? 'buyer' : 'seller';
   const otherId = role === 'buyer' ? order.seller_id : order.buyer_id;
 
-  const [{ data: other }, { data: events }, { data: review }, contact, payment] = await Promise.all([
+  const [{ data: other }, { data: events }, { data: review }, contact, payment, caps] = await Promise.all([
     otherId ? supabase.from('profiles').select('display_name, kind, country').eq('id', otherId).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('messages').select('kind, body, created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
     supabase.from('reviews').select('order_id').eq('order_id', order.id).maybeSingle(),
     loadContact(supabase, order),
     loadPayment(supabase, order),
+    loadShipCaps(supabase),
   ]);
   const history = (events ?? []).map((e) => ({ body: e.body as string, at: e.created_at as string }));
   const statusAt = new Map<string, string>();
@@ -147,7 +148,7 @@ export default async function OrderDetailPage({ params }: Props) {
             </div>
           </section>
 
-          {order.status === 'confirmed' && (order.payment ?? 'transfer') === 'transfer' && !(role === 'buyer' && order.buyer_paid_at) ? (
+          {order.status === 'confirmed' && (order.payment ?? 'transfer') === 'transfer' && order.ship_change_czk == null && !(role === 'buyer' && order.buyer_paid_at) ? (
             <section className={styles.box} aria-labelledby="platba">
               <h2 id="platba" className={styles.boxTitle}>Platba</h2>
               <PaymentInfo payment={payment} role={role} order={order} />
@@ -172,8 +173,9 @@ export default async function OrderDetailPage({ params }: Props) {
               <h2 id="dal" className={styles.boxTitle}>Co dál</h2>
               {next ? <p className="t-small muted">{next}</p> : null}
               {waiting ? <ExpiryMeter createdAt={order.created_at} expiresAt={order.expires_at!} /> : null}
+              <ShipChangeNotice o={order} role={role} />
               <div className={`${styles.actions} ${styles.sideActions}`}>
-                {role === 'buyer' ? <BuyerActions o={order} reviewed={!!review} /> : <SellerActions o={order} />}
+                {role === 'buyer' ? <BuyerActions o={order} reviewed={!!review} /> : <SellerActions o={order} shipCap={order.carrier ? caps.get(order.carrier) : null} />}
               </div>
             </section>
           ) : null}

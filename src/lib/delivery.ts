@@ -24,12 +24,22 @@ export const PAYMENT_NAME: Record<PaymentMethod, string> = {
   cash: 'hotově při předání',
 };
 
+// Strop ceny dopravy (DS DeliveryPayment): ceník dopravce + balné, dobírka ceník + 10 Kč.
+// Stejná čísla jako shipping_packing_czk a cod_margin_czk v databázi.
+export const SHIPPING_PACKING = 25;
+export const COD_MARGIN = 10;
+
+/** Ceník dopravce pro lidi (tabulka carrier_rates). `codFee` null = dobírku nehlídáme. */
+export interface CarrierRate { price: number; codFee: number | null; heavy: number }
+
 export interface ShippingMethod {
   carrier: Carrier;
   label: string | null;
   price: number;
   cod: boolean;
   codFee: number;
+  /** Ceník dopravce (jen v košíku, u dopravců s ceníkem), aby kupující viděl, kolik je balné. */
+  listPrice?: number | null;
 }
 
 /** Co prodejce nabízí kupujícím (veřejné údaje, bez čísla účtu). */

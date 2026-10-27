@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useActionState, useState } from 'react';
 import { Button } from '@/components/trezor';
-import { CARRIERS, type Carrier, type ShippingMethod } from '@/lib/delivery';
+import { CARRIERS, COD_MARGIN, SHIPPING_PACKING, type Carrier, type CarrierRate, type ShippingMethod } from '@/lib/delivery';
 import { updateDeliveryPayment, type ProfileState } from './actions';
 import { placeAt, PlaceInput } from './PlaceInput';
 import styles from './delivery.module.css';
@@ -27,6 +27,8 @@ export interface DeliveryPaymentValues {
   pickupRadius: number;
   freeFrom: number | null;
   methods: ShippingMethod[];
+  /** Ceníky dopravců pro strop ceny (prázdné, dokud není migrace shipping_caps). */
+  rates: Partial<Record<Carrier, CarrierRate>>;
 }
 
 /** Nastavení › Doprava a platba (DS DeliveryPayment). `back`: kam se vrátit po uložení (výzva v Prodat). */
@@ -44,6 +46,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
   const [on, setOn] = useState<Set<Carrier>>(new Set(values.methods.map((m) => m.carrier)));
   const [codOn, setCodOn] = useState<Set<Carrier>>(new Set(values.methods.filter((m) => m.cod).map((m) => m.carrier)));
   const byKey = new Map(values.methods.map((m) => [m.carrier, m]));
+  const [prices, setPrices] = useState<Partial<Record<Carrier, number>>>(Object.fromEntries(values.methods.map((m) => [m.carrier, m.price])));
   const toggle = (set: Set<Carrier>, key: Carrier, value: boolean) => {
     const next = new Set(set);
     if (value) next.add(key); else next.delete(key);
@@ -73,8 +76,8 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
             </div>
           ) : null}
           <label className={styles.check}>
-            <input type="checkbox" name="cash" checked={cash} onChange={(e) => setCash(e.target.checked)} />
-            <span><strong>Hotově při osobním předání</strong><small>{pickup ? 'Jen u osobního předání.' : 'Zapněte i osobní předání.'}</small></span>
+            <input type="checkbox" name="cash" checked={cash} onChange={(e) => { setCash(e.target.checked); if (e.target.checked) setPickup(true); }} />
+            <span><strong>Hotově při osobním předání</strong><small>{pickup ? 'Jen u osobního předání.' : 'Zapne i osobní předání.'}</small></span>
           </label>
           <label className={styles.check}>
             <input type="checkbox" checked={cod} onChange={(e) => setCod(e.target.checked)} />
@@ -86,7 +89,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
         <section className={styles.card} aria-labelledby="predani">
           <h3 id="predani" className={styles.cardTitle}>Osobní předání</h3>
           <label className={styles.check}>
-            <input type="checkbox" name="pickup" checked={pickup} onChange={(e) => setPickup(e.target.checked)} />
+            <input type="checkbox" name="pickup" checked={pickup} onChange={(e) => { setPickup(e.target.checked); if (!e.target.checked) setCash(false); }} />
             <span><strong>Nabízím osobní předání</strong></span>
           </label>
           {pickup ? (
@@ -123,14 +126,19 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
           <div className={`${styles.trow} ${styles.thead}`} role="row">
             <span role="columnheader" aria-label="Nabízím" />
             <span role="columnheader">DOPRAVCE</span>
-            <span role="columnheader" className={styles.right}>CENA</span>
+            <span role="columnheader" className={styles.left}>CENA</span>
             <span role="columnheader" className={styles.center}>DOBÍRKA</span>
-            <span role="columnheader" className={styles.right}>PŘÍPLATEK</span>
+            <span role="columnheader" className={styles.left}>PŘÍPLATEK</span>
           </div>
           {CARRIERS.map((c) => {
             const m = byKey.get(c.key);
             const active = on.has(c.key);
             const hasCod = cod && active && codOn.has(c.key);
+            const rate = values.rates[c.key];
+            const cap = rate ? rate.price + SHIPPING_PACKING : null;
+            const feeCap = rate?.codFee != null ? rate.codFee + COD_MARGIN : null;
+            const price = prices[c.key];
+            const over = active && cap != null && price != null && price > cap;
             return (
               <div key={c.key} className={styles.trow} data-off={active ? undefined : ''} role="row">
                 <input type="checkbox" name={`c_${c.key}`} checked={active} onChange={(e) => setOn(toggle(on, c.key, e.target.checked))} aria-label={c.name} />
@@ -141,17 +149,26 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
                     <strong>{c.name}</strong>
                   )}
                   {c.hint && c.key !== 'custom' ? <small>{c.hint}</small> : null}
+                  {/* Strop ceny: ceník dopravce + balné (DS DeliveryPayment). */}
+                  {rate && active ? (
+                    <small className={over ? styles.over : undefined}>
+                      {over ? `Nejvýš ${cap} Kč: ceník ${rate.price} Kč + ${SHIPPING_PACKING} Kč balné` : `ceník ${rate.price} Kč · nejvýš ${cap} Kč`}
+                    </small>
+                  ) : null}
                 </span>
-                <span className={styles.money}>
-                  <input name={`p_${c.key}`} type="number" min={0} max={1000} disabled={!active} required={active} defaultValue={m?.price ?? ''} className={`${styles.input} code`} aria-label={`Cena: ${c.name}`} />
+                <span className={styles.money} data-over={over ? '' : undefined}>
+                  <input
+                    name={`p_${c.key}`} type="number" min={0} max={cap ?? 1000} disabled={!active} required={active}
+                    value={price ?? ''} onChange={(e) => setPrices({ ...prices, [c.key]: e.target.value === '' ? undefined : Number(e.target.value) })}
+                    placeholder="0" className={`${styles.input} code`} aria-label={`Cena: ${c.name}`}
+                  />
                   <span aria-hidden>Kč</span>
                 </span>
-                <label className={styles.codCell}>
-                  <input type="checkbox" name={`cod_${c.key}`} checked={hasCod} disabled={!active || !cod} onChange={(e) => setCodOn(toggle(codOn, c.key, e.target.checked))} />
-                  <span className="muted">{hasCod ? 'ano' : 'ne'}</span>
-                </label>
+                <span className={styles.codCell}>
+                  <input type="checkbox" name={`cod_${c.key}`} checked={hasCod} disabled={!active || !cod} onChange={(e) => setCodOn(toggle(codOn, c.key, e.target.checked))} aria-label={`Dobírka: ${c.name}`} />
+                </span>
                 <span className={styles.money}>
-                  <input name={`fee_${c.key}`} type="number" min={0} max={500} disabled={!hasCod} defaultValue={m?.codFee ?? 0} className={`${styles.input} code`} aria-label={`Příplatek za dobírku: ${c.name}`} />
+                  <input name={`fee_${c.key}`} type="number" min={0} max={feeCap ?? 500} disabled={!hasCod} defaultValue={m?.codFee ?? 0} className={`${styles.input} code`} aria-label={`Příplatek za dobírku: ${c.name}`} title={feeCap != null ? `Nejvýš ${feeCap} Kč (ceník ${rate?.codFee} Kč + ${COD_MARGIN} Kč)` : undefined} />
                   <span aria-hidden>Kč</span>
                 </span>
               </div>
