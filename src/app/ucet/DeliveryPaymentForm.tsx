@@ -96,7 +96,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
               <label className={styles.field}>
                 <span className={styles.label}>Jméno PayPal.Me</span>
                 <span className={styles.prefixed}>
-                  <span className="code" aria-hidden>paypal.me/</span>
+                  <span aria-hidden>paypal.me/</span>
                   <input name="paypalMe" defaultValue={values.paypalMe} className={`${styles.input} code`} placeholder="kartydoupe" autoComplete="off" maxLength={60} required />
                 </span>
                 <small className={styles.note}>Jen jméno z vašeho odkazu PayPal.Me.</small>
@@ -112,7 +112,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
               <label className={styles.field}>
                 <span className={styles.label}>Revtag</span>
                 <span className={styles.prefixed}>
-                  <span className="code" aria-hidden>@</span>
+                  <span aria-hidden>@</span>
                   <input name="revtag" defaultValue={values.revtag} className={`${styles.input} code`} placeholder="kartydoupe" autoComplete="off" maxLength={60} required />
                 </span>
                 <small className={styles.note}>Najdete ho v aplikaci Revolut v profilu.</small>
