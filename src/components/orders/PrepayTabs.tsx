@@ -68,7 +68,7 @@ export function PrepayTabs({ bank, paypalMe, revtag, amount, vs, role = 'buyer' 
             <div className={styles.row}><dt>Poznámka</dt><Copy value={note} label="poznámku" /></div>
           </dl>
           {role === 'buyer' ? (
-            <a className="tz-btn tz-btn-secondary tz-btn-md" href={`https://revolut.me/${encodeURIComponent(revtag)}?currency=CZK&amount=${amount * 100}&note=${encodeURIComponent(note)}`} target="_blank" rel="noopener noreferrer">Otevřít Revolut</a>
+            <a className="tz-btn tz-btn-primary tz-btn-md" href={`https://revolut.me/${encodeURIComponent(revtag)}?currency=CZK&amount=${amount * 100}&note=${encodeURIComponent(note)}`} target="_blank" rel="noopener noreferrer">Otevřít Revolut</a>
           ) : null}
           <p className="t-small muted">Když aplikace Revolut částku nebo poznámku nevyplní, vložte je ručně.</p>
         </div>
