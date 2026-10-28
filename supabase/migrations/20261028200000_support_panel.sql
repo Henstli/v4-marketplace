@@ -12,16 +12,16 @@ create table public.support_cases (
   -- open = řeší podpora, waiting = čeká na uživatele, resolved = vyřešeno
   status text not null default 'open' check (status in ('open', 'waiting', 'resolved')),
   priority text not null default 'mid' check (priority in ('high', 'mid', 'low')),
-  assignee_id uuid references public.profiles(id) on delete set null,
+  assignee_id uuid,
   due_at timestamptz,
-  user_id uuid references public.profiles(id) on delete set null,
-  other_id uuid references public.profiles(id) on delete set null,
+  user_id uuid,
+  other_id uuid,
   -- kontakt na člověka bez účtu (dotaz e-mailem nebo telefonem)
   contact_email text check (char_length(contact_email) <= 200),
-  order_id uuid references public.orders(id) on delete set null,
-  report_id uuid unique references public.reports(id) on delete set null,
+  order_id uuid,
+  report_id uuid unique,
   last_event text,
-  created_by uuid references public.profiles(id) on delete set null,
+  created_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   resolved_at timestamptz
@@ -40,9 +40,9 @@ create policy "případy mění správci" on public.support_cases for update to 
 -- note = interní poznámka, email = odeslaná odpověď, user = zpráva uživatele, event = událost
 create table public.case_events (
   id bigint generated always as identity primary key,
-  case_id uuid not null references public.support_cases(id) on delete cascade,
+  case_id uuid not null references public.support_cases(id),
   kind text not null check (kind in ('note', 'email', 'user', 'event')),
-  author_id uuid references public.profiles(id) on delete set null,
+  author_id uuid,
   recipients text check (char_length(recipients) <= 500),
   body text not null check (char_length(body) between 1 and 8000),
   created_at timestamptz not null default now()
@@ -52,7 +52,7 @@ alter table public.case_events enable row level security;
 grant select, insert on public.case_events to authenticated;
 create policy "osu případu čtou správci" on public.case_events for select to authenticated using (public.is_admin());
 create policy "do osy píšou správci" on public.case_events for insert to authenticated
-  with check (public.is_admin() and public.mfa_ok() and author_id = auth.uid() and kind in ('note', 'email'));
+  with check (public.is_admin() and public.mfa_ok() and author_id = auth.uid() and kind in ('note', 'email', 'event'));
 
 -- Poslední událost a čas změny pro frontu.
 create or replace function public.case_event_touch() returns trigger
@@ -84,8 +84,8 @@ grant execute on function public.case_code(int) to authenticated;
 -- Měření času: na člověka vždy běží nejvýš jeden časovač.
 create table public.case_time (
   id bigint generated always as identity primary key,
-  case_id uuid not null references public.support_cases(id) on delete cascade,
-  staff_id uuid references public.profiles(id) on delete set null,
+  case_id uuid not null references public.support_cases(id),
+  staff_id uuid,
   started_at timestamptz not null default now(),
   ended_at timestamptz,
   note text check (char_length(note) <= 200),
@@ -233,82 +233,22 @@ alter table public.staff_actions enable row level security;
 grant select on public.staff_actions to authenticated;
 create policy "záznam akcí čtou správci" on public.staff_actions for select to authenticated using (public.is_admin());
 
-create or replace function public.staff_actions_immutable() returns trigger
-  language plpgsql set search_path = '' as $$
-begin
-  raise exception 'Záznam akcí nejde upravit ani smazat';
-end;
-$$;
-create trigger staff_actions_no_change before update or delete on public.staff_actions
-  for each row execute function public.staff_actions_immutable();
-
--- Změna tarifu a ověření prodejce se zapisují do záznamu akcí.
-create or replace function public.admin_set_plan(p_email text, p_plan text, p_note text default null) returns text
-  language plpgsql security definer set search_path = '' as $$
-declare
-  uid uuid;
-begin
-  if not public.is_admin() or not public.mfa_ok() then
-    raise exception 'Předplatné přiděluje jen správce';
-  end if;
-  if p_plan not in ('free', 'plus', 'pro') then raise exception 'Neznámý tarif'; end if;
-  select id into uid from auth.users where lower(email) = lower(trim(p_email));
-  if uid is null then raise exception 'Uživatel s tímto e-mailem neexistuje'; end if;
-  if p_plan = 'free' then
-    delete from public.subscriptions where user_id = uid;
-  else
-    insert into public.subscriptions (user_id, plan, granted_by, note)
-      values (uid, p_plan, auth.uid(), nullif(trim(p_note), ''))
-      on conflict (user_id) do update
-        set plan = excluded.plan, granted_by = excluded.granted_by, granted_at = now(),
-            note = coalesce(excluded.note, public.subscriptions.note);
-  end if;
-  insert into public.staff_actions (staff_id, user_id, action, detail)
-    values (auth.uid(), uid, 'plan', 'Tarif ' || p_plan || coalesce(' · ' || nullif(trim(p_note), ''), ''));
-  return (select display_name from public.profiles where id = uid);
-end;
-$$;
-
-create or replace function public.admin_set_verified(p_email text, p_method text, p_ico text default null) returns text
-  language plpgsql security definer set search_path = '' as $$
-declare
-  uid uuid;
-begin
-  if not public.is_admin() or not public.mfa_ok() then
-    raise exception 'Ověření nastavuje jen správce';
-  end if;
-  select id into uid from auth.users where lower(email) = lower(trim(p_email));
-  if uid is null then raise exception 'Uživatel s tímto e-mailem neexistuje'; end if;
-  if p_method is null or p_method = 'none' then
-    delete from public.seller_verifications where user_id = uid;
-  elsif p_method in ('identity', 'ico') then
-    insert into public.seller_verifications (user_id, method, ico, verified_by)
-      values (uid, p_method, nullif(regexp_replace(coalesce(p_ico, ''), '\s', '', 'g'), ''), auth.uid())
-      on conflict (user_id) do update
-        set method = excluded.method, ico = excluded.ico, verified_by = excluded.verified_by, verified_at = now();
-  else
-    raise exception 'Neznámý způsob ověření';
-  end if;
-  insert into public.staff_actions (staff_id, user_id, action, detail)
-    values (auth.uid(), uid, 'verify', case when p_method in ('identity', 'ico')
-      then 'Ověřený prodejce · ' || case p_method when 'ico' then 'IČO ' || coalesce(p_ico, '') else 'totožnost' end
-      else 'Ověření odebráno' end);
-  return (select display_name from public.profiles where id = uid);
-end;
-$$;
-
 -- ---------------------------------------------------------------------------
 -- 4. Omezení účtu
 -- ---------------------------------------------------------------------------
 -- hidden = skryté nabídky, suspended = pozastavený účet, banned = zrušený účet (pozastavený bez konce)
 create table public.account_restrictions (
-  user_id uuid primary key references public.profiles(id) on delete cascade,
+  id bigint generated always as identity primary key,
+  user_id uuid not null,
   kind text not null check (kind in ('hidden', 'suspended', 'banned')),
   until timestamptz,
-  case_id uuid references public.support_cases(id) on delete set null,
-  set_by uuid references public.profiles(id) on delete set null,
-  set_at timestamptz not null default now()
+  case_id uuid references public.support_cases(id),
+  set_by uuid,
+  set_at timestamptz not null default now(),
+  -- konec omezení (zrušené správcem nebo uplynutím doby); ukončené řádky zůstávají jako historie
+  ended_at timestamptz
 );
+create unique index account_restrictions_active on public.account_restrictions (user_id) where ended_at is null;
 alter table public.account_restrictions enable row level security;
 grant select on public.account_restrictions to authenticated;
 create policy "omezení vidí správci a dotčený" on public.account_restrictions for select to authenticated
@@ -350,7 +290,7 @@ $$;
 
 create or replace function public.account_restriction(p_user uuid) returns text
   language sql stable security definer set search_path = '' as $$
-  select kind from public.account_restrictions where user_id = p_user and (until is null or until > now());
+  select kind from public.account_restrictions where user_id = p_user and ended_at is null and (until is null or until > now());
 $$;
 revoke execute on function public.account_restriction(uuid) from public, anon, authenticated;
 
@@ -419,15 +359,14 @@ begin
   v_until := case when p_action in ('hide_listings', 'suspend') and p_days is not null then now() + make_interval(days => p_days) end;
 
   if p_action = 'lift' then
-    if not exists (select 1 from public.account_restrictions where user_id = p_user) then raise exception 'Účet není omezený'; end if;
-    delete from public.account_restrictions where user_id = p_user;
+    update public.account_restrictions set ended_at = now() where user_id = p_user and ended_at is null;
+    if not found then raise exception 'Účet není omezený'; end if;
     perform public.restore_user_listings(p_user);
   elsif p_action in ('hide_listings', 'suspend', 'ban') then
     v_kind := case p_action when 'hide_listings' then 'hidden' when 'suspend' then 'suspended' else 'banned' end;
+    update public.account_restrictions set ended_at = now() where user_id = p_user and ended_at is null;
     insert into public.account_restrictions (user_id, kind, until, case_id, set_by)
-      values (p_user, v_kind, v_until, p_case, auth.uid())
-      on conflict (user_id) do update set kind = excluded.kind, until = excluded.until,
-        case_id = excluded.case_id, set_by = excluded.set_by, set_at = now();
+      values (p_user, v_kind, v_until, p_case, auth.uid());
     perform public.hide_user_listings(p_user);
   end if;
 
@@ -522,6 +461,19 @@ $$;
 revoke execute on function public.admin_user_emails(uuid[]) from public, anon;
 grant execute on function public.admin_user_emails(uuid[]) to authenticated;
 
+-- Objednávky k případům (správce jinak cizí objednávky nevidí, ani ve vlastních seznamech).
+create or replace function public.admin_orders(p_ids uuid[]) returns table (
+  id uuid, number int, status text, buyer_id uuid, seller_id uuid, total_czk int, shipping_czk int,
+  payment text, paid_via text, buyer_paid_at timestamptz, not_received_at timestamptz, cancel_agreed boolean,
+  created_at timestamptz, delivered_at timestamptz)
+  language sql stable security definer set search_path = '' as $$
+  select o.id, o.number, o.status::text, o.buyer_id, o.seller_id, o.total_czk, o.shipping_czk,
+    o.payment, o.paid_via, o.buyer_paid_at, o.not_received_at, o.cancel_agreed, o.created_at, o.delivered_at
+  from public.orders o where o.id = any(p_ids) and public.is_admin();
+$$;
+revoke execute on function public.admin_orders(uuid[]) from public, anon;
+grant execute on function public.admin_orders(uuid[]) to authenticated;
+
 -- Hledání podle přezdívky, e-mailu nebo id.
 create or replace function public.admin_find_users(p_q text) returns table (id uuid, display_name text, email text, kind text)
   language sql stable security definer set search_path = '' as $$
@@ -557,7 +509,7 @@ begin
     'listings', (select count(*) from public.listings l where l.seller_id = u.id and l.quantity > 0),
     'hidden', (select count(*) from public.listings l where l.seller_id = u.id and l.hidden_qty > 0),
     'restriction', (select jsonb_build_object('kind', r.kind, 'until', r.until, 'set_at', r.set_at)
-      from public.account_restrictions r where r.user_id = u.id)
+      from public.account_restrictions r where r.user_id = u.id and r.ended_at is null)
   ) into v
   from auth.users u where u.id = p_user;
   return v;
@@ -574,7 +526,8 @@ create or replace function public.support_hourly() returns void
 declare
   r public.account_restrictions;
 begin
-  for r in delete from public.account_restrictions where until is not null and until <= now() returning * loop
+  for r in update public.account_restrictions set ended_at = now()
+           where ended_at is null and until is not null and until <= now() returning * loop
     perform public.restore_user_listings(r.user_id);
     insert into public.staff_actions (user_id, case_id, action, detail)
       values (r.user_id, r.case_id, 'expired', 'Omezení skončilo uplynutím doby');
