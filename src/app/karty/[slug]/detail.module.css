@@ -66,7 +66,7 @@
 .num, .table th.num { text-align: right; white-space: nowrap; }
 
 /* Tlačítka v řádku: stejně široká a zarovnaná pod sebou (DS OfferTable). */
-.actions { display: grid; grid-template-columns: 112px 132px; gap: var(--space-2); justify-content: end; align-items: center; justify-items: stretch; text-align: center; }
+.actions { display: grid; grid-template-columns: 112px 132px 44px; gap: var(--space-2); justify-content: end; align-items: center; justify-items: stretch; text-align: center; }
 .actions > * { width: 100%; box-sizing: border-box; }
 .actions :global(.tz-qty-label) { display: none; }
 .actions p { margin: 0; }
@@ -92,7 +92,7 @@
 @media (max-width: 640px) {
   .wide { display: none; }
   .askText { display: none; }
-  .actions { grid-template-columns: 44px 132px; }
+  .actions { grid-template-columns: 44px 132px 44px; }
   .actions .ask { padding-left: 0; padding-right: 0; }
   .table td, .table th { padding-left: var(--space-3); padding-right: var(--space-3); }
 }

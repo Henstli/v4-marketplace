@@ -837,7 +837,7 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
             extra={p.achievements.length ? <Achievements items={p.achievements} /> : undefined}
             actions={<>
               <MessageSeller sellerId={p.seller.id} />
-              {preview || edit ? null : <ReportContent kind="seller" target={p.seller.id} variant="link" label="Nahlásit" preview={{ title: p.seller.name }} />}
+              {preview || edit ? null : <ReportContent kind="seller" target={p.seller.id} variant="menu" preview={{ title: p.seller.name }} />}
             </>}
             tabs={sticky ? undefined : tabLinks}
           />

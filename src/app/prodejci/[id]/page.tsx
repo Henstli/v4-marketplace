@@ -60,7 +60,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
         {viewer?.id !== seller.id ? (
           <div className={styles.headActions}>
             <MessageSeller sellerId={seller.id} />
-            <ReportContent kind="seller" target={seller.id} variant="link" label="Nahlásit" preview={{ title: seller.name }} />
+            <ReportContent kind="seller" target={seller.id} variant="menu" preview={{ title: seller.name }} />
           </div>
         ) : null}
       </section>
