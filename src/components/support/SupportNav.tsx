@@ -8,10 +8,13 @@ const ITEMS = [
   { href: '/sprava/podpora/uzivatele', label: 'Uživatelé', match: /^\/sprava\/podpora\/uzivatele/ },
   { href: '/sprava/podpora/vykaz', label: 'Výkaz času', match: /^\/sprava\/podpora\/vykaz/ },
   { href: '/sprava/podpora/tym', label: 'Tým', match: /^\/sprava\/podpora\/(tym|zaznam)/ },
+  { href: '/sprava/podpora/chat', label: 'Chat týmu', match: /^\/sprava\/podpora\/chat/ },
 ];
 
 /** Položky levého panelu režimu podpory (DS Support, Režim podpory). */
-export function SupportNav({ late, className, itemClass, countClass }: { late: number; className: string; itemClass: string; countClass: string }) {
+export function SupportNav({ late, unread, className, itemClass, countClass, unreadClass }: {
+  late: number; unread: number; className: string; itemClass: string; countClass: string; unreadClass: string;
+}) {
   const path = usePathname();
   return (
     <nav aria-label="Podpora" className={className}>
@@ -19,6 +22,7 @@ export function SupportNav({ late, className, itemClass, countClass }: { late: n
         <Link key={i.label} href={i.href} className={itemClass} aria-current={i.match.test(path) ? 'page' : undefined}>
           <span>{i.label}</span>
           {i.href === '/sprava/podpora' && late ? <span className={countClass} title="Po termínu">{late}</span> : null}
+          {i.href === '/sprava/podpora/chat' && unread ? <span className={unreadClass} title="Nepřečtené">{unread}</span> : null}
         </Link>
       ))}
     </nav>

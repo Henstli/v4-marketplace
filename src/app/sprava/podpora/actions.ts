@@ -12,6 +12,7 @@ import { sendSupportEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SUPABASE_KEY, SUPABASE_URL } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
+import { dmRoom } from '@/lib/team-chat';
 import {
   caseCode, dueFor, isoToPragueLocal, liftMail, MEASURES, PRIORITY, pragueLocalToIso, restrictionMail, SIGNATURE, STATUS,
   type CaseKind, type CasePriority, type CaseRow, type CaseStatus,
@@ -223,6 +224,11 @@ export async function handoverCase(form: FormData) {
   if (error) back(`/sprava/podpora/${c.number}`, { chyba: error.message });
   const [from, who] = await Promise.all([staffName(supabase, me), staffName(supabase, to)]);
   await logChange(supabase, c.id, me, `${from} předal(a) případ: ${who}${note ? ` · ${note}` : ''}`);
+  // Kolega dostane zprávu v Chatu týmu (soukromá konverzace) s odkazem na případ.
+  await supabase.from('team_messages').insert({
+    room: dmRoom(me, to), sender_id: me, kind: 'system', case_id: c.id,
+    body: `${from} předal(a) případ ${caseCode(c.number)} (${c.subject})${note ? `: ${note}` : ''}`,
+  });
   done(c);
 }
 
