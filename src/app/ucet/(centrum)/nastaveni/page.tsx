@@ -11,6 +11,7 @@ import { czAccountNumber } from '@/lib/payment';
 import type { Carrier } from '@/lib/delivery';
 import { ProfileForm } from '../../ProfileForm';
 import { DeliveryPaymentForm } from '../../DeliveryPaymentForm';
+import { SupportReplySetting } from '../../SupportReplySetting';
 import { deleteSavedAddress } from '@/app/kosik/actions';
 import { Button } from '@/components/trezor';
 
@@ -30,7 +31,7 @@ export default async function AccountPage({ searchParams }: Props) {
   const supabase = await createClient();
   const [{ data: profile }, { data: payment }, { data: apps }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }, { data: address }] = await Promise.all([
     supabase.from('profiles')
-      .select('display_name, kind, country, ico, private_declared_at, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
+      .select('display_name, kind, country, ico, private_declared_at, support_reply_via, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
       .eq('id', user.id).single(),
     supabase.from('seller_payment').select('iban, account_name').eq('user_id', user.id).maybeSingle(),
     supabase.from('seller_payment_apps').select('paypal_me, revtag').eq('user_id', user.id).maybeSingle(),
@@ -93,6 +94,10 @@ export default async function AccountPage({ searchParams }: Props) {
         ) : (
           <p className="muted">Nemáte uloženou adresu. Uložit ji můžete v košíku při objednávce.</p>
         )}
+      </section>
+      <section id="podpora" className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <h2 className="t-heading-m">Podpora</h2>
+        <SupportReplySetting initial={profile?.support_reply_via === 'email' ? 'email' : 'app'} />
       </section>
       <section className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <h2 className="t-heading-m">Zabezpečení</h2>

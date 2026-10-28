@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/browser';
 import type { Template } from '@/lib/support';
 import styles from '@/app/sprava/podpora/podpora.module.css';
 
-export interface ReplyTarget { id: 'user' | 'other' | 'both' | 'contact'; label: string }
+export interface ReplyTarget { id: 'user' | 'other' | 'both' | 'contact'; label: string; via: string }
 
 /** Odpověď nebo interní poznámka pod časovou osou případu (DS Support › Případ › Odpověď). */
 export function ReplyBox({ caseId, number, targets, templates }: { caseId: string; number: number; targets: ReplyTarget[]; templates: Template[] }) {
@@ -36,7 +36,7 @@ export function ReplyBox({ caseId, number, targets, templates }: { caseId: strin
     setUpload('idle');
   }
 
-  const label = targets.find((t) => t.id === to)?.label ?? '';
+  const target = targets.find((t) => t.id === to);
 
   return (
     <div className={`${styles.box} ${styles.reply}`}>
@@ -45,7 +45,7 @@ export function ReplyBox({ caseId, number, targets, templates }: { caseId: strin
           <button type="button" className="tz-chip" aria-pressed={tab === 'reply'} disabled={!targets.length} onClick={() => setTab('reply')}>Odpověď</button>
           <button type="button" className="tz-chip" aria-pressed={tab === 'note'} onClick={() => setTab('note')}>Interní poznámka</button>
         </div>
-        <span className={styles.small}>{tab === 'reply' ? `${label} · e-mailem` : 'uživatel ji nevidí'}</span>
+        <span className={styles.small}>{tab === 'reply' ? `${target?.label ?? ''} · ${target?.via ?? ''}` : 'uživatel ji nevidí'}</span>
       </div>
 
       {tab === 'reply' ? (
@@ -74,7 +74,7 @@ export function ReplyBox({ caseId, number, targets, templates }: { caseId: strin
           ) : null}
           <textarea ref={area} className={styles.input} name="body" rows={8} required minLength={10} maxLength={8000} value={text}
             onChange={(e) => setText(e.target.value)} aria-label="Text odpovědi" placeholder="Napište odpověď…" />
-          <p className={styles.small}>Rozloučení se doplní samo. Každý příjemce dostane e-mail zvlášť z podpora@v4cards.com s P-{String(number).padStart(4, '0')} v předmětu.</p>
+          <p className={styles.small}>Rozloučení se doplní samo. Do chatu jde odpověď hned, e-mailem po 30 minutách, když ji uživatel nepřečte. Odpověď s přílohou jde e-mailem hned.</p>
           {file ? (
             <>
               <input type="hidden" name="file_path" value={file.path} />

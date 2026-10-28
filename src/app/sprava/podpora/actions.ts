@@ -96,37 +96,47 @@ export async function sendCaseEmail(form: FormData) {
 
   const ids = (to === 'both' ? [c.user_id, c.other_id] : to === 'other' ? [c.other_id] : to === 'user' ? [c.user_id] : [])
     .filter((x): x is string => !!x);
-  const recipients: Array<{ email: string; label: string }> = [];
+  // Kdo má účet a volbu „v aplikaci“, dostane odpověď do chatu na webu a e-mail až po 30 minutách nepřečtení.
+  const recipients: Array<{ id: string | null; email: string; label: string; app: boolean }> = [];
   if (ids.length) {
     const [{ data: emails }, { data: people }] = await Promise.all([
       supabase.rpc('admin_user_emails', { p_ids: ids }),
-      supabase.from('profiles').select('id, display_name').in('id', ids),
+      supabase.from('profiles').select('id, display_name, support_reply_via').in('id', ids),
     ]);
     for (const e of (emails ?? []) as Array<{ id: string; email: string }>) {
-      const name = people?.find((p) => p.id === e.id)?.display_name ?? e.email;
-      recipients.push({ email: e.email, label: name });
+      const p = people?.find((x) => x.id === e.id);
+      recipients.push({ id: e.id, email: e.email, label: (p?.display_name as string | undefined) ?? e.email, app: p?.support_reply_via !== 'email' });
     }
   } else if (to === 'contact' && c.contact_email) {
-    recipients.push({ email: c.contact_email, label: c.contact_email });
+    recipients.push({ id: null, email: c.contact_email, label: c.contact_email, app: false });
   }
   if (!recipients.length) back(path, { chyba: 'Vyberte, komu odpověď poslat' });
 
-  // Příloha nahraná z prohlížeče do support-files/<případ>/staff-…; k e-mailu jde jako odkaz na hodinu.
+  // Příloha nahraná z prohlížeče do support-files/<případ>/staff-…; k e-mailu jde jako odkaz na hodinu,
+  // proto odpověď s přílohou jde e-mailem hned všem.
   const file = await savedReplyFile(c.id, str(form, 'file_path', 300), str(form, 'file_name', 120));
   const attachments = file ? [{ filename: file.name, path: file.url }] : [];
+  if (file) for (const r of recipients) r.app = false;
 
   const subject = `[${caseCode(c.number)}] ${str(form, 'subject') || c.subject}`;
   const origin = await siteOrigin();
   const paragraphs = [{ text: body }, { text: SIGNATURE }];
   // Každému zvlášť, aby strany sporu neviděly e-mail té druhé.
-  const sent = await Promise.all(recipients.map((r) => sendSupportEmail([r.email], subject, paragraphs, origin, true, attachments)));
-  const okTo = recipients.filter((_, i) => sent[i]);
+  const now = recipients.filter((r) => !r.app);
+  const sent = await Promise.all(now.map((r) => sendSupportEmail([r.email], subject, paragraphs, origin, true, attachments)));
+  const okTo = [...recipients.filter((r) => r.app), ...now.filter((_, i) => sent[i])];
   if (!okTo.length) back(path, { chyba: 'E-mail se nepodařilo odeslat (Resend). Zkuste to znovu.' });
+  const labels = okTo.map((r) => `${r.label}${r.app ? ' (chat)' : ''}`);
 
-  await supabase.from('case_events').insert({
+  const { data: ev } = await supabase.from('case_events').insert({
     case_id: c.id, kind: 'email', author_id: me, body: file ? `${body}\n\nPříloha: ${file.name}` : body,
-    recipients: okTo.map((r) => r.label).join(', '),
-  });
+    recipients: labels.join(', '), audience: okTo.map((r) => r.id).filter((x): x is string => !!x),
+  }).select('id').single();
+  const later = okTo.filter((r) => r.app && r.id);
+  if (ev && later.length) {
+    const sendAfter = new Date(Date.now() + 30 * 60000).toISOString();
+    await supabase.from('support_mail_queue').insert(later.map((r) => ({ event_id: ev.id, case_id: c.id, user_id: r.id, subject, send_after: sendAfter })));
+  }
   const patch: Partial<CaseRow> = after === 'resolve'
     ? { status: 'resolved', resolved_at: new Date().toISOString(), snoozed_until: null }
     : { status: 'waiting' };
@@ -135,8 +145,8 @@ export async function sendCaseEmail(form: FormData) {
   revalidatePath(path);
   revalidatePath('/sprava/podpora');
   back(path, okTo.length < recipients.length
-    ? { chyba: `Odpověď odešla jen: ${okTo.map((r) => r.label).join(', ')}` }
-    : { ok: `Odesláno: ${okTo.map((r) => r.label).join(', ')}${after === 'resolve' ? ' · případ vyřešen' : ' · čeká na odpověď'}` });
+    ? { chyba: `Odpověď odešla jen: ${labels.join(', ')}` }
+    : { ok: `Odesláno: ${labels.join(', ')}${after === 'resolve' ? ' · případ vyřešen' : ' · čeká na odpověď'}` });
 }
 
 /** Podepsaný odkaz pro nahrání přílohy k odpovědi (fotka nebo PDF do 10 MB). */
