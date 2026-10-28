@@ -83,6 +83,8 @@ export interface PrepayKinds {
 }
 
 export interface SellerOffer {
+  /** Soukromý prodejce (sběratel): na nákup se nevztahují práva spotřebitele. */
+  private: boolean;
   pickup: boolean;
   pickupPlace: string | null;
   pickupRadius: number | null;

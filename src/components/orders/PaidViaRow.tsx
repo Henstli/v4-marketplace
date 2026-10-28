@@ -13,7 +13,7 @@ const CHECK_URL: Partial<Record<PaidVia, string>> = {
  * Řádek PLATBA (DS OrderPayment › Jak jste zaplatili, varianta B): jak kupující zaplatil a kdy.
  * Dokud prodejce platbu nepotvrdí, má oranžový obrys a prodejce odkaz ke kontrole.
  */
-export function PaidViaRow({ via, at, amount, role, pending, compact = false }: {
+export function PaidViaRow({ via, at, amount, role, pending, compact = false, notReceived = false, insistAt = null }: {
   via: PaidVia;
   at: string;
   amount: number;
@@ -22,6 +22,9 @@ export function PaidViaRow({ via, at, amount, role, pending, compact = false }: 
   pending: boolean;
   /** Úzká verze do bubliny v chatu. */
   compact?: boolean;
+  /** Prodejce klikl na Nepřišla; kupující případně potvrdil odeslání (DS Reports › Platba odešla). */
+  notReceived?: boolean;
+  insistAt?: string | null;
 }) {
   const name = PAID_VIA[via].name;
   const check = role === 'seller' && pending ? CHECK_URL[via] : undefined;
@@ -35,7 +38,11 @@ export function PaidViaRow({ via, at, amount, role, pending, compact = false }: 
           <>
             <span><strong>{name}</strong></span>
             <span className={pending ? styles.viaWhen : 't-small muted'}>
-              {role === 'seller' ? 'Kupující zaplatil' : 'Zaplatili jste'} {formatDateTime(at)} · <Price amount={amount} />
+              {pending && insistAt
+                ? <>{role === 'seller' ? 'Kupující potvrdil odeslání' : 'Potvrdili jste odeslání'} {formatDateTime(insistAt)} · <Price amount={amount} /></>
+                : pending && notReceived
+                  ? <>{role === 'seller' ? 'Kupující zaplatil' : 'Zaplatili jste'} {formatDateTime(at)} · {role === 'seller' ? 'nepřišla' : 'prodejce ji nevidí'}</>
+                  : <>{role === 'seller' ? 'Kupující zaplatil' : 'Zaplatili jste'} {formatDateTime(at)} · <Price amount={amount} /></>}
             </span>
           </>
         )}

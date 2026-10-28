@@ -1,0 +1,17 @@
+/* Počítadla a hodnocení na profilu prodejce (DS Reports › Hodnocení a počítadlo). */
+.wrap { display: flex; flex-direction: column; gap: 10px; }
+.tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+.tile { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; min-width: 160px; background: var(--surface-sunken); border-radius: var(--radius-md); }
+.tile[data-bad] { background: var(--down-tint); }
+.tileLabel { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--ink-muted); }
+.tile[data-bad] .tileLabel, .tile[data-bad] .tileValue { color: var(--down); }
+.tileValue { font-family: var(--font-mono); font-size: 16px; font-weight: 600; }
+.tileValue[data-zero] { color: var(--accent); }
+.reviews { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.review { margin: 0; padding: 12px; background: var(--surface-sunken); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 6px; }
+.review blockquote { margin: 0; font-size: 14px; }
+.reviewTop { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stars { color: var(--accent); letter-spacing: 2px; }
+.stars[data-low] { color: var(--down); }
+.tag { padding: 3px 8px; border-radius: var(--radius-pill); background: var(--down-tint); color: var(--down); font-size: 11px; font-weight: 600; }
+.reply { padding: 8px 10px; background: var(--surface); border-radius: 8px; font-size: 13px; }

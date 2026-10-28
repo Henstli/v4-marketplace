@@ -30,7 +30,7 @@ export default async function AccountPage({ searchParams }: Props) {
   const supabase = await createClient();
   const [{ data: profile }, { data: payment }, { data: apps }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }, { data: address }] = await Promise.all([
     supabase.from('profiles')
-      .select('display_name, kind, country, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
+      .select('display_name, kind, country, ico, private_declared_at, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
       .eq('id', user.id).single(),
     supabase.from('seller_payment').select('iban, account_name').eq('user_id', user.id).maybeSingle(),
     supabase.from('seller_payment_apps').select('paypal_me, revtag').eq('user_id', user.id).maybeSingle(),

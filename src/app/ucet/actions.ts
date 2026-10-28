@@ -25,7 +25,17 @@ export async function updateProfile(_prev: ProfileState, form: FormData): Promis
   if (!['private', 'shop'].includes(kind)) return { error: 'Vyberte typ prodejce.' };
   if (!['CZ', 'SK'].includes(country)) return { error: 'Vyberte zemi.' };
 
-  const { error } = await supabase.from('profiles').update({ display_name: displayName, kind, country }).eq('id', auth.user.id);
+  const ico = String(form.get('ico') ?? '').replace(/\s/g, '');
+  if (kind === 'shop' && !/^[0-9]{8}$/.test(ico)) return { error: 'Obchod potřebuje IČO (8 číslic).' };
+  if (kind === 'private' && form.get('privateDeclared') !== 'on') return { error: 'Potvrďte, že neprodáváte jako podnikatel, nebo zvolte Obchod.' };
+  const { data: old } = await supabase.from('profiles').select('private_declared_at').eq('id', auth.user.id).maybeSingle();
+  const { error } = await supabase.from('profiles').update({
+    display_name: displayName,
+    kind,
+    country,
+    ico: kind === 'shop' ? ico : null,
+    private_declared_at: kind === 'private' ? old?.private_declared_at ?? new Date().toISOString() : null,
+  }).eq('id', auth.user.id);
   if (error) return { error: 'Profil se nepodařilo uložit.' };
   revalidatePath('/', 'layout');
   return { ok: true };

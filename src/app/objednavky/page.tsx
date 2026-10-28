@@ -7,6 +7,7 @@ import { ExpiryStatus } from '@/components/orders/Expiry';
 import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
+import { loadOpenReports } from '@/lib/reports';
 import { BuyerActions, ENDED, loadContact, loadDeliveries, loadPayment, loadShipCaps, ORDER_SELECT, OrderCard, type OrderRow, SellerActions } from './parts';
 import styles from './orders.module.css';
 
@@ -48,11 +49,12 @@ export default async function OrdersPage({ searchParams }: Props) {
   const bought = (orders ?? []).filter((o) => o.buyer_id === user.id);
   const sold = (orders ?? []).filter((o) => o.seller_id === user.id);
   const all = orders ?? [];
-  const [contacts, payments, caps, deliveries] = await Promise.all([
+  const [contacts, payments, caps, deliveries, reports] = await Promise.all([
     Promise.all(all.map((o) => loadContact(supabase, o))).then((r) => new Map(all.map((o, i) => [o.id, r[i]]))),
     Promise.all(all.map((o) => loadPayment(supabase, o))).then((r) => new Map(all.map((o, i) => [o.id, r[i]]))),
     loadShipCaps(supabase),
     loadDeliveries(supabase, all.filter((o) => !ENDED.has(o.status) && o.status !== 'delivered').map((o) => o.id)),
+    loadOpenReports(supabase, all.map((o) => o.id)),
   ]);
 
   const boughtActive = bought.filter((o) => !ENDED.has(o.status));
@@ -63,11 +65,11 @@ export default async function OrdersPage({ searchParams }: Props) {
     : sold.some((o) => o.status === 'requested') && !bought.some((o) => o.status === 'requested') ? 'prodeje' : 'nakupy';
 
   const buyerCard = (o: OrderRow) => (
-    <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} delivery={deliveries.get(o.id)} role="buyer">
+    <OrderCard key={o.id} order={o} counterpart={`Prodejce: ${(o.seller_id && names.get(o.seller_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} delivery={deliveries.get(o.id)} report={reports.get(o.id)?.number} role="buyer">
       <BuyerActions o={o} reviewed={reviewed.has(o.id)} />
     </OrderCard>);
   const sellerCard = (o: OrderRow) => (
-    <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} delivery={deliveries.get(o.id)} role="seller">
+    <OrderCard key={o.id} order={o} counterpart={`Kupující: ${(o.buyer_id && names.get(o.buyer_id)) || 'smazaný účet'}`} contact={contacts.get(o.id)} payment={payments.get(o.id)} delivery={deliveries.get(o.id)} report={reports.get(o.id)?.number} role="seller">
       <SellerActions o={o} shipCap={o.carrier ? caps.get(o.carrier) : null} />
     </OrderCard>);
 

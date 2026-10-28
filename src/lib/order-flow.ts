@@ -12,6 +12,12 @@ export interface FlowOrder {
   buyerPaidAt: string | null;
   /** Jak kupující podle sebe zaplatil předem. */
   paidVia?: PaidVia | null;
+  /** Prodejce klikl na Nepřišla (Zaplaceno zůstává, DS Reports › Platba odešla). */
+  notReceivedAt?: string | null;
+  /** Kupující potvrdil, že platba odešla. */
+  buyerInsistAt?: string | null;
+  /** Prodejce žádá kupujícího o zrušení. */
+  cancelRequestAt?: string | null;
   /** Prodejce navrhl vyšší dopravu, čeká se na kupujícího. */
   shipChange?: number | null;
   /** Součet a doprava, aby Souhlasím řeklo novou částku. */
@@ -31,6 +37,24 @@ type Tone = 'ok' | 'warn' | 'muted' | 'danger' | 'info';
 export type StepKey = 'ordered' | 'confirmed' | 'buyer_paid' | 'paid' | 'shipped' | 'delivered';
 
 const pay = (o: FlowOrder): PaymentMethod => o.payment ?? 'transfer';
+
+/**
+ * Odkdy smí prodejce zrušit objednávku po Zaplaceno (stejně jako order_cancel_from v databázi):
+ * bez Zaplaceno hned (null), před Nepřišla nikdy, pak převod 3 dny a PayPal a Revolut 1 den od poslední reakce.
+ */
+export function cancelFrom(o: FlowOrder): Date | null {
+  if (!o.buyerPaidAt) return null;
+  if (!o.notReceivedAt) return new Date(8.64e15);
+  const from = Date.parse(o.buyerInsistAt ?? o.notReceivedAt);
+  const days = o.paidVia === 'paypal' || o.paidVia === 'revolut' ? 1 : 3;
+  return new Date(from + days * 86400_000);
+}
+
+/** Smí prodejce teď zrušit (bez souhlasu kupujícího)? */
+export const canSellerCancel = (o: FlowOrder, now = Date.now()): boolean => {
+  const from = cancelFrom(o);
+  return !from || from.getTime() <= now;
+};
 const AFTER_CONFIRM = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 const AFTER_PAID = new Set(['paid', 'shipped', 'delivered']);
 
@@ -65,6 +89,9 @@ export function orderLabel(o: FlowOrder, role: Role, short = false): { text: str
     if (o.shipChange != null) return seller ? { text: 'Změna dopravy · čeká na kupujícího', tone: 'info' } : { text: 'Změna dopravy · potvrďte', tone: 'warn' };
     if (p === 'transfer') {
       if (!o.buyerPaidAt) return { text: seller ? 'Potvrzeno · čeká na platbu' : 'Potvrzeno · zaplaťte', tone: 'info' };
+      if (o.cancelRequestAt && !seller) return { text: 'Prodejce žádá o zrušení', tone: 'warn' };
+      if (o.notReceivedAt && !o.buyerInsistAt) return seller ? { text: 'Nepřišla · čeká na kupujícího', tone: 'info' } : { text: 'Platba nedorazila', tone: 'warn' };
+      if (o.buyerInsistAt) return seller ? { text: 'Zkontrolujte znovu', tone: 'warn' } : { text: 'Platba odešla · čeká na prodejce', tone: 'info' };
       return seller ? { text: 'Zaplaceno · zkontrolujte', tone: 'warn' } : { text: 'Zaplaceno · čeká na prodejce', tone: 'info' };
     }
     if (p === 'cod') return { text: seller ? 'Potvrzeno · odešlete' : 'Potvrzeno · čeká na odeslání', tone: 'info' };
@@ -91,6 +118,22 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
       if (o.shipChange != null) return seller ? 'Kupující musí potvrdit novou cenu dopravy. Do té doby nevidí QR kód.' : 'Prodejce upravil cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
       if (p === 'transfer') {
         if (!o.buyerPaidAt) return seller ? 'Kupující zaplatí předem. Až klikne na Zaplaceno, zkontrolujete platbu a potvrdíte ji.' : 'Zaplaťte předem (QR převod, PayPal nebo Revolut, co prodejce nabízí) a klikněte na Zaplaceno.';
+        const where = o.paidVia ? PAID_VIA[o.paidVia].where : 'účet';
+        if (o.cancelRequestAt) {
+          return seller
+            ? 'Požádali jste kupujícího o zrušení. Když nesouhlasí, Zrušit půjde až po čekací době.'
+            : 'Prodejce platbu nenašel a žádá o zrušení. Pokud jste zaplatili, nesouhlaste a nahlaste problém.';
+        }
+        if (o.notReceivedAt && !o.buyerInsistAt) {
+          return seller
+            ? 'Kupující teď potvrdí, že platba odešla, nebo že ještě nezaplatil.'
+            : `Prodejce platbu na ${where === 'účet' ? 'účtu' : where === 'PayPal' ? 'PayPalu' : 'Revolutu'} nenašel. Pokud jste zaplatili, potvrďte to. Prodejce ji pak musí hledat znovu a objednávku zatím nemůže zrušit.`;
+        }
+        if (o.buyerInsistAt) {
+          return seller
+            ? `Kupující trvá na tom, že platba odešla. Zkontrolujte ${where} znovu, hledejte i podle jména a částky.`
+            : 'Prodejce platbu zkontroluje znovu. Převod z banky může trvat až 2 pracovní dny.';
+        }
         if (seller) {
           const via = o.paidVia ? PAID_VIA[o.paidVia] : null;
           return via ? `Zkontrolujte ${via.where}: Platba přišla, nebo Nepřišla.` : 'Kupující píše, že zaplatil. Zkontrolujte účet: Platba přišla, nebo Nepřišla.';
@@ -113,7 +156,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
 
 export type FlowAction =
   | { op: 'status'; status: string; label: string; variant: 'primary' | 'secondary' | 'ghost'; tracking?: boolean }
-  | { op: 'mark_paid' | 'not_received' | 'ship_accept' | 'ship_reject'; label: string; variant: 'primary' | 'secondary' | 'ghost' };
+  | { op: 'mark_paid' | 'not_received' | 'ship_accept' | 'ship_reject' | 'payment_sent' | 'not_paid_yet' | 'cancel_request' | 'cancel_accept' | 'cancel_reject'; label: string; variant: 'primary' | 'secondary' | 'ghost' };
 
 /** Tlačítka podle role a stavu, co nejkratší (Šimon 27. 10.). Hlavní akce první. */
 export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
@@ -129,6 +172,13 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   if (role === 'buyer') {
     if (o.status === 'requested') out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
     if (o.status === 'confirmed' && p === 'transfer' && !o.buyerPaidAt) out.push({ op: 'mark_paid', label: 'Zaplaceno', variant: 'primary' });
+    if (o.status === 'confirmed' && o.cancelRequestAt) {
+      out.push({ op: 'cancel_accept', label: 'Souhlasím se zrušením', variant: 'ghost' });
+      out.push({ op: 'cancel_reject', label: 'Nesouhlasím', variant: 'ghost' });
+    } else if (o.status === 'confirmed' && o.notReceivedAt && !o.buyerInsistAt) {
+      out.push({ op: 'payment_sent', label: 'Platba odešla', variant: 'primary' });
+      out.push({ op: 'not_paid_yet', label: 'Ještě jsem nezaplatil(a)', variant: 'ghost' });
+    }
     if (o.status === 'shipped' || (o.status === 'paid' && pickup)) out.push({ op: 'status', status: 'delivered', label: 'Převzato', variant: 'primary' });
     return out;
   }
@@ -140,15 +190,18 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
     // Platba přišla jde až po Zaplaceno od kupujícího (Šimon 28. 10.).
     if (o.buyerPaidAt) {
       out.push({ op: 'status', status: 'paid', label: 'Platba přišla', variant: 'primary' });
-      out.push({ op: 'not_received', label: 'Nepřišla', variant: 'ghost' });
+      if (!o.notReceivedAt) out.push({ op: 'not_received', label: 'Nepřišla', variant: 'ghost' });
     }
   }
   if (!pickup && ((o.status === 'paid' && p === 'transfer') || (o.status === 'confirmed' && p === 'cod'))) {
     out.push({ op: 'status', status: 'shipped', label: 'Odesláno', variant: 'primary', tracking: true });
   }
   if (o.status === 'confirmed' && p === 'cash' && pickup) out.push({ op: 'status', status: 'delivered', label: 'Předáno', variant: 'primary' });
-  // Po Zaplaceno od kupujícího už prodejce nezruší; nejdřív Nepřišla (Šimon 28. 10.).
-  if (o.status === 'confirmed' && !o.buyerPaidAt) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' });
+  // Po Zaplaceno od kupujícího prodejce zruší až po Nepřišla a čekací době, dřív jen se souhlasem kupujícího (DS Reports).
+  if (o.status === 'confirmed') {
+    if (canSellerCancel(o)) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' });
+    else if (o.notReceivedAt && !o.cancelRequestAt) out.push({ op: 'cancel_request', label: 'Požádat kupujícího o zrušení', variant: 'ghost' });
+  }
   return out;
 }
 

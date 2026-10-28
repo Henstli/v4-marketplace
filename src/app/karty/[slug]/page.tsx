@@ -162,7 +162,7 @@ export default async function CardDetailPage({ params }: Props) {
                               </div>
                               {b?.note ? <div className="t-small">{b.note}</div> : null}
                               <div className="t-small muted">
-                                {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {o.seller.country} ·{' '}
+                                {o.seller.kind === 'shop' ? 'Obchod' : 'Sběratel · soukromý prodejce'} · {o.seller.country} ·{' '}
                                 {o.seller.rating != null ? <>{formatNumber(o.seller.rating, 1)}&nbsp;% kladných · {formatNumber(o.seller.sales)} hodnocení</> : 'Zatím bez hodnocení'}
                               </div>
                               {'reservedUntil' in o ? (

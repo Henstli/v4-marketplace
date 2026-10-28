@@ -20,7 +20,7 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
   const ids = sellerIds.slice(0, 100);
   const supabase = await createClient();
   const [{ data: profiles }, { data: methods }, { data: rates }, { data: prepay }] = await Promise.all([
-    supabase.from('profiles').select('id, free_shipping_from, pickup, pickup_place, pickup_radius_km, pickup_exact, cash_on_pickup, pay_transfer').in('id', ids),
+    supabase.from('profiles').select('id, kind, free_shipping_from, pickup, pickup_place, pickup_radius_km, pickup_exact, cash_on_pickup, pay_transfer').in('id', ids),
     supabase.from('seller_shipping_methods').select('seller_id, carrier, label, price_czk, cod, cod_fee_czk').in('seller_id', ids),
     supabase.from('carrier_rates').select('carrier, price_czk'),
     // Jen ano/ne, které způsoby předem prodejce má; účet, PayPal a Revtag košík nevidí.
@@ -33,6 +33,7 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
   return Object.fromEntries((profiles ?? []).map((p) => {
     const kind = kinds.get(p.id) ?? { bank: p.pay_transfer, paypal: false, revolut: false };
     return [p.id, {
+    private: p.kind !== 'shop',
     pickup: p.pickup,
     pickupPlace: p.pickup ? p.pickup_place || 'po domluvě' : null,
     pickupRadius: p.pickup_radius_km,

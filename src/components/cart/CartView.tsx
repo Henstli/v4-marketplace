@@ -221,7 +221,10 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
           return (
             <div key={sellerId} className={styles.group}>
               <div className={styles.groupHead}>
-                <h2 className="t-heading-m">{group[0].sellerName}</h2>
+                <div>
+                  <h2 className="t-heading-m">{group[0].sellerName}</h2>
+                  {offer?.private ? <div className="t-small muted">Soukromý prodejce · práva spotřebitele (např. vrácení do 14 dnů) se na nákup nevztahují</div> : null}
+                </div>
                 <span className="t-small muted">{count} {count === 1 ? 'karta' : count < 5 ? 'karty' : 'karet'} · <Price amount={sum} /></span>
               </div>
               {group.map((item) => {

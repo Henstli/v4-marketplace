@@ -13,7 +13,7 @@ export default function TermsPage() {
     <div className="container section">
       <article className="panel" style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <h1 className="t-heading-l">Obchodní podmínky</h1>
-        <p className="muted">Platí od 27. 10. 2026 · beta verze webu</p>
+        <p className="muted">Platí od 28. 10. 2026 · beta verze webu</p>
 
         <h2 className="t-heading-m">1. Kdo jsme a co upravují tyto podmínky</h2>
         <p>
@@ -47,7 +47,9 @@ export default function TermsPage() {
         </p>
         <p>
           U každé nabídky uvádíme, zda je prodejce <strong>obchod</strong> (podnikatel), nebo <strong>sběratel</strong>{' '}
-          (soukromá osoba). Údaj vychází z prohlášení prodejce. Pokud kupujete od sběratele, nevztahují se na nákup práva
+          (soukromá osoba, u nabídky „soukromý prodejce“). Obchod uvádí v profilu své IČO, sběratel v profilu prohlašuje,
+          že karty prodává jako soukromá osoba, ne v rámci podnikání. Údaj vychází z prohlášení prodejce, za jeho pravdivost
+          odpovídá prodejce. Pokud kupujete od sběratele, nevztahují se na nákup práva
           spotřebitele z unijního práva na ochranu spotřebitele, například právo odstoupit od smlouvy do 14 dnů.
         </p>
 
@@ -78,7 +80,8 @@ export default function TermsPage() {
         </ul>
         <p>
           <strong>Obchod</strong> (kdo karty prodává soustavně za účelem zisku) musí v profilu zvolit typ „obchod“ a
-          uvést své identifikační údaje. Jako podnikatel vůči kupujícím-spotřebitelům plní povinnosti prodávajícího podle
+          uvést své identifikační údaje včetně IČO. Kdo prodává soustavně a přitom se vydává za sběratele, porušuje tyto
+          podmínky. Jako podnikatel vůči kupujícím-spotřebitelům plní povinnosti prodávajícího podle
           občanského zákoníku a zákona o ochraně spotřebitele, včetně práva na odstoupení od smlouvy a reklamace. Vydávání
           dokladů a odvod daní jsou věcí prodejce.
         </p>
@@ -122,6 +125,11 @@ export default function TermsPage() {
             jejímu odeslání.
           </li>
           <li>Kupující může mít najednou nejvýš 10 nepotvrzených objednávek.</li>
+          <li>
+            Když prodejce platbu na svém účtu nevidí, označí ji jako nepřišlou a kupující potvrdí, zda platbu odeslal.
+            Zaplacenou objednávku pak prodejce může sám zrušit nejdřív po 3 dnech u bankovního převodu a po 1 dni u
+            PayPalu nebo Revolutu. Dřív jen se souhlasem kupujícího.
+          </li>
           <li>Po dokončení objednávky můžete prodejce ohodnotit.</li>
         </ul>
 
@@ -164,16 +172,32 @@ export default function TermsPage() {
           </li>
           <li>Sběratel odpovídá za to, že karta odpovídá popisu v nabídce, podle obecných pravidel občanského zákoníku.</li>
           <li>
-            Nepodaří-li se s prodejcem dohodnout, napište nám na <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a>.
-            Spor posoudíme podle podkladů obou stran a navrhneme řešení. O nárocích z kupní smlouvy ale s konečnou platností
-            rozhoduje soud nebo orgán mimosoudního řešení (článek 14).
+            Problém s objednávkou (platba bez odeslání karty, karta nedorazila, neodpovídá popisu, kupující nezaplatil nebo
+            si zásilku nevyzvedl) nahlásíte tlačítkem <strong>Nahlásit problém</strong> u objednávky. Můžete přiložit
+            fotky nebo potvrzení platby (nejvýš 10 souborů po 10 MB). Druhá strana má na odpověď 3 dny. Dohodu (například
+            částečné vrácení peněz, vrácení karty nebo slevu) si strany navrhují a potvrzují přímo v hlášení. Peníze si
+            posílají samy mezi sebou, V4cards je nepřijímá ani nevyplácí.
+          </li>
+          <li>
+            Když se strany nedohodnou nebo druhá strana neodpoví, hlášení si prohlédne náš tým. Posoudíme podklady obou
+            stran, napíšeme svůj názor a navrhneme řešení. Nejsme ale soud: hlášení nemá povahu rozhodnutí o nárocích z
+            kupní smlouvy a za prodejce ani kupujícího nic neplatíme. S konečnou platností rozhoduje soud nebo orgán
+            mimosoudního řešení (článek 14). Při podezření na podvod vám doporučíme podat trestní oznámení a policii na
+            její žádost předáme údaje, které o objednávce máme.
+          </li>
+          <li>
+            Zjistíme-li porušení těchto podmínek, můžeme prodejce nebo kupujícího omezit podle článku 13. Zrušení
+            zaplacené objednávky a nevyřešená hlášení se ukazují na profilu prodejce.
           </li>
         </ul>
 
         <h2 className="t-heading-m">11. Hodnocení</h2>
         <p>
-          Hodnocení musí být pravdivé a týkat se konkrétní objednávky. Hodnotit může jen kupující, který objednávku
-          dokončil. Nepovolené je hodnotit sám sebe, nabízet za hodnocení odměnu nebo hodnocením vydírat. Hodnocení, které
+          Hodnocení musí být pravdivé a týkat se konkrétní objednávky. Všechna hodnocení na V4cards pocházejí od
+          kupujících, kteří u prodejce skutečně objednali: hodnotit lze jen převzatou objednávku, nebo objednávku, kterou
+          prodejce zrušil po zaplacení bez souhlasu kupujícího (takové hodnocení označíme „Zrušeno po zaplacení“).
+          Hodnocení nekupujeme, neupravujeme a nemažeme podle toho, zda je kladné. Prodejce může na hodnocení jednou
+          veřejně odpovědět. Nepovolené je hodnotit sám sebe, nabízet za hodnocení odměnu nebo hodnocením vydírat. Hodnocení, které
           tato pravidla porušuje nebo obsahuje urážky či osobní údaje, můžeme skrýt.
         </p>
 
@@ -196,8 +220,12 @@ export default function TermsPage() {
 
         <h2 className="t-heading-m">13. Omezení a zrušení účtu</h2>
         <p>
-          Při porušení těchto podmínek můžeme podle závažnosti skrýt nabídku nebo hodnocení, omezit funkce účtu, účet
-          dočasně pozastavit nebo ho zrušit. Rozhodnutí vám vždy oznámíme e-mailem s odůvodněním. Obchodu, který používá
+          Při porušení těchto podmínek můžeme podle závažnosti skrýt nabídku nebo hodnocení, skrýt všechny nabídky
+          prodejce, omezit funkce účtu, účet dočasně pozastavit nebo ho zrušit. Důvodem bývá zejména prodej padělků,
+          opakované zrušení zaplacených objednávek, neodeslání zaplacených karet, nedoložená platba, falešná hodnocení
+          nebo obtěžování. Rozhodnutí vám vždy oznámíme e-mailem s odůvodněním: co jsme omezili, proč, na základě
+          jakých skutečností a podle kterého článku podmínek, na jak dlouho a jak se můžete ohradit. Při rozhodování
+          postupujeme ručně, automatické nástroje používáme nejvýš k upozornění na podezřelé chování. Obchodu, který používá
           V4cards k podnikání, oznámíme zrušení účtu nejméně 30 dní předem, ledaže jde o závažné nebo opakované porušení
           pravidel nebo nám to ukládá zákon.
         </p>
@@ -208,9 +236,11 @@ export default function TermsPage() {
 
         <h2 className="t-heading-m">14. Řazení nabídek, odpovědnost a spory</h2>
         <p>
-          Nabídky u karty řadíme podle ceny od nejnižší. Výsledky katalogu řadíme podle shody s hledáním a karty s obrázkem
-          dáváme před karty bez obrázku. Za lepší umístění si zatím nikdo nemůže připlatit, pokud se to změní, nabídky
-          zřetelně označíme.
+          Nabídky u karty řadíme podle ceny od nejnižší, při stejné ceně podle lepšího stavu karty. Teprve při stejné ceně
+          i stavu má přednost prodejce s placeným tarifem Pro, který je u nabídky označený štítkem Pro. Placený tarif tak
+          nikdy nepředběhne levnější ani zachovalejší nabídku. Výsledky katalogu řadíme podle shody s hledáním a karty s
+          obrázkem dáváme před karty bez obrázku. Jiné placené zvýhodnění (topování) zatím nenabízíme. Pokud ho zavedeme,
+          zvýhodněné nabídky zřetelně označíme jako placené.
         </p>
         <p>
           Snažíme se, aby web fungoval spolehlivě, ale v beta verzi nezaručujeme nepřetržitý provoz. Neodpovídáme za
