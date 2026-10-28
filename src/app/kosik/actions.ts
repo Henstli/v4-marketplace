@@ -19,26 +19,34 @@ export async function getSellerOffers(sellerIds: string[]): Promise<Record<strin
   if (!sellerIds.length) return {};
   const ids = sellerIds.slice(0, 100);
   const supabase = await createClient();
-  const [{ data: profiles }, { data: methods }, { data: rates }] = await Promise.all([
+  const [{ data: profiles }, { data: methods }, { data: rates }, { data: prepay }] = await Promise.all([
     supabase.from('profiles').select('id, free_shipping_from, pickup, pickup_place, pickup_radius_km, pickup_exact, cash_on_pickup, pay_transfer').in('id', ids),
     supabase.from('seller_shipping_methods').select('seller_id, carrier, label, price_czk, cod, cod_fee_czk').in('seller_id', ids),
     supabase.from('carrier_rates').select('carrier, price_czk'),
+    // Jen ano/ne, které způsoby předem prodejce má; účet, PayPal a Revtag košík nevidí.
+    supabase.rpc('seller_prepay_kinds', { ids }),
   ]);
+  const kinds = new Map(((prepay ?? []) as Array<{ seller_id: string; bank: boolean; paypal: boolean; revolut: boolean }>)
+    .map((k) => [k.seller_id, { bank: k.bank, paypal: k.paypal, revolut: k.revolut }]));
   const list = new Map((rates ?? []).map((r) => [r.carrier as string, r.price_czk as number]));
   const order = new Map(CARRIERS.map((c, i) => [c.key, i]));
-  return Object.fromEntries((profiles ?? []).map((p) => [p.id, {
+  return Object.fromEntries((profiles ?? []).map((p) => {
+    const kind = kinds.get(p.id) ?? { bank: p.pay_transfer, paypal: false, revolut: false };
+    return [p.id, {
     pickup: p.pickup,
     pickupPlace: p.pickup ? p.pickup_place || 'po domluvě' : null,
     pickupRadius: p.pickup_radius_km,
     pickupExact: p.pickup_exact,
     cashOnPickup: p.cash_on_pickup,
-    transfer: p.pay_transfer,
+    transfer: kind.bank || kind.paypal || kind.revolut,
+    prepay: kind,
     freeFrom: p.free_shipping_from,
     methods: (methods ?? [])
       .filter((m) => m.seller_id === p.id)
       .map((m) => ({ carrier: m.carrier as Carrier, label: m.label, price: m.price_czk, cod: m.cod, codFee: m.cod_fee_czk, listPrice: list.get(m.carrier) ?? null }))
       .sort((a, b) => (order.get(a.carrier) ?? 99) - (order.get(b.carrier) ?? 99)),
-  } satisfies SellerOffer]));
+  } satisfies SellerOffer];
+  }));
 }
 
 const CONDITIONS = ['MT', 'NM', 'EX', 'GD', 'LP', 'PL'];

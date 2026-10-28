@@ -20,6 +20,9 @@ export interface DeliveryPaymentValues {
   /** Účet k zobrazení (české číslo nebo IBAN), prázdné když ho prodejce nevyplnil */
   account: string;
   accountName: string;
+  /** Jméno PayPal.Me a Revtag, prázdné = vypnuto */
+  paypalMe: string;
+  revtag: string;
   cashOnPickup: boolean;
   pickup: boolean;
   pickupPlace: string;
@@ -38,6 +41,8 @@ export interface DeliveryPaymentValues {
 export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentValues; back?: string }) {
   const [state, action, pending] = useActionState<ProfileState, FormData>(updateDeliveryPayment, {});
   const [transfer, setTransfer] = useState(values.transfer);
+  const [paypal, setPaypal] = useState(!!values.paypalMe);
+  const [revolut, setRevolut] = useState(!!values.revtag);
   const [pickup, setPickup] = useState(values.pickup);
   const [cash, setCash] = useState(values.cashOnPickup);
   const [cod, setCod] = useState(values.methods.some((m) => m.cod));
@@ -83,6 +88,38 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
             </div>
           ) : null}
           <label className={styles.check}>
+            <input type="checkbox" name="paypal" checked={paypal} onChange={(e) => setPaypal(e.target.checked)} />
+            <span><strong>PayPal</strong><small>Kupující dostane odkaz s částkou.</small></span>
+          </label>
+          {paypal ? (
+            <div className={styles.sub}>
+              <label className={styles.field}>
+                <span className={styles.label}>Jméno PayPal.Me</span>
+                <span className={styles.prefixed}>
+                  <span className="code" aria-hidden>paypal.me/</span>
+                  <input name="paypalMe" defaultValue={values.paypalMe} className={`${styles.input} code`} placeholder="kartydoupe" autoComplete="off" maxLength={60} required />
+                </span>
+                <small className={styles.note}>Jen jméno z vašeho odkazu PayPal.Me.</small>
+              </label>
+            </div>
+          ) : null}
+          <label className={styles.check}>
+            <input type="checkbox" name="revolut" checked={revolut} onChange={(e) => setRevolut(e.target.checked)} />
+            <span><strong>Revolut</strong><small>Kupující dostane odkaz na váš Revtag a částku.</small></span>
+          </label>
+          {revolut ? (
+            <div className={styles.sub}>
+              <label className={styles.field}>
+                <span className={styles.label}>Revtag</span>
+                <span className={styles.prefixed}>
+                  <span className="code" aria-hidden>@</span>
+                  <input name="revtag" defaultValue={values.revtag} className={`${styles.input} code`} placeholder="kartydoupe" autoComplete="off" maxLength={60} required />
+                </span>
+                <small className={styles.note}>Najdete ho v aplikaci Revolut v profilu.</small>
+              </label>
+            </div>
+          ) : null}
+          <label className={styles.check}>
             <input type="checkbox" name="cash" checked={cash} onChange={(e) => { setCash(e.target.checked); if (e.target.checked) setPickup(true); }} />
             <span><strong>Hotově při osobním předání</strong><small>{pickup ? 'Jen u osobního předání.' : 'Zapne i osobní předání.'}</small></span>
           </label>
@@ -90,7 +127,7 @@ export function DeliveryPaymentForm({ values, back }: { values: DeliveryPaymentV
             <input type="checkbox" checked={cod} onChange={(e) => setCod(e.target.checked)} />
             <span><strong>Dobírka</strong><small>Nastavíte u každého dopravce níže.</small></span>
           </label>
-          <p className={styles.note}>Platby jdou přímo vám. V4cards peníze nepřijímá.</p>
+          <p className={styles.note}>Platby jdou přímo vám. V4cards peníze nepřijímá. U PayPalu žádejte jen platbu za zboží, platba přátelům porušuje pravidla PayPalu.</p>
         </section>
 
         <section className={styles.card} aria-labelledby="predani">

@@ -127,9 +127,10 @@ export default function TermsPage() {
 
         <h2 className="t-heading-m">8. Platby a poplatky</h2>
         <p>
-          Za karty platíte <strong>přímo prodejci</strong> způsobem, na kterém se dohodnete (například převodem na jeho účet
-          nebo dobírkou). V4cards platby za karty nepřijímá, nedrží ani nepřeposílá a neručí za jejich vrácení. Případné
-          vrácení peněz řešíte s prodejcem.
+          Za karty platíte <strong>přímo prodejci</strong> způsobem, na kterém se dohodnete (například převodem na jeho účet,
+          přes PayPal, Revolut nebo dobírkou). V4cards platby za karty nepřijímá, nedrží ani nepřeposílá a neručí za jejich
+          vrácení. Odkaz na PayPal nebo Revolut jen otevře službu prodejce; ochrana kupujícího se řídí pravidly té služby.
+          Případné vrácení peněz řešíte s prodejcem.
         </p>
         <p>
           Prodejce sám odpovídá za své daňové povinnosti z prodeje. Jako provozovatel platformy můžeme mít podle zákona

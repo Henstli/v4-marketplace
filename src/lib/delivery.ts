@@ -52,7 +52,7 @@ export function addressProblem(kind: 'point' | 'home' | null, a: DeliveryAddress
 export const CARRIER_NAME = Object.fromEntries(CARRIERS.map((c) => [c.key, c.name])) as Record<Carrier, string>;
 
 export const PAYMENT_NAME: Record<PaymentMethod, string> = {
-  transfer: 'převodem',
+  transfer: 'předem',
   cod: 'dobírka',
   cash: 'hotově při předání',
 };
@@ -76,6 +76,12 @@ export interface ShippingMethod {
 }
 
 /** Co prodejce nabízí kupujícím (veřejné údaje, bez čísla účtu). */
+export interface PrepayKinds {
+  bank: boolean;
+  paypal: boolean;
+  revolut: boolean;
+}
+
 export interface SellerOffer {
   pickup: boolean;
   pickupPlace: string | null;
@@ -83,8 +89,10 @@ export interface SellerOffer {
   /** Přesná adresa (obchod, pobočka), ne okruh */
   pickupExact: boolean;
   cashOnPickup: boolean;
-  /** Převod jde jen s vyplněným účtem. */
+  /** Platba předem: převod s vyplněným účtem, PayPal nebo Revolut. */
   transfer: boolean;
+  /** Které způsoby předem prodejce má (štítky v košíku). */
+  prepay: PrepayKinds;
   freeFrom: number | null;
   methods: ShippingMethod[];
 }
@@ -118,4 +126,16 @@ export function shippingPrice(offer: SellerOffer, delivery: string, subtotal: nu
   if (delivery === 'pickup') return 0;
   if (offer.freeFrom != null && subtotal >= offer.freeFrom) return 0;
   return offer.methods.find((m) => m.carrier === delivery)?.price ?? 0;
+}
+
+/** Jméno PayPal.Me z čehokoli, co prodejce vloží (celý odkaz, @jméno); null = neplatné. */
+export function normalizePaypalMe(raw: string): string | null {
+  const v = raw.trim().replace(/^(https?:\/\/)?(www\.)?paypal\.me\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+  return /^[A-Za-z0-9]{1,20}$/.test(v) ? v : null;
+}
+
+/** Revtag bez zavináče, malými písmeny; null = neplatný. */
+export function normalizeRevtag(raw: string): string | null {
+  const v = raw.trim().replace(/^(https?:\/\/)?(www\.)?revolut\.me\//i, '').replace(/^@/, '').split(/[/?#]/)[0].toLowerCase();
+  return /^[a-z0-9._]{3,30}$/.test(v) ? v : null;
 }

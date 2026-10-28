@@ -6,9 +6,11 @@ import { thumbUrl } from '@/lib/images';
 import { methodName, SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
 import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder } from '@/lib/order-flow';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
+import { fetchPrepay, type PrepayRow } from '@/lib/prepay';
 import type { createClient } from '@/lib/supabase/server';
 import { CopyButton } from '@/components/orders/CopyButton';
 import { ExpiryStatus } from '@/components/orders/Expiry';
+import { PrepayTabs } from '@/components/orders/PrepayTabs';
 import { ShipChangeBlock } from '@/components/orders/ShipChange';
 import { addReview, setOrderStatus } from './actions';
 import { ShipEdit } from './ShipEdit';
@@ -50,8 +52,7 @@ export interface OrderRow {
   order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null } | null }>;
 }
 
-interface PaymentRow { iban: string; account_name: string; amount: number; vs: number }
-export type Payment = PaymentRow & { qr: string | null };
+export type Payment = PrepayRow & { qr: string | null };
 
 /** E-mail druhé strany (databáze ho vrací jen účastníkům potvrzené objednávky). */
 export async function loadContact(supabase: Supabase, o: OrderRow): Promise<string | null> {
@@ -125,13 +126,12 @@ export function DeliveryBox({ d, o, role, compact }: { d?: DeliveryRow | null; o
   );
 }
 
-/** Účet prodejce a QR platba pro potvrzenou nebo odeslanou objednávku. */
+/** Platba předem (účet a QR, PayPal, Revolut) pro potvrzenou objednávku. */
 export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Payment | null> {
   if (o.status !== 'confirmed' || (o.payment ?? 'transfer') !== 'transfer') return null;
-  const { data } = await supabase.rpc('order_payment', { target: o.id });
-  const p = (data as PaymentRow[] | null)?.[0];
+  const p = await fetchPrepay(supabase, o.id);
   if (!p) return null;
-  const qr = p.iban.startsWith('CZ')
+  const qr = p.iban?.startsWith('CZ') && p.account_name
     ? await QRCode.toString(spayd({ iban: p.iban, amount: p.amount, vs: p.vs, name: p.account_name }), { type: 'svg', margin: 1, width: 160 })
     : null;
   return { ...p, qr };
@@ -308,7 +308,7 @@ export function OrderCard({ order, counterpart, contact, payment, delivery, role
   );
 }
 
-/** Účet prodejce a QR platba (DS OrderPayment), jen u převodu před zaplacením, nebo věta, co chybí. */
+/** Platba předem (DS OrderPayment): QR převod, PayPal, Revolut; jen před zaplacením, nebo věta, co chybí. */
 export function PaymentInfo({ payment, role, order }: { payment?: Payment | null; role: 'buyer' | 'seller'; order: OrderRow }) {
   const transfer = (order.payment ?? 'transfer') === 'transfer';
   if (order.status !== 'confirmed' || !transfer || order.ship_change_czk != null) return null;
@@ -318,14 +318,25 @@ export function PaymentInfo({ payment, role, order }: { payment?: Payment | null
     <>
       {payment ? (
         <div className={styles.payment}>
-          {payment.qr ? <div className={styles.qr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
-          <dl className={styles.payLines}>
-            <div><dt className="t-label muted">ÚČET</dt><dd className="code">{czAccountNumber(payment.iban) ?? formatIban(payment.iban)}</dd></div>
-            {payment.iban.startsWith('CZ') ? <div className={styles.wide}><dt className="t-label muted">IBAN</dt><dd className="code">{formatIban(payment.iban)}</dd></div> : null}
-            <div><dt className="t-label muted">MAJITEL</dt><dd>{payment.account_name}</dd></div>
-            <div><dt className="t-label muted">ČÁSTKA</dt><dd><Price amount={payment.amount} /></dd></div>
-            <div><dt className="t-label muted">VARIABILNÍ SYMBOL</dt><dd className="code">{payment.vs}</dd></div>
-          </dl>
+          <PrepayTabs
+            role={role}
+            amount={payment.amount}
+            vs={payment.vs}
+            paypalMe={payment.paypal_me}
+            revtag={payment.revtag}
+            bank={payment.iban ? (
+              <div className={styles.bank}>
+                {payment.qr ? <div className={styles.qr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
+                <dl className={styles.payLines}>
+                  <div><dt className="t-label muted">ÚČET</dt><dd className="code">{czAccountNumber(payment.iban) ?? formatIban(payment.iban)}</dd></div>
+                  {payment.iban.startsWith('CZ') ? <div className={styles.wide}><dt className="t-label muted">IBAN</dt><dd className="code">{formatIban(payment.iban)}</dd></div> : null}
+                  <div><dt className="t-label muted">MAJITEL</dt><dd>{payment.account_name}</dd></div>
+                  <div><dt className="t-label muted">ČÁSTKA</dt><dd><Price amount={payment.amount} /></dd></div>
+                  <div><dt className="t-label muted">VARIABILNÍ SYMBOL</dt><dd className="code">{payment.vs}</dd></div>
+                </dl>
+              </div>
+            ) : null}
+          />
           <p className="t-small muted">
             {role === 'buyer'
               ? 'Platíte přímo prodejci. Po odeslání platby klikněte na Zaplaceno.'
@@ -333,10 +344,10 @@ export function PaymentInfo({ payment, role, order }: { payment?: Payment | null
           </p>
         </div>
       ) : role === 'buyer' ? (
-        <p className="t-small muted">Prodejce nemá vyplněný účet. Napište mu ve zprávách, kam zaplatit.</p>
+        <p className="t-small muted">Prodejce nemá vyplněnou platbu předem. Napište mu ve zprávách, kam zaplatit.</p>
       ) : (
         <p className="t-small muted">
-          Kupující neví, kam platit. <Link href="/ucet/nastaveni#doprava-platba">Doplňte číslo účtu</Link> a uvidí ho i s QR platbou.
+          Kupující neví, kam platit. <Link href="/ucet/nastaveni#doprava-platba">Doplňte účet, PayPal nebo Revolut</Link> a uvidí je u objednávky.
         </p>
       )}
     </>

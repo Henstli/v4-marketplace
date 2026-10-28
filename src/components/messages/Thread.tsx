@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, useTransition, 
 import { useFormStatus } from 'react-dom';
 import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/trezor';
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
+import { PrepayTabs } from '@/components/orders/PrepayTabs';
 import { ShipChangeBlock } from '@/components/orders/ShipChange';
 import { sendMessage } from '@/app/zpravy/actions';
 import { orderPaymentQr, setOrderStatus, type ChatPayment } from '@/app/objednavky/actions';
@@ -83,29 +84,37 @@ function CopyValue({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** QR platba rozbalená v bublině (DS Messages › QR platba v bublině, varianta A). */
+/** Platba předem rozbalená v bublině (DS Messages › QR platba v bublině, OrderPayment › Platba předem). */
 function PayBlock({ payment, onHide }: { payment: ChatPayment | null; onHide: () => void }) {
   return (
     <div className={styles.pay}>
       <div className={styles.payHead}>
-        <span className="t-label muted">ZAPLATIT PŘEVODEM</span>
+        <span className="t-label muted">ZAPLATIT PŘEDEM</span>
         <button type="button" className={styles.payHide} onClick={onHide}>Skrýt</button>
       </div>
       {payment ? (
         <>
-          <div className={styles.payBody}>
-            {payment.qr ? <div className={styles.payQr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
-            <dl className={styles.payLines}>
-              <div><dt>ČÁSTKA</dt><dd className={styles.payAmount}><Price amount={payment.amount} /></dd></div>
-              <div><dt>ÚČET</dt><CopyValue value={payment.account} label="číslo účtu" /></div>
-              <div><dt>VARIABILNÍ SYMBOL</dt><CopyValue value={String(payment.vs)} label="variabilní symbol" /></div>
-              <div><dt>MAJITEL</dt><dd>{payment.owner}</dd></div>
-            </dl>
-          </div>
-          <p className="t-small muted">Naskenujte v aplikaci banky. Platíte přímo prodejci, V4cards peníze nepřijímá.</p>
+          <PrepayTabs
+            amount={payment.amount}
+            vs={payment.vs}
+            paypalMe={payment.paypalMe}
+            revtag={payment.revtag}
+            bank={payment.account ? (
+              <div className={styles.payBody}>
+                {payment.qr ? <div className={styles.payQr} dangerouslySetInnerHTML={{ __html: payment.qr }} aria-label="QR platba" role="img" /> : null}
+                <dl className={styles.payLines}>
+                  <div><dt>ČÁSTKA</dt><dd className={styles.payAmount}><Price amount={payment.amount} /></dd></div>
+                  <div><dt>ÚČET</dt><CopyValue value={payment.account} label="číslo účtu" /></div>
+                  <div><dt>VARIABILNÍ SYMBOL</dt><CopyValue value={String(payment.vs)} label="variabilní symbol" /></div>
+                  <div><dt>MAJITEL</dt><dd>{payment.owner}</dd></div>
+                </dl>
+              </div>
+            ) : null}
+          />
+          <p className="t-small muted">Platíte přímo prodejci, V4cards peníze nepřijímá.</p>
         </>
       ) : (
-        <p className="t-small muted">Prodejce nemá vyplněný účet. Napište mu, kam zaplatit.</p>
+        <p className="t-small muted">Prodejce nemá vyplněnou platbu předem. Napište mu, kam zaplatit.</p>
       )}
     </div>
   );
@@ -193,7 +202,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
             o={o}
             buyer={mine}
             extra={payable && !payOpen ? (
-              <Button variant="ghost" className={styles.ordBtn} disabled={pay === 'loading'} onClick={openPay}>{pay === 'loading' ? 'Načítám…' : 'Zaplatit QR kódem'}</Button>
+              <Button variant="ghost" className={styles.ordBtn} disabled={pay === 'loading'} onClick={openPay}>{pay === 'loading' ? 'Načítám…' : 'Zaplatit'}</Button>
             ) : null}
           /></div>
         </>

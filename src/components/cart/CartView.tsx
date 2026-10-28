@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { Button, ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
 import { getCartAlternatives, getSavedAddress, getSellerOffers, placeOrder, type CartAlternatives, type SellerChoice } from '@/app/kosik/actions';
-import { addressProblem, CARRIERS, carrierKind, EMPTY_ADDRESS, methodName, paymentsFor, shippingPrice, type DeliveryAddress, type DeliveryPoint, type PaymentMethod, type PointProvider, type SellerOffer } from '@/lib/delivery';
+import { addressProblem, CARRIERS, carrierKind, EMPTY_ADDRESS, methodName, paymentsFor, shippingPrice, type DeliveryAddress, type DeliveryPoint, type PaymentMethod, type PointProvider, type PrepayKinds, type SellerOffer } from '@/lib/delivery';
 import { thumbUrl } from '@/lib/images';
 import { AddressBlock } from './AddressBlock';
 import { CartPlans } from './CartPlans';
@@ -17,8 +17,19 @@ const PROVIDER = Object.fromEntries(CARRIERS.filter((c) => c.point).map((c) => [
 const LAST_POINTS = 'v4-vydejni-mista';
 // Nad tímto počtem položek varianty ani dostupnost nenačítáme, výpočet variant by v prohlížeči trval dlouho.
 const MAX_ITEMS = 40;
-const PAY_LABEL: Record<PaymentMethod, string> = { transfer: 'Převodem předem', cod: 'Dobírka', cash: 'Hotově při předání' };
-const PAY_HINT: Record<PaymentMethod, string> = { transfer: 'QR kód dostanete po potvrzení.', cod: 'Platíte při převzetí zásilky.', cash: 'Platíte prodejci na místě.' };
+const PAY_LABEL: Record<PaymentMethod, string> = { transfer: 'Předem', cod: 'Dobírka', cash: 'Hotově při předání' };
+const PAY_HINT: Record<PaymentMethod, string> = { transfer: 'Po potvrzení si vyberete, jak zaplatíte.', cod: 'Platíte při převzetí zásilky.', cash: 'Platíte prodejci na místě.' };
+
+/** Způsoby předem, které má právě tento prodejce (DS OrderPayment › Platba předem). */
+function PrepayChips({ kinds }: { kinds: PrepayKinds }) {
+  const list = [kinds.bank && 'QR převod', kinds.paypal && 'PayPal', kinds.revolut && 'Revolut'].filter(Boolean) as string[];
+  return (
+    <>
+      <span className={styles.payKinds}>{list.map((k) => <span key={k} className={styles.payKind}>{k}</span>)}</span>
+      {kinds.bank ? null : <small>Převod prodejce nenabízí.</small>}
+    </>
+  );
+}
 
 /** Kolik z ceny dopravy je balné nad ceník dopravce (DS DeliveryPayment › Strop ceny dopravy). */
 function packingNote(price: number, list?: number | null): string | undefined {
@@ -276,6 +287,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                         <span className={styles.optText}>
                           <strong>{PAY_LABEL[p.key]}</strong>
                           <small>{PAY_HINT[p.key]}</small>
+                          {p.key === 'transfer' && offer ? <PrepayChips kinds={offer.prepay} /> : null}
                         </span>
                         {p.fee ? <span className={styles.optPrice}>+{p.fee} Kč</span> : null}
                       </label>
