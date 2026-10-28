@@ -82,6 +82,8 @@ export interface ChatOrder {
   buyerInsistAt: string | null;
   cancelRequestAt: string | null;
   cancelRejectedAt: string | null;
+  /** Prodejce je pozastavený a kupující (já) ještě nezaplatil (DS Support) */
+  sellerRestricted: boolean;
   /** Otevřené hlášení k objednávce („Objednávku prošetřujeme“) */
   report: { number: number; status: string } | null;
   /** Navržená vyšší doprava, čeká na kupujícího */
@@ -228,9 +230,13 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: rates } = carriers.length
     ? await supabase.from('carrier_rates').select('carrier, price_czk, heavy_czk').in('carrier', carriers)
     : { data: [] };
-  const { data: reports } = orderIds.length
-    ? await supabase.rpc('order_open_reports', { p_orders: orderIds })
-    : { data: [] };
+  const [{ data: reports }, { data: restricted }] = orderIds.length
+    ? await Promise.all([
+      supabase.rpc('order_open_reports', { p_orders: orderIds }),
+      supabase.rpc('orders_seller_restricted', { p_orders: orderIds }),
+    ])
+    : [{ data: [] }, { data: [] }];
+  const restrictedIds = new Set((restricted ?? []) as string[]);
   const reportOf = new Map(((reports ?? []) as Array<{ order_id: string; number: number; status: string }>).map((r) => [r.order_id, { number: r.number, status: r.status }]));
   const caps = new Map((rates ?? []).map((r) => [r.carrier as string, Math.max(r.heavy_czk as number, r.price_czk as number) + SHIPPING_PACKING]));
   const byId = new Map((orders ?? []).map((o) => {
@@ -255,6 +261,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       buyerInsistAt: (o.buyer_insist_at as string | null) ?? null,
       cancelRequestAt: (o.cancel_request_at as string | null) ?? null,
       cancelRejectedAt: (o.cancel_rejected_at as string | null) ?? null,
+      sellerRestricted: restrictedIds.has(o.id as string),
       report: reportOf.get(o.id as string) ?? null,
       shipChange: (o.ship_change_czk as number | null) ?? null,
       shipChangeReason: (o.ship_change_reason as string | null) ?? null,

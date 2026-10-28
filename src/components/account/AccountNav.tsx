@@ -84,7 +84,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
           items: [
             { label: 'Schvalování karet', icon: 'admin' as const, href: '/sprava/karty' },
             { label: 'Předplatné prodejců', icon: 'admin' as const, href: '/sprava/predplatne' },
-            { label: 'Hlášení', icon: 'flag' as const, href: '/sprava/hlaseni' },
+            { label: 'Podpora', icon: 'flag' as const, href: '/sprava/podpora' },
           ],
         }]
       : []),

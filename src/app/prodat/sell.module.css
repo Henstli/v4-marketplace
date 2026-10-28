@@ -113,3 +113,5 @@
 /* Zaškrtávátko Cena dohodou pod polem s cenou. */
 .check { display: flex; align-items: center; gap: var(--space-2); font-size: 14px; cursor: pointer; min-height: 32px; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.restricted { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); background: var(--down-tint); color: var(--ink); font-size: 14px; line-height: 1.5; }
+.restricted strong { color: var(--down); }
