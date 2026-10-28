@@ -5,6 +5,7 @@ import { Achievements, ChipLink, initials } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { MessageSeller } from '@/components/shop/ShopClient';
 import { SellerTrust } from '@/components/shop/SellerTrust';
+import { ReportContent } from '@/components/reports/ReportContent';
 import { getCurrentUser } from '@/lib/auth';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
@@ -56,7 +57,12 @@ export default async function SellerPage({ params, searchParams }: Props) {
         {about ? <p className={styles.about}>{about}</p> : null}
         <Achievements items={shop?.achievements ?? achievementsFor(seller, null)} />
         </div>
-        {viewer?.id !== seller.id ? <MessageSeller sellerId={seller.id} /> : null}
+        {viewer?.id !== seller.id ? (
+          <div className={styles.headActions}>
+            <MessageSeller sellerId={seller.id} />
+            <ReportContent kind="seller" target={seller.id} variant="menu" preview={{ title: seller.name }} />
+          </div>
+        ) : null}
       </section>
       <section className="panel"><SellerTrust sellerId={seller.id} /></section>
 

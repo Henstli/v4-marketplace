@@ -40,6 +40,8 @@ export interface ChatMessage {
   listing: ListingRef | null;
   /** Návrh ceny: bublina s cenou (price) nebo řádek o změně stavu (price = null) */
   offer: ChatOffer | null;
+  /** Zprávu skryla podpora (text je nahrazený) */
+  hidden?: boolean;
 }
 
 /** Návrh ceny v konverzaci (cena dohodou). */
@@ -210,8 +212,9 @@ export async function getThread(me: string, other: string): Promise<{ id: string
     .eq('conversation_id', conv.id)
     .order('id', { ascending: false })
     .limit(200)
-    .returns<Array<{ id: number; sender_id: string | null; kind: string; body: string; created_at: string; order_id: string | null; listing_id?: string | null; offer_id?: string | null; offer_price?: number | null }>>();
-  let { data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id, offer_id, offer_price');
+    .returns<Array<{ id: number; sender_id: string | null; kind: string; body: string; created_at: string; order_id: string | null; listing_id?: string | null; offer_id?: string | null; offer_price?: number | null; hidden_at?: string | null }>>();
+  let { data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id, offer_id, offer_price, hidden_at');
+  if (error) ({ data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id, offer_id, offer_price'));
   // Bez migrací price_offers a message_listing sloupce ještě nejsou.
   if (error) ({ data: rows, error } = await query('id, sender_id, kind, body, created_at, order_id, listing_id'));
   if (error) ({ data: rows } = await query('id, sender_id, kind, body, created_at, order_id'));
@@ -285,6 +288,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       order: m.kind === 'order' && m.order_id ? byId.get(m.order_id as string) ?? null : null,
       listing: m.listing_id ? listings.get(m.listing_id) ?? null : null,
       offer: (m.offer_id && offers.get(m.id)) || null,
+      hidden: !!m.hidden_at,
     })),
   };
 }

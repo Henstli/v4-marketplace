@@ -71,6 +71,13 @@
 .them { background: var(--surface-sunken); }
 .me { background: var(--accent); color: var(--on-accent); border-radius: 14px 14px 4px 14px; }
 .time { font-size: 11px; color: var(--ink-muted); margin: 2px 4px 8px; }
+/* Nahlásit u zprávy druhé strany: s myší ikona po najetí, na dotykovém zařízení u poslední zprávy skupiny. */
+.bubbleRow { display: flex; align-items: center; gap: 4px; width: 100%; }
+.bubbleRow .bubble { max-width: 65%; }
+.msgReport { opacity: 0; padding: 4px; }
+.bubbleRow:hover .msgReport, .msgReport:focus-visible { opacity: 1; }
+@media (hover: none) { .bubbleRow[data-last] .msgReport { opacity: 1; } .bubbleRow:not([data-last]) .msgReport { display: none; } }
+.hiddenMsg { font-style: italic; color: var(--ink-muted); }
 
 .ref { display: flex; gap: 10px; align-items: center; max-width: 75%; padding: 8px 10px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: inherit; text-decoration: none; }
 .ref:hover { border-color: var(--line-strong); }

@@ -49,7 +49,7 @@ export default async function SellPage({ searchParams }: Props) {
   for (let from = 0; from < 5000; from += 1000) {
     const { data } = await supabase
       .from('listings')
-      .select('id, price_czk, condition, language, quantity, hidden_qty, cards(slug, name, number, image_url, game_id, card_sets(code, name))')
+      .select('id, price_czk, condition, language, quantity, hidden_qty, removed_at, cards(slug, name, number, image_url, game_id, card_sets(code, name))')
       .eq('seller_id', user.id)
       .order('created_at', { ascending: false })
       .order('id')
@@ -68,6 +68,7 @@ export default async function SellPage({ searchParams }: Props) {
       language: l.language,
       quantity: l.quantity,
       hidden: l.hidden_qty,
+      removed: !!(l as { removed_at?: string | null }).removed_at,
       card: card
         ? { slug: card.slug, name: card.name, number: card.number, image: card.image_url, game: card.game_id, setCode: set?.code ?? '', setName: set?.name ?? '' }
         : null,

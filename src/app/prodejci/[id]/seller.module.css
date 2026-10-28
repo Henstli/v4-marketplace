@@ -29,3 +29,5 @@
   justify-content: center;
   gap: var(--space-4);
 }
+
+.headActions { display: flex; align-items: center; gap: 8px; }

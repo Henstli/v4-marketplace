@@ -14,6 +14,7 @@ import {
   type ListingFilter, type ShopListing, type ShopProfile,
 } from '@/lib/shop';
 import { SellerTrust } from './SellerTrust';
+import { ReportContent } from '@/components/reports/ReportContent';
 import { AutoStrip, Countdown, HoloEffect, MapEmbed, MessageSeller, PreviewBridge, SiteHeaderHeight, VideoEmbed } from './ShopClient';
 import { CONDITION_NAMES, LANGUAGE_NAMES, type Language } from '@/lib/types';
 import type { GameId } from '@/lib/games';
@@ -834,7 +835,10 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
             tagline={c.tagline || undefined}
             badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
             extra={p.achievements.length ? <Achievements items={p.achievements} /> : undefined}
-            actions={<MessageSeller sellerId={p.seller.id} />}
+            actions={<>
+              <MessageSeller sellerId={p.seller.id} />
+              {preview || edit ? null : <ReportContent kind="seller" target={p.seller.id} variant="menu" preview={{ title: p.seller.name }} />}
+            </>}
             tabs={sticky ? undefined : tabLinks}
           />
         </div>
