@@ -76,7 +76,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
   const pickup = o.delivery === 'pickup';
   switch (o.status) {
     case 'requested':
-      if (o.shipChange != null) return seller ? 'Navrhli jste vyšší dopravu. Po potvrzení ji kupující musí odsouhlasit, než uvidí QR kód.' : 'Prodejce navrhl vyšší cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
+      if (o.shipChange != null) return seller ? 'Navrhli jste vyšší dopravu. Až ji kupující odsouhlasí, objednávka se tím potvrdí.' : 'Prodejce navrhl vyšší cenu dopravy. Souhlasem objednávku rovnou potvrdíte, nebo ji zrušte bez následků.';
       return seller ? 'Potvrďte, že karty máte a prodáte je, nebo objednávku odmítněte.' : 'Prodejce objednávku potvrdí nebo odmítne. Karty jsou zatím rezervované pro vás.';
     case 'confirmed':
       if (o.shipChange != null) return seller ? 'Kupující musí potvrdit novou cenu dopravy. Do té doby nevidí QR kód.' : 'Prodejce upravil cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
