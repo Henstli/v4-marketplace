@@ -45,6 +45,8 @@ interface NavItem {
   hint?: string;
   /** Jen v boční navigaci (v menu je to tlačítko nahoře) */
   sideOnly?: boolean;
+  /** Jen na počítači (přepnutí do režimu podpory) */
+  desktopOnly?: boolean;
 }
 
 function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
@@ -84,7 +86,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
           items: [
             { label: 'Schvalování karet', icon: 'admin' as const, href: '/sprava/karty' },
             { label: 'Předplatné prodejců', icon: 'admin' as const, href: '/sprava/predplatne' },
-            { label: 'Podpora', icon: 'flag' as const, href: '/sprava/podpora' },
+            { label: 'Přepnout do podpory', icon: 'flag' as const, href: '/sprava/podpora', desktopOnly: true },
           ],
         }]
       : []),
@@ -104,7 +106,7 @@ function Item({ item, pathname, onClick }: { item: NavItem; pathname: string; on
     return <span className="tz-acct-item" aria-disabled="true"><Icon name={item.icon} />{item.label}{end}</span>;
   }
   return (
-    <Link href={item.href} className="tz-acct-item" aria-current={isActive(pathname, item.href) ? 'page' : undefined} onClick={onClick}>
+    <Link href={item.href} className={item.desktopOnly ? 'tz-acct-item tz-desktop-only' : 'tz-acct-item'} aria-current={isActive(pathname, item.href) ? 'page' : undefined} onClick={onClick}>
       <Icon name={item.icon} />{item.label}{end}
     </Link>
   );

@@ -42,6 +42,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/ucet/:path*', '/kosik', '/objednavky/:path*', '/zpravy/:path*', '/prodat/:path*', '/sprava/:path*', '/hlidani/:path*',
-    '/prihlaseni/:path*', '/registrace', '/nove-heslo', '/zapomenute-heslo', '/auth/:path*',
+    '/prihlaseni/:path*', '/rezim', '/registrace', '/nove-heslo', '/zapomenute-heslo', '/auth/:path*',
   ],
 };

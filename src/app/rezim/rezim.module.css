@@ -1,0 +1,19 @@
+/* Rozcestník po přihlášení pro roli podpory (DS Support, Režim podpory). */
+.page { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: var(--space-8) 16px; }
+.card {
+  width: 100%; max-width: 480px; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-8); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl);
+}
+.title { margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+.option {
+  display: flex; align-items: center; gap: var(--space-4); width: 100%; padding: 16px; text-align: left;
+  background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--radius-lg);
+  color: var(--ink); font: inherit; cursor: pointer;
+}
+.option:hover, .option:focus-visible { border-color: var(--accent); outline: none; }
+.option > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.option strong { font-size: 16px; font-weight: 600; }
+.option small { font-size: 13px; color: var(--ink-muted); }
+.icon { width: 44px; height: 44px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--bg); color: var(--accent); }
+.remember { display: flex; gap: 8px; align-items: center; margin-top: var(--space-2); font-size: 13px; color: var(--ink-muted); }
+.remember input { accent-color: var(--accent); }

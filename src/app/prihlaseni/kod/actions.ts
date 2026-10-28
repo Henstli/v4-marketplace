@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { authErrorMessage, safeNext } from '@/lib/auth-helpers';
+import { afterLogin, authErrorMessage, safeNext } from '@/lib/auth-helpers';
 import { clearPendingLogin, getPendingLogin, trustThisDevice } from '@/lib/devices';
 import { createClient } from '@/lib/supabase/server';
 
@@ -23,7 +23,7 @@ export async function verifyLoginCode(_prev: LoginCodeState, form: FormData): Pr
   if (error) return { error: error.code === 'otp_expired' ? authErrorMessage(error) : 'Kód nesedí. Zkontrolujte ho a zkuste znovu.' };
   await trustThisDevice(supabase);
   await clearPendingLogin();
-  redirect(next);
+  redirect(afterLogin(next));
 }
 
 export async function resendLoginCode(): Promise<LoginCodeState> {

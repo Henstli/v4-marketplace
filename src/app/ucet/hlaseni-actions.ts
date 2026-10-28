@@ -12,7 +12,7 @@ const message = (e: { code?: string; message: string } | null, fallback: string)
 function refresh() {
   revalidatePath('/ucet/hlaseni', 'layout');
   revalidatePath('/objednavky', 'layout');
-  revalidatePath('/sprava/hlaseni');
+  revalidatePath('/sprava/podpora/hlaseni');
   revalidatePath('/', 'layout');
 }
 

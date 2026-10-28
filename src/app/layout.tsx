@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SiteHeader } from '@/components/site/SiteHeader';
+import { SiteChrome } from '@/components/site/SiteChrome';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { CartProvider } from '@/components/cart/CartProvider';
 import './globals.css';
@@ -24,9 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <CartProvider>
-          <SiteHeader />
+          <SiteChrome><SiteHeader /></SiteChrome>
           <main>{children}</main>
-          <SiteFooter />
+          <SiteChrome><SiteFooter /></SiteChrome>
         </CartProvider>
       </body>
     </html>

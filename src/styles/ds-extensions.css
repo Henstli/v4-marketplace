@@ -83,3 +83,6 @@ a.tz-chip { text-decoration: none; }
   background: var(--bg); color: var(--ink); font: 500 14px var(--font-mono, monospace);
 }
 .tz-offer-error { color: var(--danger); font-size: 13px; }
+
+/* Jen na počítači (přepnutí do režimu podpory, DS Support) */
+@media (max-width: 1023px) { .tz-desktop-only { display: none !important; } }

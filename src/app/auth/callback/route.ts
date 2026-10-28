@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { safeNext } from '@/lib/auth-helpers';
+import { afterLogin, safeNext } from '@/lib/auth-helpers';
 import { sendWelcomeEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       await sendWelcomeEmail(supabase, origin);
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${origin}${afterLogin(next)}`);
     }
   }
   return NextResponse.redirect(`${origin}/prihlaseni?chyba=odkaz`);
