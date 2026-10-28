@@ -45,7 +45,10 @@
 
 .itemPrice { text-align: right; white-space: nowrap; }
 /* Nabídka mezitím zmizela (DS CartPlans › Nedostupná položka). */
-.itemGone .itemCard, .itemGone .itemPrice { opacity: .5; }
+.itemGone .itemCard > :not(.itemInfo), .itemGone .itemInfo > :not(.goneStatus), .itemGone .itemPrice { opacity: .5; }
+/* Štítek pod názvem karty v plné sytosti, ve sloupci kusů se nevejde (DS CartPlans). */
+.goneStatus { display: flex; margin-top: 2px; }
+.blockNote { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--down-tint); color: var(--down); font-size: 13px; font-weight: 600; }
 .qty { display: block; }
 
 .qty select {

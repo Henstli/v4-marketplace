@@ -11,25 +11,12 @@ import styles from './cart.module.css';
 /** Varianty košíku: stejné karty od jiných prodejců, nejlevněji nebo od co nejméně prodejců. */
 export function CartPlans({ items, alt, onApply }: { items: CartItem[]; alt?: CartAlternatives; onApply: (items: CartItem[]) => void }) {
   const plans = useMemo(() => {
-    if (!alt) return [];
-    const needs: Need[] = items.map((i) => ({ listingId: i.listingId, quantity: i.quantity, candidates: alt.candidates[i.listingId] ?? [] }));
-    // Bez aktuální nabídky v datech (prodaná, vlastní) varianty nepočítáme.
-    if (needs.some((n) => !n.candidates.some((c) => c.listingId === n.listingId))) return [];
-    const current = planCost(needs, needs.map((n) => n.candidates.find((c) => c.listingId === n.listingId)!), alt.terms);
-    const options: Array<{ label: string; plan: Plan }> = [
-      { label: 'Nejlevněji', plan: cheapestPlan(needs, alt.terms) },
-      { label: 'Nejméně prodejců', plan: fewestSellersPlan(needs, alt.terms) },
-    ];
-    const seen = new Set<string>();
-    return options
-      .filter(({ plan }) => {
-        const id = plan.picks.map((p) => p.listingId).join(',');
-        if (seen.has(id) || !differs(plan, current)) return false;
-        seen.add(id);
-        return true;
-      })
-      .map((o) => ({ ...o, current, items: toItems(items, o.plan) }))
-      .filter((o) => o.items !== null);
+    try {
+      return computePlans(items, alt);
+    } catch {
+      // Varianty jsou jen nápověda: chyba ve výpočtu nesmí shodit celý košík.
+      return [];
+    }
   }, [alt, items]);
 
   if (!plans.length) return null;
@@ -96,4 +83,27 @@ function toItems(items: CartItem[], plan: Plan): CartItem[] | null {
     });
   }
   return [...byListing.values()];
+}
+
+/** Varianty, které se od košíku liší cenou nebo počtem prodejců. */
+function computePlans(items: CartItem[], alt?: CartAlternatives) {
+  if (!alt) return [];
+  const needs: Need[] = items.map((i) => ({ listingId: i.listingId, quantity: i.quantity, candidates: alt.candidates[i.listingId] ?? [] }));
+  // Bez aktuální nabídky s dost kusy (prodaná, vlastní, mezitím ubylo) varianty nepočítáme.
+  if (needs.some((n) => !n.candidates.some((c) => c.listingId === n.listingId && c.maxQuantity >= n.quantity))) return [];
+  const current = planCost(needs, needs.map((n) => n.candidates.find((c) => c.listingId === n.listingId)!), alt.terms);
+  const options: Array<{ label: string; plan: Plan }> = [
+    { label: 'Nejlevněji', plan: cheapestPlan(needs, alt.terms) },
+    { label: 'Nejméně prodejců', plan: fewestSellersPlan(needs, alt.terms) },
+  ];
+  const seen = new Set<string>();
+  return options
+    .filter(({ plan }) => {
+      const id = plan.picks.map((p) => p.listingId).join(',');
+      if (seen.has(id) || !differs(plan, current)) return false;
+      seen.add(id);
+      return true;
+    })
+    .map((o) => ({ ...o, current, items: toItems(items, o.plan) }))
+    .filter((o) => o.items !== null);
 }
