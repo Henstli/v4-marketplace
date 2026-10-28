@@ -23,6 +23,11 @@
 .input:focus { outline: none; border-color: var(--accent); }
 .input:disabled { opacity: .4; }
 .note { margin: 0; font-size: 12px; color: var(--ink-muted); }
+/* Pole s předponou (paypal.me/, @): předpona uvnitř rámečku, píše se jen jméno. */
+.prefixed { display: flex; align-items: center; height: 40px; box-sizing: border-box; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--bg); overflow: hidden; }
+.prefixed:focus-within { border-color: var(--accent); }
+.prefixed > span { padding: 0 2px 0 12px; font-size: 14px; color: var(--ink-muted); white-space: nowrap; }
+.prefixed .input { border: 0; height: 38px; padding-left: 2px; }
 
 .map { height: 170px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); overflow: hidden; background: var(--surface-sunken); z-index: 0; }
 .radius { stroke: var(--accent); fill: var(--accent); }

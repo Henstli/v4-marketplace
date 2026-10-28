@@ -28,11 +28,12 @@ export default async function AccountPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/ucet/nastaveni');
   const supabase = await createClient();
-  const [{ data: profile }, { data: payment }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }, { data: address }] = await Promise.all([
+  const [{ data: profile }, { data: payment }, { data: apps }, { data: methods }, { data: factors }, method, { heslo, email, zpet }, { data: rates }, { data: address }] = await Promise.all([
     supabase.from('profiles')
       .select('display_name, kind, country, free_shipping_from, pickup, pickup_place, pay_transfer, cash_on_pickup, pickup_lat, pickup_lng, pickup_radius_km, pickup_exact')
       .eq('id', user.id).single(),
     supabase.from('seller_payment').select('iban, account_name').eq('user_id', user.id).maybeSingle(),
+    supabase.from('seller_payment_apps').select('paypal_me, revtag').eq('user_id', user.id).maybeSingle(),
     supabase.from('seller_shipping_methods').select('carrier, label, price_czk, cod, cod_fee_czk').eq('seller_id', user.id),
     supabase.auth.mfa.listFactors(),
     identityMethod(supabase),
@@ -61,6 +62,8 @@ export default async function AccountPage({ searchParams }: Props) {
               transfer: profile.pay_transfer && !!payment,
               account: payment ? czAccountNumber(payment.iban) ?? payment.iban : '',
               accountName: payment?.account_name ?? '',
+              paypalMe: apps?.paypal_me ?? '',
+              revtag: apps?.revtag ?? '',
               cashOnPickup: profile.cash_on_pickup,
               pickup: profile.pickup,
               pickupPlace: profile.pickup_place ?? '',

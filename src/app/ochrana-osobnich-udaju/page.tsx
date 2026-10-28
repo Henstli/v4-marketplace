@@ -64,8 +64,9 @@ export default function PrivacyPage() {
           Údaje ukládáme u poskytovatele databáze Supabase (servery v Irsku, EU). Web běží na hostingu Vercel. Při
           přihlášení přes Google zpracovává údaje i Google. Kupujícímu a prodejci předáme údaje nutné k vyřízení
           objednávky: jméno a po potvrzení objednávky i e-mail a doručovací údaje, aby se mohli domluvit na platbě a
-          předání a prodejce mohl zásilku odeslat. Číslo účtu,
-          které prodejce vyplní, uvidí jen kupující jeho potvrzené objednávky. E-maily
+          předání a prodejce mohl zásilku odeslat. Číslo účtu, jméno PayPal.Me a Revtag (Revolut),
+          které prodejce vyplní, uvidí jen kupující jeho potvrzené objednávky. Platby PayPalem nebo Revolutem
+          zpracovávají tyto služby podle svých pravidel, V4cards k nim nemá přístup. E-maily
           posíláme přes službu Resend. Údaje neprodáváme.
         </p>
 

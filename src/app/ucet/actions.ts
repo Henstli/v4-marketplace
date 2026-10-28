@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { authErrorMessage } from '@/lib/auth-helpers';
 import { verifyIdentity } from '@/lib/identity';
 import { normalizeAccount } from '@/lib/payment';
-import { CARRIERS, type Carrier } from '@/lib/delivery';
+import { CARRIERS, normalizePaypalMe, normalizeRevtag, type Carrier } from '@/lib/delivery';
 import { createClient } from '@/lib/supabase/server';
 
 export interface ProfileState {
@@ -39,6 +39,12 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
   const me = auth.user.id;
 
   const transfer = form.get('transfer') === 'on';
+  const paypalOn = form.get('paypal') === 'on';
+  const revolutOn = form.get('revolut') === 'on';
+  const paypalMe = paypalOn ? normalizePaypalMe(String(form.get('paypalMe') ?? '')) : null;
+  const revtag = revolutOn ? normalizeRevtag(String(form.get('revtag') ?? '')) : null;
+  if (paypalOn && !paypalMe) return { error: 'Jméno PayPal.Me může mít jen písmena a číslice (nejvýš 20), třeba kartydoupe.' };
+  if (revolutOn && !revtag) return { error: 'Revtag může mít jen malá písmena, číslice, tečku a podtržítko (3 až 30 znaků).' };
   const cash = form.get('cash') === 'on';
   const pickup = form.get('pickup') === 'on';
   const pickupPlace = String(form.get('pickupPlace') ?? '').trim().slice(0, 60);
@@ -92,6 +98,10 @@ export async function updateDeliveryPayment(_prev: ProfileState, form: FormData)
     const { error: payError } = await supabase.from('seller_payment').upsert({ user_id: me, iban, account_name: accountName, updated_at: new Date().toISOString() });
     if (payError) return { error: 'Účet se nepodařilo uložit.' };
   }
+
+  // PayPal a Revolut: jen jméno, odkaz skládá web (DS OrderPayment › Platba předem).
+  const { error: appsError } = await supabase.from('seller_payment_apps').upsert({ user_id: me, paypal_me: paypalMe, revtag, updated_at: new Date().toISOString() });
+  if (appsError) return { error: 'PayPal a Revolut se nepodařilo uložit.' };
 
   const keep = methods.map((m) => m.carrier);
   const del = supabase.from('seller_shipping_methods').delete().eq('seller_id', me);
