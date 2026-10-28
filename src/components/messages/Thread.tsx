@@ -20,6 +20,7 @@ import { cancelFrom, canChangeShipping, canSellerCancel, flowActions, flowSteps,
 import { PaidButton } from '@/components/orders/PaidButton';
 import { PaidViaRow } from '@/components/orders/PaidViaRow';
 import { ReportStrip } from '@/components/reports/ReportStrip';
+import { ReportDialog } from '@/components/reports/ReportForm';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
@@ -225,7 +226,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
         </>
       )}
       {!o.report && o.status !== 'requested' && o.status !== 'declined' && o.status !== 'expired' ? (
-        <Link href={`${href}#nahlasit`} className={styles.ordReport}>Nahlásit problém</Link>
+        <div data-stay className={styles.stay}><ReportDialog className={styles.ordReport} orderId={o.id} number={o.number} role={mine ? 'buyer' : 'seller'} uid={null} delivered={['shipped', 'delivered', 'paid'].includes(o.status)} /></div>
       ) : null}
     </div>
   );

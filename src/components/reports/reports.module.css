@@ -67,3 +67,7 @@ textarea.input { resize: vertical; min-height: 76px; }
 .row > span:first-child { color: var(--ink-muted); }
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 24px; align-items: start; }
 @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+/* Okno „Nahlásit problém“ v chatu (DS Messages › Nahlásit problém) */
+.dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 20px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgb(0 0 0 / .5); }
+.dialog::backdrop { background: rgb(0 0 0 / .6); }
