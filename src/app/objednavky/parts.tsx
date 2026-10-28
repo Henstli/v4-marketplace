@@ -4,7 +4,8 @@ import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
 import { methodName, SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
-import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder } from '@/lib/order-flow';
+import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder, type PaidVia } from '@/lib/order-flow';
+import { PaidButton } from '@/components/orders/PaidButton';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { fetchPrepay, type PrepayRow } from '@/lib/prepay';
 import type { createClient } from '@/lib/supabase/server';
@@ -23,7 +24,7 @@ export const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 // Skončené bez obchodu.
 export const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
-export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
+export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, paid_via, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
 
 export interface OrderRow {
   id: string;
@@ -45,6 +46,7 @@ export interface OrderRow {
   ship_city: string | null;
   cod_fee_czk: number;
   buyer_paid_at: string | null;
+  paid_via: PaidVia | null;
   tracking: string | null;
   /** Prodejce navrhl vyšší dopravu, čeká na kupujícího. */
   ship_change_czk: number | null;
@@ -138,7 +140,7 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 }
 
 /** Objednávka pro pravidla kroků (DS DeliveryPayment). */
-export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
+export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
 
 /** Akce kupujícího podle stavu (stejné na seznamu, v detailu i v chatu). */
 export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }) {
@@ -211,6 +213,7 @@ export function ShipChangeNotice({ o, role }: { o: OrderRow; role: 'buyer' | 'se
 /** Jedno tlačítko kroku; u Odesláno i nepovinné číslo zásilky. */
 export function FlowButton({ id, action }: { id: string; action: FlowAction }) {
   const tracking = action.op === 'status' && action.tracking;
+  if (action.op === 'mark_paid') return <PaidButton id={id} label={action.label} className={styles.flowForm} />;
   return (
     <form action={setOrderStatus} className={tracking ? `${styles.flowForm} ${styles.trackForm}` : styles.flowForm}>
       <input type="hidden" name="id" value={id} />

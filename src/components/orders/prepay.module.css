@@ -14,3 +14,12 @@
 .amount { font-size: 18px; font-weight: 600; }
 .value { display: flex; gap: 8px; align-items: center; }
 .copy { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--accent); cursor: pointer; }
+/* Zaplaceno s výběrem způsobu (DS OrderPayment › Jak jste zaplatili). */
+.paidOpen { flex: 1 1 100% !important; min-width: 0 !important; }
+.paidOpen > .paid { flex: 1; }
+.paid { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.paid p { margin: 0; }
+.paid .tabs { background: var(--bg); }
+.paid .tab[aria-checked='true'] { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.paidButtons { display: flex; gap: 8px; }
+.paidButtons > * { flex: 1; justify-content: center; }
