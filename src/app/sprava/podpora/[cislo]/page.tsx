@@ -51,6 +51,11 @@ export default async function CasePage({ params, searchParams }: Props) {
     c.report_id ? supabase.from('reports').select(REPORT_SELECT).eq('id', c.report_id).maybeSingle<ReportRow>() : Promise.resolve({ data: null }),
     c.order_id ? supabase.rpc('admin_orders', { p_ids: [c.order_id] }) : Promise.resolve({ data: [] }),
   ]);
+  // Přílohy z formuláře Napsat podpoře: odkaz platí hodinu.
+  const { data: caseFiles } = await supabase.from('case_files').select('path, name, size').eq('case_id', c.id).order('created_at');
+  const attachments = await Promise.all(((caseFiles ?? []) as Array<{ path: string; name: string; size: number | null }>).map(async (f) => ({
+    ...f, url: (await supabase.storage.from('support-files').createSignedUrl(f.path, 3600)).data?.signedUrl ?? null,
+  })));
   const { data: content } = c.kind === 'content'
     ? await supabase.from('content_reports').select('*').eq('case_id', c.id).order('created_at').returns<ContentRow[]>()
     : { data: null };
@@ -121,6 +126,14 @@ export default async function CasePage({ params, searchParams }: Props) {
               </li>
             ))}
             {!events?.length ? <li className={styles.small}>Zatím žádné události.</li> : null}
+            {attachments.map((f) => (
+              <li key={f.path}>
+                <span className={styles.ev}>
+                  Příloha: {f.url ? <a href={f.url} target="_blank" rel="noreferrer noopener">{f.name}</a> : f.name}
+                  {f.size ? ` · ${Math.max(1, Math.round(f.size / 1024))} kB` : ''}
+                </span>
+              </li>
+            ))}
           </ol>
 
           {content?.length ? <ContentPanel caseId={c.id} rows={content} name={name} /> : null}

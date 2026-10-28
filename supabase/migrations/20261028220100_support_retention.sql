@@ -1,5 +1,5 @@
 -- Mazání po 3 letech (zásady ochrany OÚ): hlášení objednávek, případy podpory, nahlášení obsahu
--- a záznamy moderace. Spouští ho denní cron webu (service_role). Součty času podpory za staré
+-- a záznamy moderace. Soubory příloh v úložišti maže cron webu dřív (90 dní po vyřešení). Spouští ho denní cron webu (service_role). Součty času podpory za staré
 -- měsíce zůstanou bez osobních údajů.
 
 create table public.support_time_months (
@@ -46,6 +46,7 @@ begin
 
   delete from public.case_time where case_id = any(v_cases);
   delete from public.case_events where case_id = any(v_cases);
+  delete from public.case_files where case_id = any(v_cases);
   update public.account_restrictions set case_id = null where case_id = any(v_cases);
   delete from public.content_reports where case_id = any(v_cases) or (case_id is null and created_at < v_limit);
   get diagnostics n_content = row_count;

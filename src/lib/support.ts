@@ -373,3 +373,14 @@ export const TIME_SELECT = '*, support_cases(number, subject, kind, status, reso
 export function weekFrom(od?: string): string {
   return mondayOf(od && /^\d{4}-\d{2}-\d{2}$/.test(od) ? od : pragueDay(new Date()));
 }
+
+/** Témata formuláře Napsat podpoře (DS Support › Napsat podpoře); popisky hlídá i databáze (support_topic_label). */
+export const SUPPORT_TOPICS = [
+  { id: 'account', label: 'Účet a přihlášení' },
+  { id: 'order', label: 'Objednávka' },
+  { id: 'selling', label: 'Prodávání' },
+  { id: 'plan', label: 'Předplatné' },
+  { id: 'appeal', label: 'Odvolání proti omezení' },
+  { id: 'other', label: 'Jiné' },
+] as const;
+export type SupportTopic = (typeof SUPPORT_TOPICS)[number]['id'];

@@ -23,6 +23,7 @@ const ICONS = {
   gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></>,
   flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   admin: <path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z" />,
+  help: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17.5v.01" /></>,
   out: <path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />,
   down: <path d="M6 9l6 6 6-6" />,
 };
@@ -78,6 +79,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
       items: [
         { label: 'Předplatné', icon: 'plan', href: '/ucet/predplatne', hint: PLANS[a.plan].name },
         { label: 'Nastavení účtu', icon: 'gear', href: '/ucet/nastaveni' },
+        { label: 'Napsat podpoře', icon: 'help', href: '/podpora' },
       ],
     },
     ...(a.isStaff

@@ -186,6 +186,7 @@ export default async function OrderDetailPage({ params }: Props) {
             {otherId && !mine && canReport({ created_at: order.created_at, delivered_at: order.delivered_at, status: order.status }) ? (
               <ReportForm orderId={order.id} number={order.number} role={role} uid={user.id} delivered={['shipped', 'delivered', 'paid'].includes(order.status)} />
             ) : null}
+            <Link href={`/podpora?objednavka=${order.number}`} className="t-small">Napsat podpoře</Link>
           </section>
 
           {!ended ? (
