@@ -130,7 +130,10 @@ export async function sendMessageEmail(to: string, senderName: string, text: str
  * odpovědi jdou zpět na podporu a kopie do její schránky (copy = false bez kopie, např. potvrzení přijetí).
  * Vrací, zda ho Resend přijal.
  */
-export async function sendSupportEmail(to: string[], subject: string, paragraphs: Array<{ title?: string; text: string }>, siteUrl: string, copy = true): Promise<boolean> {
+export async function sendSupportEmail(
+  to: string[], subject: string, paragraphs: Array<{ title?: string; text: string }>, siteUrl: string, copy = true,
+  attachments: Array<{ filename: string; path: string }> = [],
+): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   if (!key || !to.length) return false;
   const html = layoutHtml(siteUrl, paragraphs
@@ -141,7 +144,11 @@ export async function sendSupportEmail(to: string[], subject: string, paragraphs
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'V4cards podpora <podpora@v4cards.com>', reply_to: REPLY_TO, to, ...(copy ? { bcc: [REPLY_TO] } : {}), subject, html, text }),
+      body: JSON.stringify({
+        from: 'V4cards podpora <podpora@v4cards.com>', reply_to: REPLY_TO, to, ...(copy ? { bcc: [REPLY_TO] } : {}), subject, html, text,
+        // Resend si přílohu stáhne z podepsaného odkazu.
+        ...(attachments.length ? { attachments } : {}),
+      }),
     });
     return res.ok;
   } catch {

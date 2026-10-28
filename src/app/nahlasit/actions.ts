@@ -4,6 +4,7 @@ import { siteOrigin } from '@/lib/auth-helpers';
 import { contentCode, isContentReason, type ContentKind } from '@/lib/content-reports';
 import { sendSupportEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
+import { SIGNATURE } from '@/lib/support';
 
 export interface ReportContentState { ok?: number; error?: string; login?: boolean }
 
@@ -45,7 +46,7 @@ export async function reportContent(_prev: ReportContentState, form: FormData): 
     await sendSupportEmail([row.email], `Přijali jsme vaše nahlášení ${contentCode(row.number)}`, [
       { text: 'Dobrý den,' },
       { text: `děkujeme, nahlášení ${contentCode(row.number)} jsme přijali. Prověří ho člověk z týmu V4cards a o výsledku vám dáme vědět e-mailem.` },
-      { text: 'Tým podpory V4cards' },
+      { text: SIGNATURE },
     ], await siteOrigin(), false);
   }
   return { ok: row.number };
