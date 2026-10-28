@@ -326,3 +326,37 @@ textarea.input { resize: vertical; min-height: 120px; line-height: 1.5; }
   .userCols { grid-template-columns: 1fr; }
   .reasonCols { grid-template-columns: 1fr 1fr; }
 }
+
+/* Chat týmu */
+.navUnread { padding: 1px 8px; border-radius: var(--radius-pill); background: var(--up-tint); color: var(--accent); font-size: 12px; font-weight: 600; }
+.chat { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--space-4); align-items: stretch; height: calc(100vh - 140px); min-height: 480px; }
+.chatRooms { gap: 4px; overflow-y: auto; }
+.chatRooms .label { padding: 10px 8px 4px; }
+.chatRoom { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--radius-md); color: var(--ink); text-decoration: none; }
+.chatRoom:hover { background: var(--surface-sunken); }
+.chatRoom[aria-current='page'] { background: var(--surface-sunken); }
+.chatRoomText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.chatHash {
+  width: 36px; height: 36px; flex: none; border-radius: 10px; background: var(--up-tint); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px;
+}
+.chatAvatar {
+  position: relative; width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--info-tint); color: var(--info);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;
+}
+.chatRoom .chatAvatar { width: 36px; height: 36px; }
+.chatAvatar .dot { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; box-shadow: 0 0 0 2px var(--surface); }
+.chatMain { min-height: 0; gap: 0; padding: 0; }
+.chatHead { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.chatList { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 16px; display: flex; flex-direction: column-reverse; gap: 14px; }
+.chatMsg { display: flex; gap: 10px; align-items: flex-start; }
+.chatBody { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 14px; }
+.chatSystem { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--ink-muted); text-align: center; }
+.mention { color: var(--accent); font-weight: 600; text-decoration: none; }
+.caseTile {
+  display: inline-flex; gap: 10px; align-items: center; align-self: flex-start; max-width: 100%; padding: 8px 12px; border-radius: var(--radius-md);
+  background: var(--surface-sunken); border: 1px solid var(--line-strong); color: var(--ink); text-decoration: none; font-size: 14px;
+}
+.caseTile .code { color: var(--accent); font-weight: 600; }
+.chatForm { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.chatForm textarea { min-height: 64px; }
