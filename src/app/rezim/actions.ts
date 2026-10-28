@@ -16,5 +16,5 @@ export async function chooseMode(form: FormData) {
   if (form.get('remember')) {
     (await cookies()).set(MODE_COOKIE, mode, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', httpOnly: true, secure: true });
   }
-  redirect(mode === 'podpora' && user?.isAdmin ? '/sprava/podpora' : next);
+  redirect(mode === 'podpora' && user?.isStaff ? '/sprava/podpora' : next);
 }

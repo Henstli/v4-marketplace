@@ -20,7 +20,7 @@ export default async function AdminReportsPage({ searchParams }: Props) {
   if (!isSupabaseConfigured()) notFound();
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/sprava/podpora/hlaseni');
-  if (!user.isAdmin) notFound();
+  if (!user.isStaff) notFound();
   const { h, vse } = await searchParams;
   const supabase = await createClient();
   let q = supabase.from('reports').select(REPORT_SELECT).order('created_at', { ascending: false }).limit(200);

@@ -23,6 +23,8 @@ export interface AccountSummary {
   /** Rozpracovaný koncept stránky v editoru */
   draft: boolean;
   isAdmin: boolean;
+  /** Člen týmu (správce i podpora) */
+  isStaff: boolean;
   /** Prodeje čekající na potvrzení nebo odeslání */
   toShip: number;
   /** Nákupy potvrzené nebo odeslané, čekající na převzetí */
@@ -69,6 +71,7 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
     published,
     draft: !!draft.data,
     isAdmin: user.isAdmin,
+    isStaff: user.isStaff,
     toShip: ship.count ?? 0,
     toConfirm: confirm.count ?? 0,
     listings: offers.count ?? 0,

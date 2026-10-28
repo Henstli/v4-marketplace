@@ -5,7 +5,7 @@ import { loadWeek } from '../data';
 /** Výkaz času za týden jako CSV (středníky a UTF-8 s BOM, aby ho Excel otevřel česky). */
 export async function GET(req: Request) {
   const user = await getCurrentUser();
-  if (!user?.isAdmin) return new Response('Nenalezeno', { status: 404 });
+  if (!user?.isStaff) return new Response('Nenalezeno', { status: 404 });
   const monday = weekFrom(new URL(req.url).searchParams.get('od') ?? undefined);
   const { rows, names } = await loadWeek(monday);
   const esc = (v: string) => (/[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);

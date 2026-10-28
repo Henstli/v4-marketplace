@@ -18,7 +18,7 @@ export default async function SupportLayout({ children }: { children: ReactNode 
   if (!isSupabaseConfigured()) notFound();
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/sprava/podpora');
-  if (!user.isAdmin) notFound();
+  if (!user.isStaff) notFound();
   const supabase = await createClient();
   const [{ data: running }, { count: late }] = await Promise.all([
     supabase.from('case_time').select('started_at, support_cases(number)')
@@ -36,9 +36,9 @@ export default async function SupportLayout({ children }: { children: ReactNode 
             <span>V4cards</span>
             <span className={styles.modePill}>PODPORA</span>
           </div>
-          <SupportNav late={late ?? 0} className={styles.nav} itemClass={styles.navItem} countClass={styles.navCount} />
+          <SupportNav late={late ?? 0} admin={user.isAdmin} className={styles.nav} itemClass={styles.navItem} countClass={styles.navCount} />
           <div className={styles.sideFoot}>
-            <span className={styles.small}>Přihlášen: {user.displayName}</span>
+            <span className={styles.small}>Přihlášen: {user.displayName} · {user.isAdmin ? 'správce' : 'podpora'}</span>
             <Link href="/" className={styles.link}>Přejít na web</Link>
           </div>
         </aside>

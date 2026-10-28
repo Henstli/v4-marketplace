@@ -17,7 +17,7 @@ type Props = { searchParams: Promise<{ dalsi?: string }> };
 export default async function ModePage({ searchParams }: Props) {
   const next = safeNext((await searchParams).dalsi);
   const user = await getCurrentUser();
-  if (!user?.isAdmin) redirect(next);
+  if (!user?.isStaff) redirect(next);
   const ua = (await headers()).get('user-agent') ?? '';
   if (/Mobi|Android|iPhone|iPad/i.test(ua)) redirect(next);
   const remembered = (await cookies()).get('v4-rezim')?.value;
