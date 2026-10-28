@@ -294,12 +294,17 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // Dokud stránka není veřejná, hlavní tlačítko ji rovnou zveřejní (a doplní adresu podle názvu),
+  // jinak by „Zveřejnit změny“ uložilo jen koncept skryté stránky.
+  const goLive = !published.published;
   const publish = () => startPublish(async () => {
-    const r = await saveShopPage(JSON.stringify(c));
+    const next = goLive ? { ...c, published: true, slug: c.slug || slugify(name) } : c;
+    const r = await saveShopPage(JSON.stringify(next));
     setMsg(r);
     if (r.ok) {
-      setPublished(c);
-      savedJson.current = JSON.stringify(c);
+      if (next !== c) update(() => next);
+      setPublished(next);
+      savedJson.current = JSON.stringify(next);
       setDraftState('idle');
     } else if (r.error?.includes('adres')) {
       goTo('publish');
@@ -593,7 +598,7 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
         </div>
       </Field>
       {!c.slug ? <div><Button variant="secondary" onClick={() => set('slug', slugify(name))}>Použít název „{slugify(name)}“</Button></div> : null}
-      <Toggle checked={c.published} onChange={(v) => set('published', v)} hint="Dokud není zveřejněná, vidíte ji jen vy a kupující dostanou základní profil. Změna se projeví po Zveřejnit změny.">
+      <Toggle checked={c.published} onChange={(v) => set('published', v)} hint="Dokud není zveřejněná, vidíte ji jen vy a kupující dostanou základní profil. Změna se projeví po Zveřejnit stránku nebo Zveřejnit změny.">
         Stránka je zveřejněná
       </Toggle>
       <p className="t-small" style={{ margin: 0 }}><Link href={publicHref} target="_blank">Otevřít zveřejněnou stránku ↗</Link></p>
@@ -651,8 +656,8 @@ export function ShopEditor({ uid, name, kind, plan, badge, initial, draft, listi
           Zobrazit stránku
         </ButtonLink>
         <Button variant="ghost" onClick={discard} disabled={!changes}>Zahodit změny</Button>
-        <Button onClick={publish} disabled={publishing || !changes}>
-          {publishing ? 'Zveřejňuji…' : 'Zveřejnit změny'}
+        <Button onClick={publish} disabled={publishing || (!changes && !goLive)}>
+          {publishing ? 'Zveřejňuji…' : goLive ? 'Zveřejnit stránku' : 'Zveřejnit změny'}
         </Button>
       </div>
       {msg.error ? <p className={`${sell.error} ${styles.topMsg}`} role="alert">{msg.error}</p> : null}
