@@ -14,8 +14,11 @@ export function checkFile(f: File): string | null {
 }
 
 /** Nahraje přílohy do soukromého úložiště (<hlášení>/<uživatel>/…) a zapíše je k hlášení. Vrací chybu nebo null. */
-export async function uploadReportFiles(report: string, uid: string, files: File[]): Promise<string | null> {
+export async function uploadReportFiles(report: string, uid: string | null, files: File[]): Promise<string | null> {
   const supabase = createClient();
+  // V chatu uid nemáme po ruce, zjistí se z přihlášení.
+  uid ??= (await supabase.auth.getUser()).data.user?.id ?? null;
+  if (!uid) return 'Přílohy se nepodařilo nahrát, přihlaste se znovu.';
   for (const f of files) {
     const safe = f.name.normalize('NFD').replace(/[^\w.-]+/g, '-').slice(-60) || 'soubor';
     const path = `${report}/${uid}/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}-${safe}`;
