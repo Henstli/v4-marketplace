@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button, ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
 import { getCartAlternatives, getSavedAddress, getSellerOffers, placeOrder, type CartAlternatives, type SellerChoice } from '@/app/kosik/actions';
 import { addressProblem, CARRIERS, carrierKind, EMPTY_ADDRESS, methodName, paymentsFor, shippingPrice, type DeliveryAddress, type DeliveryPoint, type PaymentMethod, type PointProvider, type PrepayKinds, type SellerOffer } from '@/lib/delivery';
@@ -76,6 +76,28 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const [alt, setAlt] = useState<CartAlternatives>();
   const [shortened, setShortened] = useState<Set<string>>(new Set());
   const itemKey = items.map((i) => `${i.listingId}:${i.quantity}`).sort().join(',');
+  // Prodejci s kompletní volbou v tomto a minulém vykreslení; když se volba nově doplní, blok se sám sbalí
+  // (DS DeliveryPayment › Sbalení). Při psaní adresy až po opuštění bloku.
+  const completeNow = useRef<string[]>([]);
+  const completeBefore = useRef<Set<string> | null>(null);
+  const collapseOnBlur = useRef(new Set<string>());
+
+  useEffect(() => {
+    const now = new Set(completeNow.current);
+    const before = completeBefore.current ?? new Set<string>();
+    completeBefore.current = now;
+    for (const id of collapseOnBlur.current) if (!now.has(id)) collapseOnBlur.current.delete(id);
+    const fresh = [...now].filter((id) => !before.has(id));
+    if (!fresh.length) return;
+    const active = document.activeElement;
+    const typing = active instanceof HTMLElement && active.matches('input:not([type=radio]):not([type=checkbox]), select, textarea');
+    const close: string[] = [];
+    for (const id of fresh) {
+      if (typing && active.closest(`[data-choose="${id}"]`)) collapseOnBlur.current.add(id);
+      else close.push(id);
+    }
+    if (close.length) setOpen((o) => ({ ...o, ...Object.fromEntries(close.map((id) => [id, false])) }));
+  });
 
   useEffect(() => {
     if (!itemKey || items.length > MAX_ITEMS) return;
@@ -155,6 +177,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const hasGone = items.some((i) => gone.has(i.listingId));
   const ready = groups.every((g) => g.complete) && !hasGone;
   const single = groups.length === 1;
+  completeNow.current = groups.filter((g) => g.complete).map((g) => g.sellerId);
 
   const submit = () =>
     startTransition(async () => {
@@ -245,7 +268,15 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                 </button>
               ) : null}
               {offer && expanded ? (
-                <div className={styles.choose}>
+                <div
+                  className={styles.choose}
+                  data-choose={sellerId}
+                  onBlur={(e) => {
+                    if (!collapseOnBlur.current.has(sellerId) || e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                    collapseOnBlur.current.delete(sellerId);
+                    if (done) setOpen((o) => ({ ...o, [sellerId]: false }));
+                  }}
+                >
                   <fieldset className={styles.chooseCol}>
                     <legend>DOPRAVA</legend>
                     {ds.length ? ds.map((d) => {
@@ -297,7 +328,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                     <legend>PLATBA</legend>
                     {!choice.delivery ? <p className={styles.none}>Nejdřív vyberte dopravu.</p> : ps.length ? ps.map((p) => (
                       <label key={p.key} className={styles.opt}>
-                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => { choose(sellerId, { payment: p.key }); if (!kind && !single) setOpen((o) => ({ ...o, [sellerId]: false })); }} />
+                        <input type="radio" name={`p_${sellerId}`} checked={choice.payment === p.key} onChange={() => choose(sellerId, { payment: p.key })} />
                         <span className={styles.optText}>
                           <strong>{PAY_LABEL[p.key]}</strong>
                           <small>{PAY_HINT[p.key]}</small>

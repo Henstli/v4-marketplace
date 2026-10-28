@@ -39,8 +39,8 @@ export function ShipChangeBlock({ shipping, change, total, reason, role, request
       ) : null}
       <span className={styles.note}>
         {buyer
-          ? `${transfer ? 'QR pro platbu uvidíte, až změnu odsouhlasíte.' : 'Při převzetí zaplatíte novou částku.'} Když nesouhlasíte, objednávka se zruší bez následků.`
-          : requested ? 'Platí od potvrzení objednávky. Kupující ji musí odsouhlasit, než uvidí QR kód.' : 'Kupující ji musí odsouhlasit, do té doby nevidí QR kód.'}
+          ? `${requested ? 'Souhlasem objednávku rovnou potvrdíte. ' : ''}${transfer ? 'QR pro platbu uvidíte, až změnu odsouhlasíte.' : 'Při převzetí zaplatíte novou částku.'} Když nesouhlasíte, objednávka se zruší bez následků.`
+          : requested ? 'Až ji kupující odsouhlasí, objednávka se tím potvrdí.' : 'Kupující ji musí odsouhlasit, do té doby nevidí QR kód.'}
       </span>
     </div>
   );

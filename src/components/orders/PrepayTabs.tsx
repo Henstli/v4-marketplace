@@ -24,6 +24,7 @@ function Copy({ value, label }: { value: string; label: string }) {
 /**
  * Platba předem (DS OrderPayment › Platba předem): přepínač QR převod / PayPal / Revolut,
  * jen se způsoby, které prodejce má. Odkazy skládáme jen na paypal.me a revolut.me.
+ * Předvyplnění revolut.me (currency, amount v haléřích, note) Revolut nedokumentuje, proto zůstávají údaje ke kopírování.
  */
 export function PrepayTabs({ bank, paypalMe, revtag, amount, vs, role = 'buyer' }: {
   /** Obsah pro převod (QR a údaje), null když ho prodejce nenabízí */
@@ -52,12 +53,11 @@ export function PrepayTabs({ bank, paypalMe, revtag, amount, vs, role = 'buyer' 
         <div className={styles.body}>
           <dl className={styles.lines}>
             <div className={styles.row}><dt>Částka</dt><dd className={styles.amount}><Price amount={amount} /></dd></div>
+            <div className={styles.row}><dt>PayPal</dt><Copy value={`paypal.me/${paypalMe}`} label="PayPal" /></div>
           </dl>
           {role === 'buyer' ? (
             <a className="tz-btn tz-btn-primary tz-btn-md" href={`https://paypal.me/${encodeURIComponent(paypalMe)}/${amount}CZK`} target="_blank" rel="noopener noreferrer">Otevřít PayPal</a>
-          ) : (
-            <p className="t-small">Kupující platí na <span className="code">paypal.me/{paypalMe}</span>.</p>
-          )}
+          ) : null}
           <p className="t-small muted">Zvolte platbu za zboží, jinak nemáte ochranu kupujícího PayPal.</p>
         </div>
       ) : revtag ? (
@@ -68,9 +68,9 @@ export function PrepayTabs({ bank, paypalMe, revtag, amount, vs, role = 'buyer' 
             <div className={styles.row}><dt>Poznámka</dt><Copy value={note} label="poznámku" /></div>
           </dl>
           {role === 'buyer' ? (
-            <a className="tz-btn tz-btn-secondary tz-btn-md" href={`https://revolut.me/${encodeURIComponent(revtag)}`} target="_blank" rel="noopener noreferrer">Otevřít Revolut</a>
+            <a className="tz-btn tz-btn-secondary tz-btn-md" href={`https://revolut.me/${encodeURIComponent(revtag)}?currency=CZK&amount=${amount * 100}&note=${encodeURIComponent(note)}`} target="_blank" rel="noopener noreferrer">Otevřít Revolut</a>
           ) : null}
-          <p className="t-small muted">Částku {amount} Kč a poznámku vložte v aplikaci Revolut.</p>
+          <p className="t-small muted">Když aplikace Revolut částku nebo poznámku nevyplní, vložte je ručně.</p>
         </div>
       ) : null}
     </div>
