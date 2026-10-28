@@ -92,7 +92,6 @@ export default async function SupportQueuePage({ searchParams }: Props) {
       <AutoRefresh />
       <div className={styles.head}>
         <h1 className="t-heading-l">Podpora</h1>
-        <Link href="/sprava/hlaseni?vse=1" className={styles.link}>Všechna hlášení</Link>
         <ButtonLink href="/sprava/podpora/novy">Nový případ</ButtonLink>
       </div>
 

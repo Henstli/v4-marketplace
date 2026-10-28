@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { authErrorMessage, safeNext, siteOrigin } from '@/lib/auth-helpers';
+import { afterLogin, authErrorMessage, safeNext, siteOrigin } from '@/lib/auth-helpers';
 import { isTrustedDevice, setPendingLogin } from '@/lib/devices';
 import { createClient } from '@/lib/supabase/server';
 
@@ -38,7 +38,7 @@ export async function signInWithPassword(_prev: LoginState, form: FormData): Pro
     await setPendingLogin(email);
     redirect(`/prihlaseni/kod?dalsi=${encodeURIComponent(next)}`);
   }
-  redirect(next);
+  redirect(afterLogin(next));
 }
 
 export async function resendConfirmation(_prev: LoginState, form: FormData): Promise<LoginState> {

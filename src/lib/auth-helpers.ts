@@ -7,6 +7,11 @@ export function safeNext(next: unknown): string {
   return s.startsWith('/') && !s.startsWith('//') ? s : '/';
 }
 
+/** Po přihlášení přes rozcestník: správce si vybere web nebo podporu, ostatní jdou rovnou dál. */
+export function afterLogin(next: string): string {
+  return `/rezim?dalsi=${encodeURIComponent(next)}`;
+}
+
 /** Adresa webu pro odkazy v e-mailech a návrat z Googlu. */
 export async function siteOrigin(): Promise<string> {
   const h = await headers();

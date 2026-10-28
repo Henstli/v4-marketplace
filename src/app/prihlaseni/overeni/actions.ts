@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { authErrorMessage, safeNext } from '@/lib/auth-helpers';
+import { afterLogin, authErrorMessage, safeNext } from '@/lib/auth-helpers';
 import { createClient } from '@/lib/supabase/server';
 
 export interface VerifyState {
@@ -20,5 +20,5 @@ export async function verifyMfa(_prev: VerifyState, form: FormData): Promise<Ver
   if (!factor) redirect(next);
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
   if (error) return { error: authErrorMessage(error) };
-  redirect(next);
+  redirect(afterLogin(next));
 }
