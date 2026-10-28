@@ -15,6 +15,7 @@ import { orderPaymentQr, setOrderStatus, type ChatPayment } from '@/app/objednav
 import { ShipEdit } from '@/app/objednavky/ShipEdit';
 import { answerOffer, proposePrice } from '@/app/zpravy/offers';
 import { formatDateTime, formatPrice, plural } from '@/lib/format';
+import { SellerRestrictedNotice } from '@/components/orders/SellerRestricted';
 import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@/lib/messages';
 import { cancelFrom, canChangeShipping, canSellerCancel, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
 import { PaidButton } from '@/components/orders/PaidButton';
@@ -209,6 +210,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
           {o.paidVia && o.buyerPaidAt && ['confirmed', 'paid', 'shipped'].includes(o.status) ? (
             <div data-stay className={styles.stay}><PaidViaRow via={o.paidVia} at={o.buyerPaidAt} amount={o.total} role={mine ? 'buyer' : 'seller'} pending={o.status === 'confirmed'} notReceived={!!o.notReceivedAt} insistAt={o.buyerInsistAt} compact /></div>
           ) : null}
+          {mine && o.sellerRestricted ? <div data-stay className={styles.stay}><SellerRestrictedNotice /></div> : null}
           {o.status === 'confirmed' && o.notReceivedAt ? (
             <div data-stay className={styles.stay}>
               <CancelRequestBlock role={mine ? 'buyer' : 'seller'} requestedAt={o.cancelRequestAt} rejectedAt={o.cancelRejectedAt} />

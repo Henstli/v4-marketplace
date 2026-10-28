@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { ReportForm } from '@/components/reports/ReportForm';
 import { ReportStrip } from '@/components/reports/ReportStrip';
 import { canReport, loadOpenReports } from '@/lib/reports';
-import { BuyerActions, canReview, DeliveryBox, DeliveryInfo, ENDED, flowOf, loadContact, loadDeliveries, loadPayment, loadShipCaps, ORDER_SELECT, type OrderRow, PaymentInfo, ReviewForm, SellerActions, ShipChangeNotice } from '../parts';
+import { BuyerActions, canReview, DeliveryBox, DeliveryInfo, ENDED, flowOf, loadContact, loadDeliveries, loadPayment, loadShipCaps, markSellerRestricted, ORDER_SELECT, type OrderRow, PaymentInfo, ReviewForm, SellerActions, ShipChangeNotice } from '../parts';
 import styles from '../orders.module.css';
 
 type Props = { params: Promise<{ cislo: string }> };
@@ -48,7 +48,7 @@ export default async function OrderDetailPage({ params }: Props) {
   const role = order.buyer_id === user.id ? 'buyer' : 'seller';
   const otherId = role === 'buyer' ? order.seller_id : order.buyer_id;
 
-  const [{ data: other }, { data: events }, { data: review }, contact, payment, caps, deliveries, reports, { data: mine }] = await Promise.all([
+  const [{ data: other }, { data: events }, { data: review }, contact, payment, caps, deliveries, reports, , { data: mine }] = await Promise.all([
     otherId ? supabase.from('profiles').select('display_name, kind, country').eq('id', otherId).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('messages').select('kind, body, created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
     supabase.from('reviews').select('order_id, rating, comment, reply').eq('order_id', order.id).maybeSingle(),
@@ -57,6 +57,7 @@ export default async function OrderDetailPage({ params }: Props) {
     loadShipCaps(supabase),
     loadDeliveries(supabase, [order.id]),
     loadOpenReports(supabase, [order.id]),
+    role === 'buyer' ? markSellerRestricted(supabase, [order]) : Promise.resolve(),
     supabase.from('reports').select('id').eq('order_id', order.id).eq('reporter_id', user.id).neq('status', 'closed').maybeSingle(),
   ]);
   const report = reports.get(order.id);

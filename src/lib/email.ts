@@ -124,3 +124,26 @@ export async function sendMessageEmail(to: string, senderName: string, text: str
     <a href="${href}" style="display:inline-block;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">Odpovědět</a>
     <p style="font-size:13px;line-height:1.5;color:#6E7681;margin:20px 0 0">Na tento e-mail neodpovídejte, odpověď napište na V4cards. Další e-mail pošleme, až si zprávy přečtete.</p>`));
 }
+
+/**
+ * E-mail od podpory (odpověď z případu, odůvodnění omezení). Odchází z podpora@v4cards.com,
+ * odpovědi jdou zpět na podporu a kopie do její schránky. Vrací, zda ho Resend přijal.
+ */
+export async function sendSupportEmail(to: string[], subject: string, paragraphs: Array<{ title?: string; text: string }>, siteUrl: string): Promise<boolean> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || !to.length) return false;
+  const html = layoutHtml(siteUrl, paragraphs
+    .map((p) => `<p style="font-size:15px;line-height:1.55;color:#C9D1D9;margin:0 0 14px;white-space:pre-line">${p.title ? `<strong style="color:#E6EDF3">${escapeHtml(p.title)}</strong> ` : ''}${escapeHtml(p.text)}</p>`)
+    .join(''));
+  const text = paragraphs.map((p) => (p.title ? `${p.title} ${p.text}` : p.text)).join('\n\n');
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'V4cards podpora <podpora@v4cards.com>', reply_to: REPLY_TO, to, bcc: [REPLY_TO], subject, html, text }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

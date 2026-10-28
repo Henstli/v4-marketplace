@@ -20,6 +20,8 @@ export interface FlowOrder {
   cancelRequestAt?: string | null;
   /** Kupující žádost o zrušení odmítl; podruhé žádat nejde, jen počkat a zrušit. */
   cancelRejectedAt?: string | null;
+  /** Prodejce je pozastavený podporou a kupující ještě neklikl Zaplaceno: smí objednávku zrušit (DS Support). */
+  sellerRestricted?: boolean;
   /** Prodejce navrhl vyšší dopravu, čeká se na kupujícího. */
   shipChange?: number | null;
   /** Součet a doprava, aby Souhlasím řeklo novou částku. */
@@ -174,6 +176,7 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   if (role === 'buyer') {
     if (o.status === 'requested') out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
     if (o.status === 'confirmed' && p === 'transfer' && !o.buyerPaidAt) out.push({ op: 'mark_paid', label: 'Zaplaceno', variant: 'primary' });
+    if (o.status === 'confirmed' && !o.buyerPaidAt && o.sellerRestricted) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
     if (o.status === 'confirmed' && o.cancelRequestAt) {
       out.push({ op: 'cancel_accept', label: 'Souhlasím se zrušením', variant: 'ghost' });
       out.push({ op: 'cancel_reject', label: 'Nesouhlasím', variant: 'ghost' });

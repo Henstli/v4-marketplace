@@ -10,7 +10,7 @@ import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { formatNumber } from '@/lib/format';
+import { formatDate, formatNumber } from '@/lib/format';
 import { loadReadiness, SellGate } from '@/components/delivery/SellGate';
 import { ListingForm } from './ListingForm';
 import { StockTable, type StockItem } from './StockTable';
@@ -40,13 +40,16 @@ export default async function SellPage({ searchParams }: Props) {
   ]);
 
   const supabase = await createClient();
-  const ready = await loadReadiness(supabase, user.id);
+  const [ready, { data: restriction }] = await Promise.all([
+    loadReadiness(supabase, user.id),
+    supabase.from('account_restrictions').select('kind, until').eq('user_id', user.id).is('ended_at', null).maybeSingle(),
+  ]);
   // Supabase vrací nejvýš 1000 řádků na dotaz, velký sklad obchodu čteme po stránkách.
   const mine = [];
   for (let from = 0; from < 5000; from += 1000) {
     const { data } = await supabase
       .from('listings')
-      .select('id, price_czk, condition, language, quantity, cards(slug, name, number, image_url, game_id, card_sets(code, name))')
+      .select('id, price_czk, condition, language, quantity, hidden_qty, cards(slug, name, number, image_url, game_id, card_sets(code, name))')
       .eq('seller_id', user.id)
       .order('created_at', { ascending: false })
       .order('id')
@@ -64,6 +67,7 @@ export default async function SellPage({ searchParams }: Props) {
       condition: l.condition,
       language: l.language,
       quantity: l.quantity,
+      hidden: l.hidden_qty,
       card: card
         ? { slug: card.slug, name: card.name, number: card.number, image: card.image_url, game: card.game_id, setCode: set?.code ?? '', setName: set?.name ?? '' }
         : null,
@@ -77,6 +81,13 @@ export default async function SellPage({ searchParams }: Props) {
         <p className="muted">Vystavujete jako {user.displayName}. Profil upravíte v <Link href="/ucet/nastaveni">nastavení účtu</Link>.</p>
       </div>
 
+      {restriction ? (
+        <p className={styles.restricted}>
+          <strong>Vystavování máte omezené podporou V4cards{restriction.until ? ` do ${formatDate(restriction.until)}` : ''}.</strong>{' '}
+          Nabídky jsou skryté a nové nejde vystavit. Odůvodnění jsme vám poslali e-mailem, ohradit se můžete na{' '}
+          <a href="mailto:podpora@v4cards.com">podpora@v4cards.com</a>.
+        </p>
+      ) : null}
       {ready.ready ? null : <SellGate r={ready} back="prodat" />}
 
       <section className="panel">

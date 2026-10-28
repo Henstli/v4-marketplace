@@ -16,6 +16,7 @@ import type { createClient } from '@/lib/supabase/server';
 import { CopyButton } from '@/components/orders/CopyButton';
 import { ExpiryStatus } from '@/components/orders/Expiry';
 import { PrepayTabs } from '@/components/orders/PrepayTabs';
+import { SellerRestrictedNotice } from '@/components/orders/SellerRestricted';
 import { ShipChangeBlock } from '@/components/orders/ShipChange';
 import { addReview, setOrderStatus } from './actions';
 import { ShipEdit } from './ShipEdit';
@@ -63,6 +64,8 @@ export interface OrderRow {
   /** Prodejce navrhl vyšší dopravu, čeká na kupujícího. */
   ship_change_czk: number | null;
   ship_change_reason: string | null;
+  /** Prodejce je pozastavený a kupující ještě nezaplatil (doplní markSellerRestricted). */
+  seller_restricted?: boolean;
   order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null } | null }>;
 }
 
@@ -152,7 +155,7 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 }
 
 /** Objednávka pro pravidla kroků (DS DeliveryPayment). */
-export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, notReceivedAt: o.not_received_at, buyerInsistAt: o.buyer_insist_at, cancelRequestAt: o.cancel_request_at, cancelRejectedAt: o.cancel_rejected_at, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
+export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, notReceivedAt: o.not_received_at, buyerInsistAt: o.buyer_insist_at, cancelRequestAt: o.cancel_request_at, cancelRejectedAt: o.cancel_rejected_at, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk, sellerRestricted: o.seller_restricted });
 
 /** Řádek PLATBA, když kupující napsal, jak zaplatil (DS OrderPayment › Jak jste zaplatili). */
 function PaidVia({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
@@ -160,11 +163,21 @@ function PaidVia({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
   return <PaidViaRow via={o.paid_via} at={o.buyer_paid_at} amount={o.total_czk} role={role} pending={o.status === 'confirmed'} notReceived={!!o.not_received_at} insistAt={o.buyer_insist_at} />;
 }
 
+/** Označí objednávky kupujícího, kde je prodejce pozastavený a kupující ještě neklikl Zaplaceno. */
+export async function markSellerRestricted(supabase: Supabase, orders: OrderRow[]): Promise<void> {
+  const ids = orders.filter((o) => (o.status === 'requested' || o.status === 'confirmed') && !o.buyer_paid_at).map((o) => o.id);
+  if (!ids.length) return;
+  const { data } = await supabase.rpc('orders_seller_restricted', { p_orders: ids });
+  const hit = new Set((data ?? []) as string[]);
+  for (const o of orders) o.seller_restricted = hit.has(o.id);
+}
+
 /** Akce kupujícího podle stavu (stejné na seznamu, v detailu i v chatu). */
 export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }) {
   return (
     <>
       <PaidVia o={o} role="buyer" />
+      {o.seller_restricted ? <SellerRestrictedNotice /> : null}
       <CancelBlocks o={o} role="buyer" />
       {flowActions(flowOf(o), 'buyer').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
       {!reviewed ? <ReviewForm o={o} /> : null}

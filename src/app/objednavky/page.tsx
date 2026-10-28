@@ -8,7 +8,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { loadOpenReports } from '@/lib/reports';
-import { BuyerActions, ENDED, loadContact, loadDeliveries, loadPayment, loadShipCaps, ORDER_SELECT, OrderCard, type OrderRow, SellerActions } from './parts';
+import { BuyerActions, ENDED, loadContact, loadDeliveries, loadPayment, loadShipCaps, markSellerRestricted, ORDER_SELECT, OrderCard, type OrderRow, SellerActions } from './parts';
 import styles from './orders.module.css';
 
 export const metadata: Metadata = { title: 'Objednávky' };
@@ -55,6 +55,7 @@ export default async function OrdersPage({ searchParams }: Props) {
     loadShipCaps(supabase),
     loadDeliveries(supabase, all.filter((o) => !ENDED.has(o.status) && o.status !== 'delivered').map((o) => o.id)),
     loadOpenReports(supabase, all.map((o) => o.id)),
+    markSellerRestricted(supabase, bought),
   ]);
 
   const boughtActive = bought.filter((o) => !ENDED.has(o.status));
