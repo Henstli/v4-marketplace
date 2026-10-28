@@ -63,7 +63,7 @@ export function PrepayTabs({ bank, paypalMe, revtag, amount, vs, role = 'buyer' 
       ) : revtag ? (
         <div className={styles.body}>
           <dl className={styles.lines}>
-            <div className={styles.row}><dt>Částka</dt><Copy value={String(amount)} label="částku" /></div>
+            <div className={styles.row}><dt>Částka</dt><dd className={styles.amount}><Price amount={amount} /></dd></div>
             <div className={styles.row}><dt>Revtag</dt><Copy value={`@${revtag}`} label="Revtag" /></div>
             <div className={styles.row}><dt>Poznámka</dt><Copy value={note} label="poznámku" /></div>
           </dl>
