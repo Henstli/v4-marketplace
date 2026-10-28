@@ -14,10 +14,12 @@ export default async function RestrictPage({ params, searchParams }: Props) {
   const [{ id }, { pripad, chyba }] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const supabase = await createClient();
-  const [{ data: person }, { data: cases }] = await Promise.all([
+  const [{ data: person }, { data: cases }, { data: past }] = await Promise.all([
     supabase.from('profiles').select('id, display_name, kind').eq('id', id).maybeSingle(),
     supabase.from('support_cases').select('id, number, subject').or(`user_id.eq.${id},other_id.eq.${id}`)
       .neq('status', 'resolved').order('created_at', { ascending: false }).limit(20),
+    supabase.from('staff_actions').select('action, created_at').eq('user_id', id)
+      .in('action', ['warning', 'hide_listings', 'suspend', 'ban']).order('created_at', { ascending: false }),
   ]);
   if (!person) notFound();
   const list = (cases ?? []) as Array<{ id: string; number: number; subject: string }>;
@@ -31,7 +33,8 @@ export default async function RestrictPage({ params, searchParams }: Props) {
       </div>
       <h1 className="t-heading-l">Omezit účet</h1>
       {chyba ? <p className={`${styles.flash} ${styles.flashErr}`}>{chyba}</p> : null}
-      <RestrictForm userId={id} name={person.display_name} isShop={person.kind === 'shop'} cases={sorted} />
+      <RestrictForm userId={id} name={person.display_name} isShop={person.kind === 'shop'} cases={sorted}
+        past={((past ?? []) as Array<{ action: string; created_at: string }>)} />
     </div>
   );
 }

@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ReportPanel } from '@/components/reports/ReportPanel';
+import { BeatCase, CaseClock, CasePresence } from '@/components/support/Beat';
+import { CaseActions, StatusForm } from '@/components/support/CaseTools';
 import { ReplyBox, type ReplyTarget } from '@/components/support/ReplyBox';
-import { Ticker } from '@/components/support/Ticker';
 import { Button, Status } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDateTime, formatPrice } from '@/lib/format';
@@ -11,10 +12,10 @@ import { ORDER_STATUS } from '@/lib/order-status';
 import { loadReportFiles, REPORT_SELECT, reportCode, type ReportRow } from '@/lib/reports';
 import { createClient } from '@/lib/supabase/server';
 import {
-  caseCode, dueGroup, dueText, hm, hmLong, isoToPragueLocal, KIND, minutesOf, PRIORITY, STATUS,
-  type CaseEvent, type CasePriority, type CaseRow, type CaseStatus, type TimeRow,
+  caseCode, caseOrigin, dueGroup, dueText, isoToPragueLocal, KIND, minutesOf, PRIORITY, STATUS,
+  type CaseEvent, type CaseRow, type Template, type TimeRow,
 } from '@/lib/support';
-import { addTime, decideContent, fixTime, startTimer, stopTimer, updateCase } from '../actions';
+import { decideContent } from '../actions';
 import { CONTENT_REASON, contentCode, KIND_NOUN, type ContentKind, type ContentReason, type ContentSnapshot } from '@/lib/content-reports';
 import styles from '../podpora.module.css';
 
@@ -34,7 +35,7 @@ interface ContentRow {
 
 interface AdminOrder { id: string; number: number; status: string; buyer_id: string | null; seller_id: string | null; total_czk: number; shipping_czk: number }
 
-/** Případ podpory: časová osa, odpověď, stav a čas (DS Support, Případ). */
+/** Případ podpory: časová osa, odpověď, stav, akce a čas, který se počítá sám (DS Support › Případ). */
 export default async function CasePage({ params, searchParams }: Props) {
   const [{ cislo }, { ok, chyba }] = await Promise.all([params, searchParams]);
   const number = Number(cislo);
@@ -44,12 +45,16 @@ export default async function CasePage({ params, searchParams }: Props) {
   const { data: c } = await supabase.from('support_cases').select('*').eq('number', number).maybeSingle<CaseRow>();
   if (!c) notFound();
 
-  const [{ data: events }, { data: times }, { data: staff }, { data: report }, { data: orders }] = await Promise.all([
+  const [{ data: events }, { data: times }, { data: staff }, { data: report }, { data: orders }, { data: templates }, { data: merged }] = await Promise.all([
     supabase.from('case_events').select('*').eq('case_id', c.id).order('created_at').returns<CaseEvent[]>(),
     supabase.from('case_time').select('*').eq('case_id', c.id).order('started_at').returns<TimeRow[]>(),
     supabase.rpc('admin_staff'),
     c.report_id ? supabase.from('reports').select(REPORT_SELECT).eq('id', c.report_id).maybeSingle<ReportRow>() : Promise.resolve({ data: null }),
     c.order_id ? supabase.rpc('admin_orders', { p_ids: [c.order_id] }) : Promise.resolve({ data: [] }),
+    supabase.from('support_templates').select('id, label, body, sort').order('sort').returns<Template[]>(),
+    c.merged_into ? supabase.from('support_cases').select('number').eq('id', c.merged_into).maybeSingle() : Promise.resolve({ data: null }),
+    // Přečteno: štítek Nová odpověď ve frontě zmizí.
+    supabase.from('case_reads').upsert({ staff_id: user.id, case_id: c.id, read_at: new Date().toISOString() }),
   ]);
   // Přílohy z formuláře Napsat podpoře: odkaz platí hodinu.
   const { data: caseFiles } = await supabase.from('case_files').select('path, name, size').eq('case_id', c.id).order('created_at');
@@ -65,8 +70,9 @@ export default async function CasePage({ params, searchParams }: Props) {
   const files = report ? await loadReportFiles(supabase, report.id) : [];
 
   const ids = [...new Set([c.user_id, c.other_id, ...(events ?? []).map((e) => e.author_id), ...(times ?? []).map((t) => t.staff_id)].filter((x): x is string => !!x))];
-  const [{ data: people }, { data: other }] = await Promise.all([
+  const [{ data: people }, { data: first }, { data: other }] = await Promise.all([
     ids.length ? supabase.from('profiles').select('id, display_name, kind').in('id', ids) : Promise.resolve({ data: [] }),
+    c.user_id ? supabase.rpc('admin_user_info', { p_user: c.user_id }) : Promise.resolve({ data: null }),
     c.other_id ? supabase.rpc('admin_user_info', { p_user: c.other_id }) : Promise.resolve({ data: null }),
   ]);
   const name = (id: string | null) => (id ? (people ?? []).find((p) => p.id === id)?.display_name ?? 'smazaný účet' : '');
@@ -79,28 +85,37 @@ export default async function CasePage({ params, searchParams }: Props) {
   if (c.user_id && c.other_id) targets.push({ id: 'both', label: 'Oběma stranám' });
   if (c.contact_email) targets.push({ id: 'contact', label: c.contact_email });
 
-  const running = (times ?? []).find((t) => !t.ended_at && t.staff_id === user.id);
   const total = (times ?? []).reduce((s, t) => s + minutesOf(t), 0);
+  const perStaff = new Map<string, number>();
+  for (const t of times ?? []) if (t.staff_id) perStaff.set(t.staff_id, (perStaff.get(t.staff_id) ?? 0) + minutesOf(t));
+  const others = [...perStaff].filter(([id]) => id !== user.id).map(([id, minutes]) => ({ name: name(id).split(' ')[0], minutes }));
   const group = dueGroup(c);
-  const path = `/sprava/podpora/${c.number}`;
-  const info = other as null | { cancelled_after_paid: number; disputes: number; listings: number; restriction: { kind: string } | null };
+  const snoozed = !!c.snoozed_until && c.snoozed_until > new Date().toISOString();
 
   return (
     <div className={styles.page}>
+      <BeatCase id={c.id} />
       <div className={styles.caseHead}>
-        <Link href="/sprava/podpora" className={styles.link}>← Fronta</Link>
+        <div className={styles.row}>
+          <Link href="/sprava/podpora" className={styles.link}>← Fronta</Link>
+          <span style={{ flex: 1 }} />
+          <CasePresence me={user.id} />
+        </div>
         <div className={styles.caseTitle}>
           <span className={styles.caseCode}>{caseCode(c.number)}</span>
           <h1>{c.subject}</h1>
         </div>
         <div className={styles.row}>
           <Status tone={c.status === 'open' ? 'info' : c.status === 'waiting' ? 'warn' : 'muted'}>{STATUS[c.status]}</Status>
-          {c.status !== 'resolved' && c.due_at ? (
-            <Status tone={group === 'late' ? 'warn' : 'muted'}>{group === 'late' ? 'Po termínu · ' : 'Termín '}{dueText(c.due_at)}</Status>
-          ) : null}
+          {snoozed ? <Status tone="muted">Odloženo do {dueText(c.snoozed_until!)}</Status>
+            : c.status !== 'resolved' && c.due_at ? (
+              <Status tone={group === 'late' ? 'warn' : 'muted'}>{group === 'late' ? 'Po termínu · ' : 'Termín '}{dueText(c.due_at)}</Status>
+            ) : null}
           <span className={`${styles.prio} ${styles[`prio-${c.priority}`]}`}>{PRIORITY[c.priority]}</span>
-          <span className={styles.small}>{KIND[c.kind]} · založeno {formatDateTime(c.created_at)}</span>
+          {content && content.length > 1 ? <span className={`${styles.prio} ${styles['prio-high']}`}>Nahlášeno {content.length}×</span> : null}
+          <span className={styles.small}>{KIND[c.kind]} · {caseOrigin(c)} · založeno {formatDateTime(c.created_at)}</span>
         </div>
+        {merged ? <p className={styles.small}>Sloučeno do <Link href={`/sprava/podpora/${merged.number}`} className={styles.link}>{caseCode(merged.number as number)}</Link>.</p> : null}
       </div>
       {ok ? <p className={styles.flash}>{ok}</p> : null}
       {chyba ? <p className={`${styles.flash} ${styles.flashErr}`}>{chyba}</p> : null}
@@ -112,14 +127,23 @@ export default async function CasePage({ params, searchParams }: Props) {
               <li key={e.id}>
                 {e.kind === 'event' ? (
                   <span className={styles.ev}>{formatDateTime(e.created_at)} · {e.body}{e.author_id ? ` · ${name(e.author_id)}` : ''}</span>
-                ) : (
-                  <div className={`${styles.msg} ${e.kind === 'note' ? styles.msgNote : e.kind === 'email' ? styles.msgMail : ''}`}>
-                    <span className={styles.msgMeta}>
-                      {e.kind === 'note' ? `INTERNÍ POZNÁMKA · ${name(e.author_id)} · uživatel ji nevidí`
-                        : e.kind === 'email' ? `E-MAIL · ${name(e.author_id)} → ${e.recipients ?? ''}`
-                          : `${name(e.author_id) || c.contact_email || 'Uživatel'}${role(e.author_id) ? ` · ${role(e.author_id)}` : ''}`}
-                      {' · '}{formatDateTime(e.created_at)}
+                ) : e.kind === 'user' ? (
+                  <div className={styles.msg}>
+                    <span className={styles.small}>
+                      {name(e.author_id) || c.contact_email || 'Uživatel'}{role(e.author_id) ? ` · ${role(e.author_id)}` : ''} · {formatDateTime(e.created_at)}
                     </span>
+                    <div className={styles.msgBody}>{e.body}</div>
+                  </div>
+                ) : (
+                  <div className={`${styles.msg} ${e.kind === 'note' ? styles.msgNote : styles.msgMail}`}>
+                    <div className={styles.msgAuthor}>
+                      <span className={styles.msgAvatar} aria-hidden="true">{(name(e.author_id) || '?').slice(0, 1).toUpperCase()}</span>
+                      <strong>{name(e.author_id) || 'Systém'}</strong>
+                      <span className={styles.small}>{formatDateTime(e.created_at)}</span>
+                      <span className={styles.msgLabel}>
+                        {e.kind === 'note' ? 'INTERNÍ POZNÁMKA · UŽIVATEL NEVIDÍ' : `ODPOVĚĎ E-MAILEM → ${(e.recipients ?? '').toUpperCase()}`}
+                      </span>
+                    </div>
                     <div className={styles.msgBody}>{e.body}</div>
                   </div>
                 )}
@@ -129,7 +153,7 @@ export default async function CasePage({ params, searchParams }: Props) {
             {attachments.map((f) => (
               <li key={f.path}>
                 <span className={styles.ev}>
-                  Příloha: {f.url ? <a href={f.url} target="_blank" rel="noreferrer noopener">{f.name}</a> : f.name}
+                  Příloha: {f.url ? <a href={f.url} target="_blank" rel="noreferrer noopener" className={styles.link}>{f.name}</a> : f.name}
                   {f.size ? ` · ${Math.max(1, Math.round(f.size / 1024))} kB` : ''}
                 </span>
               </li>
@@ -138,7 +162,7 @@ export default async function CasePage({ params, searchParams }: Props) {
 
           {content?.length ? <ContentPanel caseId={c.id} rows={content} name={name} /> : null}
 
-          <ReplyBox caseId={c.id} number={c.number} targets={targets} />
+          {!c.merged_into ? <ReplyBox caseId={c.id} number={c.number} targets={targets} templates={templates ?? []} /> : null}
 
           {report ? (
             <ReportPanel r={report} me={user.id} files={files} admin
@@ -147,115 +171,67 @@ export default async function CasePage({ params, searchParams }: Props) {
         </div>
 
         <aside className={styles.side}>
-          <form action={updateCase} className={styles.box}>
-            <input type="hidden" name="case_id" value={c.id} />
-            <label className={styles.field}>Stav
-              <select className={styles.input} name="status" defaultValue={c.status}>
-                {(Object.keys(STATUS) as CaseStatus[]).map((s) => <option key={s} value={s}>{STATUS[s]}</option>)}
-              </select>
-            </label>
-            <div className={styles.two}>
-              <label className={styles.field}>Priorita
-                <select className={styles.input} name="priority" defaultValue={c.priority}>
-                  {(Object.keys(PRIORITY) as CasePriority[]).map((p) => <option key={p} value={p}>{PRIORITY[p]}</option>)}
-                </select>
-              </label>
-              <label className={styles.field}>Řeší
-                <select className={styles.input} name="assignee" defaultValue={c.assignee_id ?? ''}>
-                  <option value="">Nepřiřazeno</option>
-                  {staffList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className={styles.field}>Termín
-              <input className={styles.input} type="datetime-local" name="due" defaultValue={c.due_at ? isoToPragueLocal(c.due_at) : ''} />
-            </label>
-            <Button type="submit" variant="secondary">Uložit</Button>
-          </form>
+          <CaseClock mine={perStaff.get(user.id) ?? 0} total={total} others={others} />
 
-          <section className={styles.box} aria-label="Čas na případu">
-            <h2 className={styles.boxTitle}>ČAS NA PŘÍPADU</h2>
-            <div className={styles.clock}>{running ? <Ticker since={running.started_at} /> : hm(total)}</div>
-            {running ? (
-              <form action={stopTimer} className={styles.row}>
-                <input type="hidden" name="back" value={path} />
-                <input className={styles.input} name="note" maxLength={200} placeholder="Co jste dělali (nepovinné)" />
-                <Button type="submit" variant="ghost">Zastavit</Button>
-              </form>
-            ) : (
-              <form action={startTimer}>
-                <input type="hidden" name="case_id" value={c.id} />
-                <input type="hidden" name="back" value={path} />
-                <Button type="submit">Začít</Button>
-              </form>
-            )}
-            {times?.length ? (
-              <ul className={styles.times}>
-                {times.map((t) => (
-                  <li key={t.id}>
-                    <span>{name(t.staff_id)} · {formatDateTime(t.started_at)} · {t.ended_at ? hmLong(minutesOf(t)) : 'běží'}{t.note ? ` · ${t.note}` : ''}</span>
-                    {t.auto_stopped && t.staff_id === user.id ? (
-                      <form action={fixTime} className={styles.fix}>
-                        <Status tone="warn">Zastaveno samo, zkontrolujte</Status>
-                        <input type="hidden" name="id" value={t.id} />
-                        <input type="hidden" name="number" value={c.number} />
-                        <input className={styles.input} type="number" name="minutes" min={0} max={600} defaultValue={Math.round(minutesOf(t))} aria-label="Minut" />
-                        <button type="submit" className={styles.timerBtn}>Opravit</button>
-                      </form>
-                    ) : null}
-                  </li>
-                ))}
-                <li><strong>Celkem {hmLong(total)}</strong></li>
-              </ul>
-            ) : null}
-            <details>
-              <summary className={styles.link}>Doplnit čas</summary>
-              <form action={addTime} className={styles.row} style={{ marginTop: 8 }}>
-                <input type="hidden" name="case_id" value={c.id} />
-                <input type="hidden" name="number" value={c.number} />
-                <input className={styles.input} style={{ width: 90 }} type="number" name="minutes" min={1} max={600} placeholder="min" required aria-label="Minut" />
-                <input className={styles.input} style={{ flex: 1, minWidth: 120 }} name="note" maxLength={200} placeholder="Poznámka" />
-                <Button type="submit" variant="ghost">Přidat</Button>
-              </form>
-            </details>
+          <section className={styles.box}>
+            <StatusForm caseId={c.id} status={c.status} assignee={c.assignee_id} staff={staffList} />
+            <CaseActions caseId={c.id} me={user.id} assignee={c.assignee_id} staff={staffList} snoozed={snoozed}
+              priority={c.priority} due={c.due_at ? isoToPragueLocal(c.due_at) : ''} />
           </section>
 
-          {order || report ? (
+          {order ? (
+            <section className={styles.box}>
+              <h2 className={styles.boxTitle}>OBJEDNÁVKA Č. {order.number}</h2>
+              <div className={styles.related}>
+                <span>{formatPrice(order.total_czk)} · {ORDER_STATUS[order.status] ?? order.status}</span>
+                {report ? <span className={styles.small}>Hlášení {reportCode(report.number)}</span> : null}
+                <Link href={`/sprava/podpora/${c.number}/zpravy`} className={styles.link}>Zprávy mezi stranami ›</Link>
+                <span className={styles.small}>Otevření zpráv se zapíše do Záznamu akcí.</span>
+              </div>
+            </section>
+          ) : report ? (
             <section className={styles.box}>
               <h2 className={styles.boxTitle}>SOUVISÍ</h2>
-              <div className={styles.related}>
-                {order ? <span>Objednávka č. {order.number} · {formatPrice(order.total_czk)} · {ORDER_STATUS[order.status] ?? order.status}</span> : null}
-                {report ? <span>Hlášení {reportCode(report.number)}</span> : null}
-              </div>
+              <span>Hlášení {reportCode(report.number)}</span>
             </section>
           ) : null}
 
-          {c.user_id ? (
+          {c.user_id ? <PersonCard title={c.other_id ? (c.kind === 'report' ? 'NAHLÁSIL' : 'KDO PÍŠE') : 'UŽIVATEL'} id={c.user_id} caseId={c.id}
+            label={`${name(c.user_id)}${role(c.user_id) ? ` · ${role(c.user_id)}` : ''}`} info={first as PersonInfo | null} /> : null}
+          {c.other_id ? <PersonCard title="DRUHÁ STRANA" id={c.other_id} caseId={c.id}
+            label={`${name(c.other_id)}${role(c.other_id) ? ` · ${role(c.other_id)}` : ''}`} info={other as PersonInfo | null} /> : null}
+          {!c.user_id && c.contact_email ? (
             <section className={styles.box}>
-              <h2 className={styles.boxTitle}>{c.other_id ? 'NAHLÁSIL' : 'UŽIVATEL'}</h2>
-              <Link href={`/sprava/podpora/uzivatele/${c.user_id}`}>{name(c.user_id)}</Link>
-            </section>
-          ) : null}
-
-          {c.other_id ? (
-            <section className={styles.box}>
-              <h2 className={styles.boxTitle}>DRUHÁ STRANA</h2>
-              <strong>{name(c.other_id)}</strong>
-              {info ? (
-                <p className={styles.small}>
-                  {info.cancelled_after_paid} zrušené po zaplacení · {info.disputes} spory · {info.listings} nabídek
-                  {info.restriction ? ' · účet omezený' : ''}
-                </p>
-              ) : null}
-              <div className={styles.row}>
-                <Link className={styles.link} href={`/sprava/podpora/uzivatele/${c.other_id}/omezit?pripad=${c.id}`}>Omezit účet…</Link>
-                <Link className={styles.link} href={`/sprava/podpora/uzivatele/${c.other_id}`}>Profil a historie</Link>
-              </div>
+              <h2 className={styles.boxTitle}>KDO PÍŠE</h2>
+              <span>{c.contact_email}</span>
+              <span className={styles.small}>Bez účtu na V4cards.</span>
             </section>
           ) : null}
         </aside>
       </div>
     </div>
+  );
+}
+
+interface PersonInfo { cancelled_after_paid: number; disputes: number; listings: number; sold: number; restriction: { kind: string } | null }
+
+/** Karta strany případu: odkazy Profil a Omezit účet u obou stran. */
+function PersonCard({ title, id, caseId, label, info }: { title: string; id: string; caseId: string; label: string; info: PersonInfo | null }) {
+  return (
+    <section className={styles.box}>
+      <h2 className={styles.boxTitle}>{title}</h2>
+      <strong>{label}</strong>
+      {info ? (
+        <p className={styles.small}>
+          {info.sold} prodáno · {info.cancelled_after_paid} zrušené po zaplacení · {info.disputes} spory · {info.listings} nabídek
+          {info.restriction ? ' · účet omezený' : ''}
+        </p>
+      ) : null}
+      <div className={styles.row}>
+        <Link className={styles.link} href={`/sprava/podpora/uzivatele/${id}`}>Profil</Link>
+        <Link className={styles.link} href={`/sprava/podpora/uzivatele/${id}/omezit?pripad=${caseId}`}>Omezit účet…</Link>
+      </div>
+    </section>
   );
 }
 

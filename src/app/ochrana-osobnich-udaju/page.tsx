@@ -49,7 +49,9 @@ export default function PrivacyPage() {
           <li>
             <strong>Zprávy:</strong> text zpráv, které si napíšete s jiným uživatelem, a čas odeslání. Vidíte je jen vy
             a druhá strana. O nové zprávě vám pošleme e-mail. Účel: domluva kupujícího a prodejce (plnění smlouvy).
-            Do zpráv nahlédneme jen při řešení nahlášeného porušení podmínek.
+            Do zpráv k objednávce nahlédne člověk z týmu podpory jen tehdy, když řeší nahlášený problém s touto objednávkou,
+            nahlášený obsah nebo váš dotaz, a jen v rozsahu potřebném k jeho vyřešení. Každé nahlédnutí se zapíše
+            (kdo, kdy a ke kterému případu). Účel: řešení sporů a ochrana uživatelů (oprávněný zájem).
           </li>
           <li>
             <strong>Hlášení problémů s objednávkou:</strong> důvod, popis, odpovědi obou stran, navržené dohody a

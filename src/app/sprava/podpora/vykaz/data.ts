@@ -1,16 +1,28 @@
+import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { addDays, pragueMidnight, TIME_SELECT, weekReport, type CaseKind, type CaseStatus, type TimeRow } from '@/lib/support';
+import { monthReport, pragueMidnight, shiftMonth, TIME_SELECT, type TimeWithCase } from '@/lib/support';
 
-/** Načte záznamy času pro týden od pondělí a spočítá výkaz. */
-export async function loadWeek(monday: string) {
+/**
+ * Záznamy času za měsíc a výkaz. Správce vidí všechny, podpora jen sebe.
+ * kdo = jen jeden člověk z týmu (filtr záznamů a CSV).
+ */
+export async function loadMonth(month: string, kdo?: string) {
+  const user = (await getCurrentUser())!;
   const supabase = await createClient();
-  const from = pragueMidnight(monday).toISOString();
-  const to = pragueMidnight(addDays(monday, 7)).toISOString();
-  const [{ data }, { data: staff }] = await Promise.all([
-    supabase.from('case_time').select(TIME_SELECT).gte('started_at', from).lt('started_at', to).order('started_at')
-      .returns<Array<TimeRow & { support_cases: { number: number; subject: string; kind: CaseKind; status: CaseStatus; resolved_at: string | null } | null }>>(),
-    supabase.rpc('admin_staff'),
-  ]);
+  const from = pragueMidnight(`${month}-01`).toISOString();
+  const to = pragueMidnight(`${shiftMonth(month, 1)}-01`).toISOString();
+  let q = supabase.from('case_time').select(TIME_SELECT).gte('started_at', from).lt('started_at', to).order('started_at');
+  if (!user.isAdmin) q = q.eq('staff_id', user.id);
+  const [{ data }, { data: staff }] = await Promise.all([q.returns<TimeWithCase[]>(), supabase.rpc('admin_staff')]);
   const names = new Map(((staff ?? []) as Array<{ id: string; name: string }>).map((s) => [s.id, s.name.split(' ')[0]]));
-  return { report: weekReport(monday, data ?? [], names), rows: data ?? [], names };
+  const all = data ?? [];
+  const who = user.isAdmin && kdo && names.has(kdo) ? kdo : null;
+  return {
+    report: monthReport(all, names, month),
+    rows: who ? all.filter((t) => t.staff_id === who) : all,
+    names,
+    who,
+    admin: user.isAdmin,
+    me: user.id,
+  };
 }

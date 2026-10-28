@@ -4,7 +4,8 @@ export type CaseKind = 'report' | 'question' | 'appeal' | 'content' | 'other';
 export type CaseStatus = 'open' | 'waiting' | 'resolved';
 export type CasePriority = 'high' | 'mid' | 'low';
 export type EventKind = 'note' | 'email' | 'user' | 'event';
-export type ModAction = 'warning' | 'hide_listings' | 'suspend' | 'ban' | 'lift' | 'expired' | 'plan' | 'verify';
+export type ModAction = 'warning' | 'hide_listings' | 'suspend' | 'ban' | 'lift' | 'expired' | 'plan' | 'verify'
+  | 'profile' | 'signout' | 'mfa_reset' | 'password_reset' | 'confirm_resend' | 'listing_hide' | 'listing_restore' | 'messages_view' | 'time_fix';
 export type RestrictionKind = 'hidden' | 'suspended' | 'banned';
 
 export const KIND: Record<CaseKind, string> = {
@@ -38,6 +39,9 @@ export interface CaseRow {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  snoozed_until: string | null;
+  merged_into: string | null;
+  last_user_at: string | null;
 }
 
 export interface CaseEvent {
@@ -52,7 +56,7 @@ export interface CaseEvent {
 
 export interface TimeRow {
   id: number;
-  case_id: string;
+  case_id: string | null;
   staff_id: string | null;
   started_at: string;
   ended_at: string | null;
@@ -156,68 +160,46 @@ export function minutesOf(t: Pick<TimeRow, 'started_at' | 'ended_at'>, now = Dat
   return Math.max(0, (end - new Date(t.started_at).getTime()) / 60000);
 }
 
-// --- Šablony odpovědí ---------------------------------------------------------
+// --- Hotové odpovědi (tabulka support_templates, upravuje správce v Týmu) ----------
 
-export interface Template { id: string; label: string; text: string }
-
-export const TEMPLATES: Template[] = [
-  {
-    id: 'ack',
-    label: 'Potvrzení přijetí',
-    text: 'Dobrý den,\n\nděkujeme za zprávu. Případ jsme převzali a ozveme se vám nejpozději do 2 dnů.\n\nTým podpory V4cards',
-  },
-  {
-    id: 'pay-proof',
-    label: 'Platba doložena, výzva prodejci',
-    text: 'Dobrý den,\n\nkupující u objednávky č. [číslo] doložil platbu [částka] Kč ze dne [datum]. Prosíme, zkontrolujte svůj účet a buď kartu odešlete, nebo peníze kupujícímu vraťte. Odpovězte nám prosím do [datum].\n\nV4cards peníze nepřijímá ani nevrací, platba šla přímo vám. Pokud se neozvete, můžeme podle čl. 13 obchodních podmínek omezit váš účet.\n\nTým podpory V4cards',
-  },
-  {
-    id: 'need-proof',
-    label: 'Prosba o doklad platby',
-    text: 'Dobrý den,\n\npro posouzení potřebujeme doklad o platbě (výpis nebo potvrzení z banky, PayPalu či Revolutu) s datem, částkou a příjemcem. Ostatní platby na výpisu prosím zakryjte. Doklad přiložte v Můj profil › Hlášení, nebo ho pošlete odpovědí na tento e-mail.\n\nTým podpory V4cards',
-  },
-  {
-    id: 'bank',
-    label: 'Doporučení: reklamace u banky',
-    text: 'Dobrý den,\n\nprodejce se k vaší platbě nevyjádřil. V4cards peníze nedrží, a proto je nemůže vrátit. Doporučujeme obrátit se na svou banku (u karetní platby reklamace, u PayPalu spor v Centru řešení). Podklady z hlášení vám rádi pošleme.\n\nTým podpory V4cards',
-  },
-  {
-    id: 'police',
-    label: 'Doporučení: trestní oznámení',
-    text: 'Dobrý den,\n\npokud máte za to, že šlo o podvod, můžete podat trestní oznámení na kterékoli služebně Policie ČR. Vezměte s sebou doklad o platbě a číslo objednávky. Na žádost policie jí předáme údaje, které o objednávce máme.\n\nTým podpory V4cards',
-  },
-  {
-    id: 'agreement',
-    label: 'Nezávazné doporučení k dohodě',
-    text: 'Dobrý den,\n\nprošli jsme podklady obou stran. Naše nezávazné doporučení: [doporučení]. Rozhodnutí je na vás a prodejci, V4cards spor nerozhoduje a peníze nedrží.\n\nTým podpory V4cards',
-  },
-  {
-    id: 'closed',
-    label: 'Uzavření případu',
-    text: 'Dobrý den,\n\npřípad uzavíráme. Kdybyste cokoli potřebovali, stačí odpovědět na tento e-mail.\n\nTým podpory V4cards',
-  },
-];
+export interface Template { id: string; label: string; body: string; sort: number }
 
 // --- Omezení účtu --------------------------------------------------------------
 
 export const MEASURES: Array<{ id: 'warning' | 'hide_listings' | 'suspend' | 'ban'; label: string; hint: string }> = [
   { id: 'warning', label: 'Upozornění', hint: 'Jen e-mail s odůvodněním, účet funguje dál' },
-  { id: 'hide_listings', label: 'Skrýt všechny nabídky', hint: 'Nabídky zmizí z webu a nové nejde vystavit, nakupovat může' },
+  { id: 'hide_listings', label: 'Skrýt nabídky', hint: 'Nabídky zmizí z webu a nové nejde vystavit, nakupovat může' },
   { id: 'suspend', label: 'Pozastavit účet', hint: 'Skryté nabídky, nemůže prodávat ani objednávat, rozpracované dokončí' },
   { id: 'ban', label: 'Zrušit účet', hint: 'Jen při závažném porušení. Obchodu 30 dní předem, pokud nejde o podvod' },
 ];
 
-export const REASONS: Array<{ id: string; label: string; article: string }> = [
-  { id: 'not_shipped', label: 'Neodeslání zaplacené karty', article: 'čl. 5 a 13' },
-  { id: 'cancel_paid', label: 'Opakované zrušení zaplacených objednávek', article: 'čl. 7 a 13' },
-  { id: 'unproven_payment', label: 'Nedoložená platba', article: 'čl. 7 a 13' },
-  { id: 'counterfeit', label: 'Padělek, kopie (proxy) nebo kradená karta', article: 'čl. 5 a 12' },
-  { id: 'misdescribed', label: 'Záměrně zkreslený stav nebo popis karty', article: 'čl. 5 a 12' },
-  { id: 'fake', label: 'Falešné nabídky, objednávky nebo hodnocení', article: 'čl. 11 a 12' },
-  { id: 'harassment', label: 'Obtěžování nebo nezákonný obsah', article: 'čl. 12' },
-  { id: 'hidden_shop', label: 'Obchod vydávající se za sběratele', article: 'čl. 5' },
-  { id: 'accounts', label: 'Více účtů nebo zneužití cizího účtu', article: 'čl. 4 a 12' },
-  { id: 'other', label: 'Jiné porušení obchodních podmínek', article: 'čl. 13' },
+export type ReasonGroup = 'orders' | 'content' | 'conduct';
+export const REASON_GROUPS: Array<{ id: ReasonGroup; label: string }> = [
+  { id: 'orders', label: 'OBJEDNÁVKY' },
+  { id: 'content', label: 'NABÍDKY A OBSAH' },
+  { id: 'conduct', label: 'CHOVÁNÍ A ÚČET' },
+];
+
+/** Důvody omezení podle podmínek (DS Support › Omezit účet). hidden_shop zůstává jen kvůli starým záznamům. */
+export const REASONS: Array<{ id: string; label: string; article: string; group: ReasonGroup | null }> = [
+  { id: 'not_shipped', label: 'Neodeslané zboží po zaplacení', article: 'čl. 5 a 13', group: 'orders' },
+  { id: 'cancel_paid', label: 'Zrušení zaplacených objednávek', article: 'čl. 7 a 13', group: 'orders' },
+  { id: 'unproven_payment', label: 'Platba neprokázána', article: 'čl. 7 a 13', group: 'orders' },
+  { id: 'misdescribed', label: 'Neodpovídá popisu', article: 'čl. 5 a 12', group: 'orders' },
+  { id: 'counterfeit', label: 'Padělek nebo kopie karty', article: 'čl. 5 a 12', group: 'content' },
+  { id: 'prohibited', label: 'Zakázané zboží', article: 'čl. 5 a 12', group: 'content' },
+  { id: 'fake', label: 'Manipulace s cenou nebo hodnocením', article: 'čl. 11 a 12', group: 'content' },
+  { id: 'spam', label: 'Spam a opakované nabídky', article: 'čl. 12', group: 'content' },
+  { id: 'offensive', label: 'Urážlivý obsah obchodu', article: 'čl. 12', group: 'content' },
+  { id: 'fraud', label: 'Podvod nebo pokus o podvod', article: 'čl. 12 a 13', group: 'conduct' },
+  { id: 'phishing', label: 'Phishing, platba mimo dohodnutý postup', article: 'čl. 7 a 12', group: 'conduct' },
+  { id: 'impersonation', label: 'Vydávání se za jiného', article: 'čl. 4 a 12', group: 'conduct' },
+  { id: 'harassment', label: 'Obtěžování', article: 'čl. 12', group: 'conduct' },
+  { id: 'illegal', label: 'Nezákonný obsah', article: 'čl. 12', group: 'conduct' },
+  { id: 'report_abuse', label: 'Zneužívání nahlašování', article: 'čl. 12', group: 'conduct' },
+  { id: 'accounts', label: 'Více účtů, skrytý obchod', article: 'čl. 4, 5 a 12', group: 'conduct' },
+  { id: 'other', label: 'Jiné porušení obchodních podmínek', article: 'čl. 13', group: null },
+  { id: 'hidden_shop', label: 'Obchod vydávající se za sběratele', article: 'čl. 5', group: null },
 ];
 export const reasonOf = (id: string | null) => REASONS.find((r) => r.id === id);
 
@@ -237,6 +219,15 @@ export const ACTION_LABEL: Record<ModAction, string> = {
   expired: 'Omezení skončilo',
   plan: 'Změna tarifu',
   verify: 'Ověření prodejce',
+  profile: 'Úprava údajů účtu',
+  signout: 'Odhlášení ze všech zařízení',
+  mfa_reset: 'Vypnuté dvoufázové ověření',
+  password_reset: 'Odkaz na nové heslo',
+  confirm_resend: 'Nové potvrzení e-mailu',
+  listing_hide: 'Skrytá nabídka',
+  listing_restore: 'Obnovená nabídka',
+  messages_view: 'Otevřené zprávy mezi stranami',
+  time_fix: 'Oprava času',
 };
 
 export const RESTRICTION_LABEL: Record<RestrictionKind, string> = {
@@ -244,6 +235,9 @@ export const RESTRICTION_LABEL: Record<RestrictionKind, string> = {
   suspended: 'Pozastaveno',
   banned: 'Zrušený účet',
 };
+
+/** Rozloučení pod e-maily podpory. */
+export const SIGNATURE = 'S pozdravem\ntým V4cards\npodpora@v4cards.com · v4cards.com';
 
 export interface RestrictionMail { subject: string; paragraphs: Array<{ title?: string; text: string }> }
 
@@ -283,7 +277,7 @@ export function restrictionMail(p: {
       { title: 'Z čeho vycházíme:', text: p.facts.trim() || '…' },
       { text: 'O opatření rozhodl člověk z týmu V4cards, automatické nástroje jsme nepoužili.' },
       { title: 'Jak se ohradit:', text: 'odpovězte na tento e-mail do 6 měsíců. Stížnost posoudí jiný člověk než ten, kdo rozhodl, a odpovíme bez zbytečného odkladu. Spor můžete řešit i u soudu.' },
-      { text: 'Tým podpory V4cards' },
+      { text: SIGNATURE },
     ],
   };
 }
@@ -294,7 +288,7 @@ export function liftMail(name: string, caseNumber?: number | null): RestrictionM
     paragraphs: [
       { text: 'Dobrý den,' },
       { text: `omezení účtu ${name} jsme zrušili. Nabídky jsou znovu vidět a účet funguje jako dřív.` },
-      { text: 'Tým podpory V4cards' },
+      { text: SIGNATURE },
     ],
   };
 }
@@ -313,55 +307,36 @@ export function isoToPragueLocal(iso: string): string {
   return `${pragueDay(d)}T${time}`;
 }
 
-export interface WeekReport {
-  monday: string;
-  days: string[];
-  people: Array<{ id: string; name: string; days: number[]; total: number }>;
-  kinds: Array<{ kind: CaseKind; minutes: number }>;
-  top: Array<{ number: number; subject: string; who: string; minutes: number }>;
+export type TimeWithCase = TimeRow & { support_cases: { number: number; subject: string; kind: CaseKind; status: CaseStatus; resolved_at: string | null } | null };
+
+export interface MonthReport {
+  people: Array<{ id: string; name: string; cases: number; other: number; total: number; count: number }>;
+  total: number;
   resolved: number;
   avgPerResolved: number;
 }
 
-/** Výkaz času za týden od pondělí (pražský čas). Záznam patří do dne, kdy začal. */
-export function weekReport(
-  monday: string,
-  rows: Array<TimeRow & { support_cases: { number: number; subject: string; kind: CaseKind; status: CaseStatus; resolved_at: string | null } | null }>,
-  staff: Map<string, string>,
-): WeekReport {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const people = new Map<string, { id: string; name: string; days: number[]; total: number }>();
-  const kinds = new Map<CaseKind, number>();
-  const perCase = new Map<string, { number: number; subject: string; who: Map<string, number>; minutes: number }>();
+/** Výkaz času za měsíc (pražský čas). Záznam patří do dne, kdy začal; bez případu = Ostatní práce. */
+export function monthReport(rows: TimeWithCase[], staff: Map<string, string>, month: string): MonthReport {
+  const people = new Map<string, MonthReport['people'][number] & { ids: Set<string> }>();
+  const perCase = new Map<string, number>();
   const resolvedCases = new Set<string>();
+  let total = 0;
   for (const t of rows) {
     const m = minutesOf(t);
-    const idx = days.indexOf(pragueDay(t.started_at));
-    if (idx < 0) continue;
     const sid = t.staff_id ?? '?';
-    const p = people.get(sid) ?? { id: sid, name: staff.get(sid) ?? 'smazaný účet', days: Array(7).fill(0), total: 0 };
-    p.days[idx] += m;
+    const p = people.get(sid) ?? { id: sid, name: staff.get(sid) ?? 'smazaný účet', cases: 0, other: 0, total: 0, count: 0, ids: new Set<string>() };
+    if (t.case_id) { p.cases += m; p.ids.add(t.case_id); perCase.set(t.case_id, (perCase.get(t.case_id) ?? 0) + m); } else p.other += m;
     p.total += m;
+    total += m;
     people.set(sid, p);
     const c = t.support_cases;
-    if (!c) continue;
-    kinds.set(c.kind, (kinds.get(c.kind) ?? 0) + m);
-    const pc = perCase.get(t.case_id) ?? { number: c.number, subject: c.subject, who: new Map(), minutes: 0 };
-    pc.minutes += m;
-    pc.who.set(p.name, (pc.who.get(p.name) ?? 0) + m);
-    perCase.set(t.case_id, pc);
-    if (c.status === 'resolved' && c.resolved_at && days.includes(pragueDay(c.resolved_at))) resolvedCases.add(t.case_id);
+    if (t.case_id && c?.status === 'resolved' && c.resolved_at && pragueDay(c.resolved_at).startsWith(month)) resolvedCases.add(t.case_id);
   }
-  const resolvedMinutes = [...resolvedCases].reduce((s, id) => s + (perCase.get(id)?.minutes ?? 0), 0);
+  const resolvedMinutes = [...resolvedCases].reduce((s, id) => s + (perCase.get(id) ?? 0), 0);
   return {
-    monday,
-    days,
-    people: [...people.values()].sort((a, b) => b.total - a.total),
-    kinds: [...kinds.entries()].map(([kind, minutes]) => ({ kind, minutes })).sort((a, b) => b.minutes - a.minutes),
-    top: [...perCase.values()].sort((a, b) => b.minutes - a.minutes).slice(0, 5).map((c) => ({
-      number: c.number, subject: c.subject, minutes: c.minutes,
-      who: [...c.who.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
-    })),
+    people: [...people.values()].map(({ ids, ...p }) => ({ ...p, count: ids.size })).sort((a, b) => b.total - a.total),
+    total,
     resolved: resolvedCases.size,
     avgPerResolved: resolvedCases.size ? resolvedMinutes / resolvedCases.size : 0,
   };
@@ -369,9 +344,25 @@ export function weekReport(
 
 export const TIME_SELECT = '*, support_cases(number, subject, kind, status, resolved_at)';
 
-/** Pondělí z parametru ?od=, jinak tento týden. */
-export function weekFrom(od?: string): string {
-  return mondayOf(od && /^\d{4}-\d{2}-\d{2}$/.test(od) ? od : pragueDay(new Date()));
+/** Měsíc z parametru ?mesic=2026-10, jinak tento měsíc. */
+export function monthFrom(m?: string): string {
+  return m && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : pragueDay(new Date()).slice(0, 7);
+}
+
+export function shiftMonth(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+const MONTHS = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
+export const monthName = (month: string) => `${MONTHS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+
+/** Odkud případ přišel (sloupec ODKUD ve frontě). */
+export function caseOrigin(c: Pick<CaseRow, 'kind' | 'created_by'>): string {
+  if (c.kind === 'report') return 'Hlášení objednávky';
+  if (c.kind === 'content') return 'Nahlášení';
+  return c.created_by ? 'Podpora' : 'Formulář';
 }
 
 /** Témata formuláře Napsat podpoře (DS Support › Napsat podpoře); popisky hlídá i databáze (support_topic_label). */

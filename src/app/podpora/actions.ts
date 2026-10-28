@@ -4,7 +4,7 @@ import { siteOrigin } from '@/lib/auth-helpers';
 import { sendSupportEmail } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { caseCode, SUPPORT_TOPICS } from '@/lib/support';
+import { caseCode, SIGNATURE, SUPPORT_TOPICS } from '@/lib/support';
 
 export interface ContactState {
   ok?: number;
@@ -47,7 +47,7 @@ export async function contactSupport(form: FormData): Promise<ContactState> {
       { text: 'Dobrý den,' },
       { text: `děkujeme za zprávu, má číslo ${code}. Odpověď vám pošleme e-mailem, nejpozději do 2 dnů. Pokud chcete něco doplnit, odpovězte na tento e-mail.` },
       { title: 'Vaše zpráva:', text: body },
-      { text: 'Tým podpory V4cards' },
+      { text: SIGNATURE },
     ], await siteOrigin(), false);
   }
 
