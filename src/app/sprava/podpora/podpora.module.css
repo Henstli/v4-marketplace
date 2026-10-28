@@ -202,3 +202,7 @@ textarea.input { resize: vertical; min-height: 120px; line-height: 1.5; }
   .search { margin-left: 0; width: 100%; }
   .tableWrap { overflow-x: auto; }
 }
+
+/* Nahlášený obsah */
+.snapshot { display: flex; flex-direction: column; gap: 4px; padding: 12px; background: var(--surface-sunken); border-radius: var(--radius-md); overflow-wrap: anywhere; }
+.btnWarn { background: var(--down-tint); color: var(--down); border-color: color-mix(in srgb, var(--down) 45%, var(--line)); }

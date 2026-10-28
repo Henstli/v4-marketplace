@@ -3,6 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { siteOrigin } from '@/lib/auth-helpers';
+import {
+  CONTENT_REASON, contentCode, KIND_NOUN, REASON_ARTICLE, snapshotLine,
+  type ContentKind, type ContentReason, type ContentSnapshot,
+} from '@/lib/content-reports';
 import { sendSupportEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -283,4 +287,69 @@ async function mailUser(
     });
   }
   return ok;
+}
+
+// --- Nahlášený obsah ---------------------------------------------------------
+
+const YOURS: Partial<Record<ContentKind, string>> = { listing: 'vaši nabídku', message: 'vaši zprávu', review: 'vaše hodnocení' };
+
+/**
+ * Rozhodnutí o nahlášeném obsahu (DS Support › Nahlášený obsah). Databáze skryje obsah a vyřeší případ,
+ * tady e-maily: nahlašitelům výsledek, autorovi při skrytí odůvodnění (DSA čl. 17).
+ */
+export async function decideContent(form: FormData) {
+  const { supabase, me } = await staff();
+  const c = await caseOf(supabase, str(form, 'case_id', 40));
+  if (!c) back('/sprava/podpora', { chyba: 'Případ neexistuje' });
+  const path = `/sprava/podpora/${c.number}`;
+  const decision = str(form, 'decision', 10) === 'removed' ? 'removed' : 'kept';
+  const facts = str(form, 'facts', 4000);
+  const { data: reasons } = await supabase.from('content_reports').select('reason').eq('case_id', c.id).is('decision', null);
+  const { data, error } = await supabase.rpc('admin_decide_content', { p_case: c.id, p_decision: decision, p_facts: facts || null });
+  if (error) back(path, { chyba: error.message });
+  const r = ((data ?? []) as Array<{
+    target_kind: ContentKind; author_email: string | null; author_name: string | null;
+    reporter_emails: string[]; numbers: number[]; snapshot: ContentSnapshot;
+  }>)[0];
+  if (!r) back(path, { chyba: 'Rozhodnutí se nepodařilo uložit' });
+
+  const origin = await siteOrigin();
+  const codes = r.numbers.map(contentCode).join(', ');
+  const what = snapshotLine(r.target_kind, r.snapshot);
+  const sentTo: string[] = [];
+  // Nahlašitelé: každý zvlášť, bez kopie (jde o hromadné oznámení, ne o konverzaci).
+  const reporterMails = await Promise.all(r.reporter_emails.map((email) => sendSupportEmail([email], `Výsledek nahlášení ${codes}`, [
+    { text: 'Dobrý den,' },
+    { text: decision === 'removed'
+      ? `děkujeme za nahlášení. Prověřili jsme ho a obsah (${KIND_NOUN[r.target_kind]}: ${what}) jsme skryli.`
+      : `děkujeme za nahlášení. Prověřili jsme ho a obsah (${KIND_NOUN[r.target_kind]}: ${what}) podle nás pravidla V4cards neporušuje, proto zůstává.` },
+    { text: 'Rozhodl člověk z týmu V4cards. Pokud nesouhlasíte, odpovězte na tento e-mail do 6 měsíců a podíváme se na to znovu.' },
+    { text: 'Tým podpory V4cards' },
+  ], origin, false)));
+  if (reporterMails.some(Boolean)) sentTo.push(`${reporterMails.filter(Boolean).length}× nahlašitel`);
+
+  if (decision === 'removed' && r.author_email) {
+    const yours = YOURS[r.target_kind];
+    const reasonList = [...new Set((reasons ?? []).map((x) => x.reason as ContentReason))];
+    const ok = await sendSupportEmail([r.author_email], `Skryli jsme ${yours} na V4cards`, [
+      { text: `Dobrý den${r.author_name ? `, ${r.author_name}` : ''},` },
+      { text: `na základě nahlášení jsme skryli ${yours}: ${what}.` },
+      { text: `Důvod: ${reasonList.map((x) => `${CONTENT_REASON[x]} (obchodní podmínky ${REASON_ARTICLE[x]})`).join('; ') || 'porušení obchodních podmínek'}.` },
+      { text: `Z čeho vycházíme: ${facts}` },
+      { text: 'Skrytý je jen tento obsah, váš účet omezený není. Rozhodl člověk z týmu V4cards, ne automat.' },
+      { text: 'Pokud nesouhlasíte, odpovězte na tento e-mail do 6 měsíců a vysvětlete proč. Rozhodnutí znovu prověříme a odpovíme vám. Můžete se také obrátit na mimosoudní řešení sporů nebo na soud.' },
+      { text: 'Tým podpory V4cards' },
+    ], origin);
+    if (ok) sentTo.push(r.author_name ?? r.author_email);
+  }
+  if (sentTo.length) {
+    await supabase.from('case_events').insert({
+      case_id: c.id, kind: 'email', author_id: me, recipients: sentTo.join(', '),
+      body: decision === 'removed' ? 'Výsledek nahlašitelům a odůvodnění autorovi' : 'Výsledek nahlašitelům',
+    });
+  }
+  revalidatePath(path);
+  revalidatePath('/sprava/podpora');
+  revalidatePath('/karty', 'layout');
+  back(path, { ok: decision === 'removed' ? `Obsah skryt${sentTo.length ? `, e-mail: ${sentTo.join(', ')}` : ''}` : 'Obsah ponechán, nahlašitelé dostali výsledek' });
 }

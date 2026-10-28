@@ -11,6 +11,7 @@ import {
   type CaseRow, type ModAction, type RestrictionKind,
 } from '@/lib/support';
 import { liftRestriction } from '../../actions';
+import { CONTENT_REASON, KIND_NOUN, REASON_ARTICLE, type ContentKind, type ContentReason } from '@/lib/content-reports';
 import styles from '../../podpora.module.css';
 
 export const metadata: Metadata = { title: 'Uživatel · podpora' };
@@ -41,6 +42,11 @@ export default async function SupportUserPage({ params, searchParams }: Props) {
       .order('created_at', { ascending: false }).limit(30),
     supabase.rpc('admin_staff'),
   ]);
+  // Skrytý obsah po nahlášení (jedno rozhodnutí za případ).
+  const { data: removedRows } = await supabase.from('content_reports').select('case_id, target_kind, reason, facts, decided_at, decided_by')
+    .eq('author_id', id).eq('decision', 'removed').order('decided_at', { ascending: false }).limit(50);
+  const removed = [...new Map(((removedRows ?? []) as Array<{ case_id: string | null; target_kind: ContentKind; reason: ContentReason; facts: string | null; decided_at: string; decided_by: string | null }>)
+    .map((x) => [x.case_id ?? x.decided_at, x])).values()];
   const info = infoData as UserInfo | null;
   const staffName = new Map(((staff ?? []) as Array<{ id: string; name: string }>).map((s) => [s.id, s.name.split(' ')[0]]));
   const r = info?.restriction;
@@ -115,7 +121,17 @@ export default async function SupportUserPage({ params, searchParams }: Props) {
                 <span className={styles.small}>{a.staff_id ? staffName.get(a.staff_id) ?? 'správce' : 'systém'}</span>
               </li>
             ))}
-            {!actions?.length ? <li className={styles.small}>Bez záznamu.</li> : null}
+            {removed.map((x) => (
+              <li key={`c-${x.case_id ?? x.decided_at}`} className={styles.hist}>
+                <span className={styles.small}>{formatDateTime(x.decided_at)}</span>
+                <span>
+                  <strong>Skrytý obsah: {KIND_NOUN[x.target_kind]}</strong>
+                  <span className={styles.small}>{[`${CONTENT_REASON[x.reason]} (${REASON_ARTICLE[x.reason]})`, x.facts].filter(Boolean).join(' · ')}</span>
+                </span>
+                <span className={styles.small}>{x.decided_by ? staffName.get(x.decided_by) ?? 'správce' : 'systém'}</span>
+              </li>
+            ))}
+            {!actions?.length && !removed.length ? <li className={styles.small}>Bez záznamu.</li> : null}
           </ul>
         </section>
 

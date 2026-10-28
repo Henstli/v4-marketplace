@@ -7,6 +7,7 @@ import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { WatchButton } from '@/components/WatchButton';
 import { ProposePrice } from '@/components/offers/ProposePrice';
+import { ReportContent } from '@/components/reports/ReportContent';
 import { getCardBySlug, getOffers, getReservedOffers, type Offer, type ReservedOffer } from '@/lib/catalog';
 import type { CardSummary } from '@/lib/types';
 import { getGame } from '@/lib/games';
@@ -200,6 +201,15 @@ export default async function CardDetailPage({ params }: Props) {
                         {'reservedUntil' in o ? <WatchButton cardId={card.id} size="md" compact />
                           : o.price == null ? <ProposePrice listingId={o.id} sellerId={o.seller.id} max={o.quantity} />
                           : <AddToCartButton item={cartItem(card, o, o.price)} />}
+                        <ReportContent
+                          kind="listing"
+                          target={o.id}
+                          variant="menu"
+                          preview={{
+                            title: `${card.name} · ${card.setCode} ${card.number}`,
+                            lines: [`${o.seller.name} · ${o.condition} · ${LANGUAGE_NAMES[o.language]}${o.price != null ? ` · ${formatNumber(o.price)} Kč` : ''}`],
+                          }}
+                        />
                       </div>
                     </td>
                   </tr>

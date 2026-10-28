@@ -59,6 +59,13 @@ export default function PrivacyPage() {
             předáme údaje jen na její žádost podle zákona.
           </li>
           <li>
+            <strong>Nahlášení obsahu a podpora:</strong> když nahlásíte nabídku, prodejce, zprávu nebo hodnocení,
+            uložíme důvod, popis, váš účet (nebo jméno a e-mail, pokud nejste přihlášení) a záznam nahlášeného obsahu.
+            Nahlášenému neprozradíme, kdo ho nahlásil. U komunikace s podporou ukládáme e-maily a poznámky k případu.
+            Účel: vyřízení nahlášení a dotazů a ochrana uživatelů (náš oprávněný zájem, povinnost podle nařízení o
+            digitálních službách).
+          </li>
+          <li>
             <strong>Návrhy karet:</strong> údaje o kartě a fotka, kterou nahrajete. Po schválení se fotka zobrazí v
             katalogu.
           </li>
@@ -86,7 +93,8 @@ export default function PrivacyPage() {
           údaje u objednávky smažeme 30 dní po jejím uzavření (převzetí, zrušení, odmítnutí nebo vypršení), u
           objednávky zůstane jen město. Přílohy hlášení smažeme 90 dní po uzavření hlášení. Záznam o hlášení (bez
           příloh a platebních údajů) uchováváme po dobu trvání účtu, nejdéle 3 roky od uzavření, kvůli opakovaným
-          podvodům a případným soudním sporům. Uloženou adresu v účtu smažeme, když ji smažete vy nebo zrušíte účet.
+          podvodům a případným soudním sporům. Případy podpory a nahlášení obsahu smažeme 3 roky po vyřešení, stejně
+          jako záznamy o omezení účtu 3 roky po jeho skončení. Uloženou adresu v účtu smažeme, když ji smažete vy nebo zrušíte účet.
         </p>
 
         <h2 className="t-heading-m">Vaše práva</h2>

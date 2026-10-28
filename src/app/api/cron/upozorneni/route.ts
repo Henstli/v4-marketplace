@@ -13,7 +13,10 @@ export async function GET(request: Request) {
   const origin = 'https://www.v4cards.com';
   const sent = await flushWatchAlerts(origin);
   const purged = await purgeOldReportFiles();
-  return Response.json({ sent, purged });
+  // Případy podpory, hlášení, nahlášení obsahu a záznamy moderace po 3 letech (purge_support_records).
+  const admin = createAdminClient();
+  const retention = admin ? (await admin.rpc('purge_support_records')).data : null;
+  return Response.json({ sent, purged, retention });
 }
 
 /**

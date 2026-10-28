@@ -15,3 +15,10 @@
 .stars[data-low] { color: var(--down); }
 .tag { padding: 3px 8px; border-radius: var(--radius-pill); background: var(--down-tint); color: var(--down); font-size: 11px; font-weight: 600; }
 .reply { padding: 8px 10px; background: var(--surface); border-radius: 8px; font-size: 13px; }
+
+.reviewFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

@@ -19,6 +19,8 @@ export interface StockItem {
   quantity: number;
   /** Odložené kusy nabídky skryté podporou (null = neskrytá) */
   hidden?: number | null;
+  /** Nabídku po nahlášení odstranila podpora (vrátit ji nejde) */
+  removed?: boolean;
   card: { slug: string; name: string; setName: string; setCode: string; number: string; image: string | null; game: string | null } | null;
 }
 
@@ -128,7 +130,7 @@ export function StockTable({ items }: { items: StockItem[] }) {
                 <td><span className="code">{l.condition}</span></td>
                 <td className="tz-muted">{LANGUAGE_NAMES[l.language as Language] ?? l.language}</td>
                 <td className="tz-num">{l.price != null ? <Price amount={l.price} /> : <span className="muted">Dohodou</span>}</td>
-                <td className="tz-num">{l.hidden != null ? <Status tone="warn">Skrytá podporou{l.hidden ? ` · ${l.hidden} ks` : ''}</Status> : l.quantity > 0 ? l.quantity : <Status tone="muted">Stažená</Status>}</td>
+                <td className="tz-num">{l.removed ? <Status tone="warn">Odstraněno podporou</Status> : l.hidden != null ? <Status tone="warn">Skrytá podporou{l.hidden ? ` · ${l.hidden} ks` : ''}</Status> : l.quantity > 0 ? l.quantity : <Status tone="muted">Stažená</Status>}</td>
               </tr>
             ))}
             {!shown.length ? <tr><td colSpan={6} className="tz-muted">Nic neodpovídá hledání.</td></tr> : null}

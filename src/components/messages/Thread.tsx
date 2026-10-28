@@ -23,6 +23,7 @@ import { PaidViaRow } from '@/components/orders/PaidViaRow';
 import { ReportStrip } from '@/components/reports/ReportStrip';
 import { ReportDialog } from '@/components/reports/ReportForm';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
+import { ReportContent } from '@/components/reports/ReportContent';
 import styles from './messages.module.css';
 
 // Zprávy jednoho odesílatele do 5 minut tvoří skupinu, čas je až pod poslední z nich.
@@ -416,7 +417,14 @@ export function Thread({ to, name, messages, initialText, listing, wasUnread, my
     return (
       <div key={m.id} className={styles.msgWrap} data-mine={m.mine ? '' : undefined}>
         {m.listing ? <ListingLink l={m.listing} mine={m.mine} /> : null}
-        <div className={`${styles.bubble} ${m.mine ? styles.me : styles.them}`}>{m.body}</div>
+        {!m.mine && !m.hidden && m.id > 0 ? (
+          <div className={styles.bubbleRow} data-last={groupEnd ? '' : undefined}>
+            <div className={`${styles.bubble} ${styles.them}`}>{m.body}</div>
+            <ReportContent kind="message" target={String(m.id)} variant="chat" className={styles.msgReport} preview={{ title: `Zpráva od ${name}`, lines: [m.body.slice(0, 160)] }} />
+          </div>
+        ) : (
+          <div className={`${styles.bubble} ${m.mine ? styles.me : styles.them} ${m.hidden ? styles.hiddenMsg : ''}`}>{m.body}</div>
+        )}
         {groupEnd ? <span className={styles.time}>{clock(m.createdAt)}</span> : null}
       </div>
     );

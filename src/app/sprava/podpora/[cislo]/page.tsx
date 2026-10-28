@@ -14,7 +14,8 @@ import {
   caseCode, dueGroup, dueText, hm, hmLong, isoToPragueLocal, KIND, minutesOf, PRIORITY, STATUS,
   type CaseEvent, type CasePriority, type CaseRow, type CaseStatus, type TimeRow,
 } from '@/lib/support';
-import { addTime, fixTime, startTimer, stopTimer, updateCase } from '../actions';
+import { addTime, decideContent, fixTime, startTimer, stopTimer, updateCase } from '../actions';
+import { CONTENT_REASON, contentCode, KIND_NOUN, type ContentKind, type ContentReason, type ContentSnapshot } from '@/lib/content-reports';
 import styles from '../podpora.module.css';
 
 type Props = { params: Promise<{ cislo: string }>; searchParams: Promise<{ ok?: string; chyba?: string }> };
@@ -22,6 +23,13 @@ type Props = { params: Promise<{ cislo: string }>; searchParams: Promise<{ ok?: 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { cislo } = await params;
   return { title: `${caseCode(Number(cislo) || 0)} · podpora` };
+}
+
+interface ContentRow {
+  id: string; number: number; target_kind: ContentKind; listing_id: string | null; message_id: number | null; review_id: string | null;
+  author_id: string | null; url: string | null; reason: ContentReason; body: string; reporter_id: string | null;
+  reporter_name: string | null; reporter_email: string | null; snapshot: ContentSnapshot; decision: 'kept' | 'removed' | null;
+  facts: string | null; decided_at: string | null; created_at: string;
 }
 
 interface AdminOrder { id: string; number: number; status: string; buyer_id: string | null; seller_id: string | null; total_czk: number; shipping_czk: number }
@@ -43,6 +51,9 @@ export default async function CasePage({ params, searchParams }: Props) {
     c.report_id ? supabase.from('reports').select(REPORT_SELECT).eq('id', c.report_id).maybeSingle<ReportRow>() : Promise.resolve({ data: null }),
     c.order_id ? supabase.rpc('admin_orders', { p_ids: [c.order_id] }) : Promise.resolve({ data: [] }),
   ]);
+  const { data: content } = c.kind === 'content'
+    ? await supabase.from('content_reports').select('*').eq('case_id', c.id).order('created_at').returns<ContentRow[]>()
+    : { data: null };
   const order = ((orders ?? []) as AdminOrder[])[0] ?? null;
   // Správce cizí objednávky přes RLS nevidí, údaje doplníme z admin_orders.
   if (report && order) report.orders = { number: order.number, buyer_id: order.buyer_id, seller_id: order.seller_id, total_czk: order.total_czk, shipping_czk: order.shipping_czk };
@@ -111,6 +122,8 @@ export default async function CasePage({ params, searchParams }: Props) {
             ))}
             {!events?.length ? <li className={styles.small}>Zatím žádné události.</li> : null}
           </ol>
+
+          {content?.length ? <ContentPanel caseId={c.id} rows={content} name={name} /> : null}
 
           <ReplyBox caseId={c.id} number={c.number} targets={targets} />
 
@@ -230,5 +243,81 @@ export default async function CasePage({ params, searchParams }: Props) {
         </aside>
       </div>
     </div>
+  );
+}
+
+/** Nahlášený obsah: záznam obsahu v době nahlášení, všechna nahlášení a rozhodnutí (DS Support › Nahlášený obsah). */
+function ContentPanel({ caseId, rows, name }: { caseId: string; rows: ContentRow[]; name: (id: string | null) => string }) {
+  const first = rows[0];
+  const s = first.snapshot ?? {};
+  const kind = first.target_kind;
+  const open = rows.some((r) => !r.decision);
+  const decided = rows.find((r) => r.decision);
+  const canHide = kind === 'listing' || kind === 'message' || kind === 'review';
+  const hideLabel = kind === 'listing' ? 'Skrýt nabídku' : kind === 'message' ? 'Skrýt zprávu' : 'Skrýt hodnocení';
+  return (
+    <section className={styles.box} aria-label="Nahlášený obsah">
+      <h2 className={styles.boxTitle}>NAHLÁŠENÝ OBSAH · {KIND_NOUN[kind].toUpperCase()}</h2>
+      <div className={styles.snapshot}>
+        {kind === 'listing' ? (
+          <>
+            <strong>{s.slug ? <Link href={`/karty/${s.slug}`}>{s.card}</Link> : s.card}</strong>
+            <span className={styles.small}>{[s.set, s.number].filter(Boolean).join(' ')} · {s.condition}{s.graded ? ` · ${s.graded}` : ''} · {s.language} · {s.price != null ? formatPrice(s.price) : 'dohodou'} · {s.quantity} ks</span>
+            {s.note ? <span>Poznámka: {s.note}</span> : null}
+            <span className={styles.small}>Prodejce: {first.author_id ? <Link href={`/sprava/podpora/uzivatele/${first.author_id}`}>{s.seller ?? name(first.author_id)}</Link> : s.seller}</span>
+          </>
+        ) : kind === 'seller' ? (
+          <>
+            <strong>{first.author_id ? <Link href={`/sprava/podpora/uzivatele/${first.author_id}`}>{s.name}</Link> : s.name}</strong>
+            {s.tagline ? <span>{s.tagline}</span> : null}
+            <span className={styles.small}>{s.kind === 'shop' ? 'Obchod' : 'Sběratel'}</span>
+          </>
+        ) : kind === 'message' ? (
+          <>
+            <span className={styles.msgBody}>{s.body}</span>
+            <span className={styles.small}>Od {s.sender ?? name(first.author_id)}{s.sent_at ? ` · ${formatDateTime(s.sent_at)}` : ''}</span>
+          </>
+        ) : kind === 'review' ? (
+          <>
+            <strong>{s.rating} z 5</strong>
+            {s.comment ? <span>„{s.comment}“</span> : null}
+            {s.reply ? <span className={styles.small}>Odpověď prodejce: {s.reply}</span> : null}
+          </>
+        ) : (
+          <span>{first.url ? <a href={first.url} target="_blank" rel="noreferrer noopener">{first.url}</a> : 'Bez odkazu'}</span>
+        )}
+      </div>
+      <ul className={styles.times}>
+        {rows.map((r) => (
+          <li key={r.id}>
+            <span>
+              <strong>{contentCode(r.number)}</strong> · {CONTENT_REASON[r.reason]} · {r.reporter_id ? name(r.reporter_id) : `${r.reporter_name ?? ''} ${r.reporter_email ?? ''}`.trim()} · {formatDateTime(r.created_at)}
+              {r.url && kind !== 'other' ? <> · {r.url}</> : null}
+              <br />{r.body}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {open ? (
+        <form action={decideContent} className={styles.field}>
+          <input type="hidden" name="case_id" value={caseId} />
+          <label className={styles.field}>Z čeho vycházíte {canHide ? '(při skrytí to uvidí autor)' : ''}
+            <textarea className={styles.input} name="facts" rows={3} maxLength={4000} placeholder="Např. fotka je stažená z cizí aukce, karta v této edici neexistuje…" />
+          </label>
+          <div className={styles.row}>
+            <Button type="submit" name="decision" value="kept" variant="secondary">V pořádku</Button>
+            {canHide ? <Button type="submit" name="decision" value="removed" variant="secondary" className={styles.btnWarn}>{hideLabel}</Button> : null}
+            {first.author_id ? <Link className={styles.link} href={`/sprava/podpora/uzivatele/${first.author_id}/omezit?pripad=${caseId}`}>Omezit účet…</Link> : null}
+          </div>
+          <p className={styles.small}>
+            V pořádku: nahlašitelé dostanou výsledek e-mailem. {canHide ? `${hideLabel}: obsah zmizí z webu a autor dostane e-mail s důvodem a možností se ohradit. ` : ''}Případ se tím vyřeší.
+          </p>
+        </form>
+      ) : decided ? (
+        <p className={styles.small}>
+          {decided.decision === 'removed' ? 'Obsah skryt' : 'Ponecháno'} · {decided.decided_at ? formatDateTime(decided.decided_at) : ''}{decided.facts ? ` · ${decided.facts}` : ''}
+        </p>
+      ) : null}
+    </section>
   );
 }

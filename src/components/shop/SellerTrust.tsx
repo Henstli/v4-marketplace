@@ -1,6 +1,7 @@
 import { formatDate } from '@/lib/format';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createPublicClient } from '@/lib/supabase/public';
+import { ReportContent } from '@/components/reports/ReportContent';
 import styles from './trust.module.css';
 
 /**
@@ -49,7 +50,10 @@ export async function SellerTrust({ sellerId }: { sellerId: string }) {
                 {cancelled.has(r.order_id) ? <span className={styles.tag}>Zrušeno po zaplacení</span> : null}
               </div>
               {r.comment?.trim() ? <blockquote>{r.comment.trim()}</blockquote> : null}
-              <figcaption className="t-small muted">{formatDate(r.created_at)}</figcaption>
+              <figcaption className={`t-small muted ${styles.reviewFoot}`}>
+                {formatDate(r.created_at)}
+                <ReportContent kind="review" target={r.order_id} variant="link" label="Nahlásit" preview={{ title: `${r.rating} z 5`, lines: r.comment?.trim() ? [r.comment.trim().slice(0, 160)] : [] }} />
+              </figcaption>
               {r.reply ? <div className={styles.reply}><strong>Odpověď prodejce:</strong> {r.reply}</div> : null}
             </figure>
           ))}
