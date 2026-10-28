@@ -93,7 +93,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
         if (!o.buyerPaidAt) return seller ? 'Kupující zaplatí předem. Až klikne na Zaplaceno, zkontrolujete platbu a potvrdíte ji.' : 'Zaplaťte předem (QR převod, PayPal nebo Revolut, co prodejce nabízí) a klikněte na Zaplaceno.';
         if (seller) {
           const via = o.paidVia ? PAID_VIA[o.paidVia] : null;
-          return via ? `Kupující píše, že zaplatil přes ${via.name}. Zkontrolujte ${via.where}: Platba přišla, nebo Nepřišla.` : 'Kupující píše, že zaplatil. Zkontrolujte účet: Platba přišla, nebo Nepřišla.';
+          return via ? `Zkontrolujte ${via.where}: Platba přišla, nebo Nepřišla.` : 'Kupující píše, že zaplatil. Zkontrolujte účet: Platba přišla, nebo Nepřišla.';
         }
         return 'Prodejce zkontroluje, že platba dorazila.';
       }
@@ -147,7 +147,8 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
     out.push({ op: 'status', status: 'shipped', label: 'Odesláno', variant: 'primary', tracking: true });
   }
   if (o.status === 'confirmed' && p === 'cash' && pickup) out.push({ op: 'status', status: 'delivered', label: 'Předáno', variant: 'primary' });
-  if (o.status === 'confirmed') out.push({ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' });
+  // Po Zaplaceno od kupujícího už prodejce nezruší; nejdřív Nepřišla (Šimon 28. 10.).
+  if (o.status === 'confirmed' && !o.buyerPaidAt) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' });
   return out;
 }
 

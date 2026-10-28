@@ -16,6 +16,7 @@ import { formatDateTime, formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@/lib/messages';
 import { canChangeShipping, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
 import { PaidButton } from '@/components/orders/PaidButton';
+import { PaidViaRow } from '@/components/orders/PaidViaRow';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
@@ -199,6 +200,9 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
               total={o.total - o.shipping + (o.shipChange ?? o.shipping)}
               cap={o.shipCap}
             /></div>
+          ) : null}
+          {o.paidVia && o.buyerPaidAt && ['confirmed', 'paid', 'shipped'].includes(o.status) ? (
+            <div data-stay className={styles.stay}><PaidViaRow via={o.paidVia} at={o.buyerPaidAt} amount={o.total} role={mine ? 'buyer' : 'seller'} pending={o.status === 'confirmed'} compact /></div>
           ) : null}
           <div data-stay className={styles.stay}><OrderActions
             o={o}

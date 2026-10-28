@@ -6,6 +6,7 @@ import { thumbUrl } from '@/lib/images';
 import { methodName, SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
 import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder, type PaidVia } from '@/lib/order-flow';
 import { PaidButton } from '@/components/orders/PaidButton';
+import { PaidViaRow } from '@/components/orders/PaidViaRow';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { fetchPrepay, type PrepayRow } from '@/lib/prepay';
 import type { createClient } from '@/lib/supabase/server';
@@ -142,10 +143,17 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 /** Objednávka pro pravidla kroků (DS DeliveryPayment). */
 export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
 
+/** Řádek PLATBA, když kupující napsal, jak zaplatil (DS OrderPayment › Jak jste zaplatili). */
+function PaidVia({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
+  if (!o.paid_via || !o.buyer_paid_at || !['confirmed', 'paid', 'shipped'].includes(o.status)) return null;
+  return <PaidViaRow via={o.paid_via} at={o.buyer_paid_at} amount={o.total_czk} role={role} pending={o.status === 'confirmed'} />;
+}
+
 /** Akce kupujícího podle stavu (stejné na seznamu, v detailu i v chatu). */
 export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }) {
   return (
     <>
+      <PaidVia o={o} role="buyer" />
       {flowActions(flowOf(o), 'buyer').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
       {o.status === 'delivered' && o.seller_id && !reviewed ? (
         <form action={addReview} className={styles.review}>
@@ -173,6 +181,7 @@ export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }
 export function SellerActions({ o, shipCap }: { o: OrderRow; shipCap?: number | null }) {
   return (
     <>
+      <PaidVia o={o} role="seller" />
       {canChangeShipping(flowOf(o)) ? (
         <ShipEdit
           key={o.ship_change_czk ?? o.shipping_czk}
