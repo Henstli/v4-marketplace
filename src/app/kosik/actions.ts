@@ -57,12 +57,14 @@ export interface CartAlternatives {
   terms: Record<string, ShippingTerms>;
   /** Nabídky z košíku, které už nejdou koupit (smazané, vyprodané, cena dohodou) */
   gone: string[];
+  /** Kolik kusů nabídky z košíku ještě zbývá */
+  stock: Record<string, number>;
 }
 
 /** Stejné karty u jiných prodejců, pro varianty košíku (nejlevněji, nejméně prodejců). */
 export async function getCartAlternatives(listingIds: string[]): Promise<CartAlternatives> {
   const ids = listingIds.slice(0, 60);
-  if (!ids.length) return { candidates: {}, terms: {}, gone: [] };
+  if (!ids.length) return { candidates: {}, terms: {}, gone: [], stock: {} };
   const supabase = await createClient();
   const [{ data: own }, user] = await Promise.all([
     supabase.from('listings').select('id, card_id, condition, language, quantity, price_czk').in('id', ids),
@@ -71,8 +73,9 @@ export async function getCartAlternatives(listingIds: string[]): Promise<CartAlt
   // Stejný dotaz zároveň poví, které nabídky z košíku mezitím zmizely (košík je jen v prohlížeči).
   const originals = (own ?? []).filter((l) => l.quantity > 0 && l.price_czk != null);
   const gone = ids.filter((id) => !originals.some((l) => l.id === id));
+  const stock = Object.fromEntries(originals.map((l) => [l.id, l.quantity as number]));
   const cardIds = [...new Set(originals.map((l) => l.card_id))];
-  if (!cardIds.length) return { candidates: {}, terms: {}, gone };
+  if (!cardIds.length) return { candidates: {}, terms: {}, gone, stock };
   const { data: offers } = await supabase
     .from('listings')
     .select('id, card_id, seller_id, price_czk, condition, language, quantity, profiles(display_name, shipping_czk, free_shipping_from)')
@@ -103,7 +106,7 @@ export async function getCartAlternatives(listingIds: string[]): Promise<CartAlt
         };
       });
   }
-  return { candidates, terms, gone };
+  return { candidates, terms, gone, stock };
 }
 
 /** Volba kupujícího u jednoho prodejce: doprava (dopravce nebo osobní předání), platba, výdejní místo a adresa. */

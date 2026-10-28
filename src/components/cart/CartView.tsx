@@ -74,6 +74,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
   const sellerKey = [...new Set(items.map((i) => i.sellerId))].sort().join(',');
   // Varianty košíku a zároveň dostupnost nabídek (DS CartPlans › Nedostupná položka), jeden dotaz.
   const [alt, setAlt] = useState<CartAlternatives>();
+  const [shortened, setShortened] = useState<Set<string>>(new Set());
   const itemKey = items.map((i) => `${i.listingId}:${i.quantity}`).sort().join(',');
 
   useEffect(() => {
@@ -83,6 +84,16 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
     return () => { live = false; };
     // Načítá se znovu jen při změně složení košíku, ne při každém novém poli items.
   }, [itemKey]);
+
+  // Ubylo kusů: počet v košíku se sníží na zbývající (DS CartPlans › Nedostupná položka).
+  useEffect(() => {
+    if (!alt) return;
+    const short = items.filter((i) => (alt.stock?.[i.listingId] ?? i.quantity) < i.quantity);
+    if (!short.length) return;
+    setShortened((prev) => new Set([...prev, ...short.map((i) => i.listingId)]));
+    replace(items.map((i) => (short.includes(i) ? { ...i, quantity: alt.stock[i.listingId], maxQuantity: alt.stock[i.listingId] } : i)));
+    // Jen po novém načtení dostupnosti.
+  }, [alt]);
 
   useEffect(() => {
     if (!sellerKey) return;
@@ -192,6 +203,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
               </div>
               {group.map((item) => {
                 const off = gone.has(item.listingId);
+                const stock = alt?.stock?.[item.listingId];
                 return (
                 <div key={item.listingId} className={`${styles.item} ${off ? styles.itemGone : ''}`}>
                   <div className={styles.itemCard}>
@@ -201,10 +213,12 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
                       <div className="t-small muted">
                         <span className="code">{item.setLabel}</span> · <span className="code">{item.condition}</span> · {item.language}
                       </div>
+                      {!off && stock != null && shortened.has(item.listingId) ? <span className="t-small muted">Zbývá jen {stock}&nbsp;ks</span> : null}
+                      {off ? <span className={styles.goneStatus}><Status tone="muted">Už není k dispozici</Status></span> : null}
                     </div>
                   </div>
                   {off ? (
-                    <Status tone="muted">Už není k dispozici</Status>
+                    <span />
                   ) : (
                     <label className={styles.qty}>
                       <span className="sr-only">Počet kusů</span>
@@ -330,7 +344,7 @@ export function CartView({ checkout }: { checkout: 'ready' | 'login' | 'off' }) 
         ) : (
           <Button size="lg" disabled title="Objednávky zapneme po připojení databáze">Objednat</Button>
         )}
-        {hasGone ? <p className="t-small muted">Odeberte nabídky, které už nejsou k dispozici.</p> : checkout === 'ready' && !ready ? <p className="t-small muted">Vyberte dopravu a platbu u {bySeller.size === 1 ? 'prodejce' : 'každého prodejce'}.</p> : null}
+        {hasGone ? <p className={styles.blockNote}>Odeberte nabídky, které už nejsou k dispozici.</p> : checkout === 'ready' && !ready ? <p className={styles.blockNote}>Vyberte dopravu a platbu u {bySeller.size === 1 ? 'prodejce' : 'každého prodejce'}.</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <p className="t-small muted">
           {bySeller.size === 1 ? 'Prodejce objednávku' : 'Každý prodejce svou objednávku'} do 48 hodin potvrdí. Do té doby
