@@ -3,6 +3,7 @@ import { SiteHeader } from '@/components/site/SiteHeader';
 import { SiteChrome } from '@/components/site/SiteChrome';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { CartProvider } from '@/components/cart/CartProvider';
+import { SupportBubble } from '@/components/support/SupportBubble';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteChrome><SiteHeader /></SiteChrome>
           <main>{children}</main>
           <SiteChrome><SiteFooter /></SiteChrome>
+          <SiteChrome><SupportBubble /></SiteChrome>
         </CartProvider>
       </body>
     </html>

@@ -71,7 +71,7 @@ export default async function CasePage({ params, searchParams }: Props) {
 
   const ids = [...new Set([c.user_id, c.other_id, ...(events ?? []).map((e) => e.author_id), ...(times ?? []).map((t) => t.staff_id)].filter((x): x is string => !!x))];
   const [{ data: people }, { data: first }, { data: other }] = await Promise.all([
-    ids.length ? supabase.from('profiles').select('id, display_name, kind').in('id', ids) : Promise.resolve({ data: [] }),
+    ids.length ? supabase.from('profiles').select('id, display_name, kind, support_reply_via').in('id', ids) : Promise.resolve({ data: [] }),
     c.user_id ? supabase.rpc('admin_user_info', { p_user: c.user_id }) : Promise.resolve({ data: null }),
     c.other_id ? supabase.rpc('admin_user_info', { p_user: c.other_id }) : Promise.resolve({ data: null }),
   ]);
@@ -80,10 +80,12 @@ export default async function CasePage({ params, searchParams }: Props) {
   const role = (id: string | null) => (!order || !id ? '' : id === order.buyer_id ? 'kupující' : id === order.seller_id ? 'prodejce' : '');
 
   const targets: ReplyTarget[] = [];
-  if (c.user_id) targets.push({ id: 'user', label: `${name(c.user_id)}${role(c.user_id) ? ` (${role(c.user_id)})` : ''}` });
-  if (c.other_id) targets.push({ id: 'other', label: `${name(c.other_id)}${role(c.other_id) ? ` (${role(c.other_id)})` : ''}` });
-  if (c.user_id && c.other_id) targets.push({ id: 'both', label: 'Oběma stranám' });
-  if (c.contact_email) targets.push({ id: 'contact', label: c.contact_email });
+  // Kudy odpověď dojde: do chatu na webu (e-mail po 30 minutách nepřečtení), nebo hned e-mailem.
+  const via = (id: string) => ((people ?? []).find((p) => p.id === id)?.support_reply_via === 'email' ? 'e-mailem' : 'do chatu na webu');
+  if (c.user_id) targets.push({ id: 'user', label: `${name(c.user_id)}${role(c.user_id) ? ` (${role(c.user_id)})` : ''}`, via: via(c.user_id) });
+  if (c.other_id) targets.push({ id: 'other', label: `${name(c.other_id)}${role(c.other_id) ? ` (${role(c.other_id)})` : ''}`, via: via(c.other_id) });
+  if (c.user_id && c.other_id) targets.push({ id: 'both', label: 'Oběma stranám', via: 'každému podle jeho volby' });
+  if (c.contact_email) targets.push({ id: 'contact', label: c.contact_email, via: 'e-mailem' });
 
   const total = (times ?? []).reduce((s, t) => s + minutesOf(t), 0);
   const perStaff = new Map<string, number>();
