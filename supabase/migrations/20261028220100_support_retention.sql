@@ -1,6 +1,6 @@
 -- Mazání po 3 letech (zásady ochrany OÚ): hlášení objednávek, případy podpory, nahlášení obsahu
--- a záznamy moderace. Soubory příloh v úložišti maže cron webu dřív (90 dní po vyřešení). Spouští ho denní cron webu (service_role). Součty času podpory za staré
--- měsíce zůstanou bez osobních údajů.
+-- a záznamy moderace. Spouští ho denní cron webu (service_role). Součty času podpory za staré
+-- měsíce zůstanou bez osobních údajů. Soubory příloh v úložišti maže cron dřív (90 dní po vyřešení).
 
 create table public.support_time_months (
   staff_id uuid not null,
