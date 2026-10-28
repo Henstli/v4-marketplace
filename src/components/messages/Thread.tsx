@@ -8,13 +8,15 @@ import { Button, CardThumb, Price, Status, type StatusTone } from '@/components/
 import { ExpiryStatus, useLeft } from '@/components/orders/Expiry';
 import { PrepayTabs } from '@/components/orders/PrepayTabs';
 import { ShipChangeBlock } from '@/components/orders/ShipChange';
+import { CancelLock } from '@/components/orders/CancelLock';
+import { CancelRequestBlock } from '@/components/orders/CancelRequest';
 import { sendMessage } from '@/app/zpravy/actions';
 import { orderPaymentQr, setOrderStatus, type ChatPayment } from '@/app/objednavky/actions';
 import { ShipEdit } from '@/app/objednavky/ShipEdit';
 import { answerOffer, proposePrice } from '@/app/zpravy/offers';
 import { formatDateTime, formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@/lib/messages';
-import { canChangeShipping, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
+import { cancelFrom, canChangeShipping, canSellerCancel, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
 import { PaidButton } from '@/components/orders/PaidButton';
 import { PaidViaRow } from '@/components/orders/PaidViaRow';
 import { ReportStrip } from '@/components/reports/ReportStrip';
@@ -205,6 +207,12 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
           ) : null}
           {o.paidVia && o.buyerPaidAt && ['confirmed', 'paid', 'shipped'].includes(o.status) ? (
             <div data-stay className={styles.stay}><PaidViaRow via={o.paidVia} at={o.buyerPaidAt} amount={o.total} role={mine ? 'buyer' : 'seller'} pending={o.status === 'confirmed'} notReceived={!!o.notReceivedAt} insistAt={o.buyerInsistAt} compact /></div>
+          ) : null}
+          {o.status === 'confirmed' && o.notReceivedAt ? (
+            <div data-stay className={styles.stay}>
+              <CancelRequestBlock role={mine ? 'buyer' : 'seller'} requestedAt={o.cancelRequestAt} rejectedAt={o.cancelRejectedAt} />
+              {canSellerCancel(o) ? null : <CancelLock from={o.buyerInsistAt ?? o.notReceivedAt} until={cancelFrom(o)!.toISOString()} role={mine ? 'buyer' : 'seller'} />}
+            </div>
           ) : null}
           {o.report ? <ReportStrip number={o.report.number} /> : null}
           <div data-stay className={styles.stay}><OrderActions

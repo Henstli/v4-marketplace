@@ -18,6 +18,8 @@ export interface FlowOrder {
   buyerInsistAt?: string | null;
   /** Prodejce žádá kupujícího o zrušení. */
   cancelRequestAt?: string | null;
+  /** Kupující žádost o zrušení odmítl; podruhé žádat nejde, jen počkat a zrušit. */
+  cancelRejectedAt?: string | null;
   /** Prodejce navrhl vyšší dopravu, čeká se na kupujícího. */
   shipChange?: number | null;
   /** Součet a doprava, aby Souhlasím řeklo novou částku. */
@@ -122,7 +124,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
         if (o.cancelRequestAt) {
           return seller
             ? 'Požádali jste kupujícího o zrušení. Když nesouhlasí, Zrušit půjde až po čekací době.'
-            : 'Prodejce platbu nenašel a žádá o zrušení. Pokud jste zaplatili, nesouhlaste a nahlaste problém.';
+            : 'Prodejce platbu nenašel a žádá o zrušení. Pokud jste nezaplatili, souhlaste. Pokud jste zaplatili, nesouhlaste a nahlaste problém.';
         }
         if (o.notReceivedAt && !o.buyerInsistAt) {
           return seller
@@ -200,7 +202,7 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   // Po Zaplaceno od kupujícího prodejce zruší až po Nepřišla a čekací době, dřív jen se souhlasem kupujícího (DS Reports).
   if (o.status === 'confirmed') {
     if (canSellerCancel(o)) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit', variant: 'ghost' });
-    else if (o.notReceivedAt && !o.cancelRequestAt) out.push({ op: 'cancel_request', label: 'Požádat kupujícího o zrušení', variant: 'ghost' });
+    else if (o.notReceivedAt && !o.cancelRequestAt && !o.cancelRejectedAt) out.push({ op: 'cancel_request', label: 'Požádat kupujícího o zrušení', variant: 'ghost' });
   }
   return out;
 }
