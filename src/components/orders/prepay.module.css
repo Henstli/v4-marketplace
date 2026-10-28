@@ -33,4 +33,5 @@
 .viaBtn:hover { background: var(--surface); }
 .viaCompact { padding: 8px 10px; }
 .viaCompact .viaText { flex-direction: row; align-items: baseline; gap: 10px; font-size: 13px; }
-.viaLink { font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.viaLink { height: 30px; display: inline-flex; align-items: center; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.viaLink:hover { background: var(--surface); }
