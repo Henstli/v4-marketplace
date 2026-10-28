@@ -81,6 +81,7 @@ export interface ChatOrder {
   notReceivedAt: string | null;
   buyerInsistAt: string | null;
   cancelRequestAt: string | null;
+  cancelRejectedAt: string | null;
   /** Otevřené hlášení k objednávce („Objednávku prošetřujeme“) */
   report: { number: number; status: string } | null;
   /** Navržená vyšší doprava, čeká na kupujícího */
@@ -219,7 +220,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: orders } = orderIds.length
     ? await supabase
       .from('orders')
-      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, paid_via, not_received_at, buyer_insist_at, cancel_request_at, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name))')
+      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, paid_via, not_received_at, buyer_insist_at, cancel_request_at, cancel_rejected_at, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
   // Strop úpravy dopravy: ceník větší zásilky + balné (jako na stránce Objednávky).
@@ -253,6 +254,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       notReceivedAt: (o.not_received_at as string | null) ?? null,
       buyerInsistAt: (o.buyer_insist_at as string | null) ?? null,
       cancelRequestAt: (o.cancel_request_at as string | null) ?? null,
+      cancelRejectedAt: (o.cancel_rejected_at as string | null) ?? null,
       report: reportOf.get(o.id as string) ?? null,
       shipChange: (o.ship_change_czk as number | null) ?? null,
       shipChangeReason: (o.ship_change_reason as string | null) ?? null,
