@@ -90,7 +90,7 @@ export function nextStep(o: FlowOrder, role: Role): string | null {
     case 'confirmed':
       if (o.shipChange != null) return seller ? 'Kupující musí potvrdit novou cenu dopravy. Do té doby nevidí QR kód.' : 'Prodejce upravil cenu dopravy. Souhlaste, nebo objednávku zrušte bez následků.';
       if (p === 'transfer') {
-        if (!o.buyerPaidAt) return seller ? 'Kupující zaplatí předem. Jakmile peníze uvidíte na účtu, klikněte na Platba přišla.' : 'Zaplaťte předem (QR převod, PayPal nebo Revolut, co prodejce nabízí) a klikněte na Zaplaceno.';
+        if (!o.buyerPaidAt) return seller ? 'Kupující zaplatí předem. Až klikne na Zaplaceno, zkontrolujete platbu a potvrdíte ji.' : 'Zaplaťte předem (QR převod, PayPal nebo Revolut, co prodejce nabízí) a klikněte na Zaplaceno.';
         if (seller) {
           const via = o.paidVia ? PAID_VIA[o.paidVia] : null;
           return via ? `Kupující píše, že zaplatil přes ${via.name}. Zkontrolujte ${via.where}: Platba přišla, nebo Nepřišla.` : 'Kupující píše, že zaplatil. Zkontrolujte účet: Platba přišla, nebo Nepřišla.';
@@ -137,8 +137,11 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
     out.push({ op: 'status', status: 'declined', label: 'Odmítnout', variant: 'ghost' });
   }
   if (o.status === 'confirmed' && p === 'transfer') {
-    out.push({ op: 'status', status: 'paid', label: 'Platba přišla', variant: o.buyerPaidAt ? 'primary' : 'secondary' });
-    if (o.buyerPaidAt) out.push({ op: 'not_received', label: 'Nepřišla', variant: 'ghost' });
+    // Platba přišla jde až po Zaplaceno od kupujícího (Šimon 28. 10.).
+    if (o.buyerPaidAt) {
+      out.push({ op: 'status', status: 'paid', label: 'Platba přišla', variant: 'primary' });
+      out.push({ op: 'not_received', label: 'Nepřišla', variant: 'ghost' });
+    }
   }
   if (!pickup && ((o.status === 'paid' && p === 'transfer') || (o.status === 'confirmed' && p === 'cod'))) {
     out.push({ op: 'status', status: 'shipped', label: 'Odesláno', variant: 'primary', tracking: true });
