@@ -80,12 +80,16 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
         { label: 'Nastavení účtu', icon: 'gear', href: '/ucet/nastaveni' },
       ],
     },
-    ...(a.isAdmin
+    ...(a.isStaff
       ? [{
           title: 'Správa',
           items: [
-            { label: 'Schvalování karet', icon: 'admin' as const, href: '/sprava/karty' },
-            { label: 'Předplatné prodejců', icon: 'admin' as const, href: '/sprava/predplatne' },
+            ...(a.isAdmin
+              ? [
+                  { label: 'Schvalování karet', icon: 'admin' as const, href: '/sprava/karty' },
+                  { label: 'Předplatné prodejců', icon: 'admin' as const, href: '/sprava/predplatne' },
+                ]
+              : []),
             { label: 'Přepnout do podpory', icon: 'flag' as const, href: '/sprava/podpora', desktopOnly: true },
           ],
         }]

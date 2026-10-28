@@ -10,14 +10,15 @@ const ITEMS = [
   { href: '/sprava/podpora/vykaz', label: 'Výkaz času', match: /^\/sprava\/podpora\/vykaz/ },
   { href: '/sprava/podpora/hlaseni?vse=1', label: 'Všechna hlášení', match: /^\/sprava\/podpora\/hlaseni/ },
   { href: '/sprava/podpora/zaznam', label: 'Záznam akcí', match: /^\/sprava\/podpora\/zaznam/ },
+  { href: '/sprava/podpora/tym', label: 'Tým', match: /^\/sprava\/podpora\/tym/, adminOnly: true },
 ];
 
 /** Položky levého panelu režimu podpory (DS Support, Režim podpory). */
-export function SupportNav({ late, className, itemClass, countClass }: { late: number; className: string; itemClass: string; countClass: string }) {
+export function SupportNav({ late, admin, className, itemClass, countClass }: { late: number; admin: boolean; className: string; itemClass: string; countClass: string }) {
   const path = usePathname();
   return (
     <nav aria-label="Podpora" className={className}>
-      {ITEMS.map((i) => (
+      {ITEMS.filter((i) => admin || !i.adminOnly).map((i) => (
         <Link key={i.label} href={i.href} className={itemClass} aria-current={i.match.test(path) ? 'page' : undefined}>
           <span>{i.label}</span>
           {i.href === '/sprava/podpora' && late ? <span className={countClass} title="Po termínu">{late}</span> : null}
