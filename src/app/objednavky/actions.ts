@@ -25,6 +25,26 @@ export async function setOrderStatus(form: FormData) {
     revalidatePath('/', 'layout');
     return;
   }
+  // Po Nepřišla: kupující potvrdí odeslání, nebo že ještě neplatil; žádost prodejce o zrušení a odpověď na ni.
+  if (op === 'payment_sent' || op === 'not_paid_yet') {
+    await supabase.rpc('answer_not_received', { target: id, p_sent: op === 'payment_sent' });
+    revalidatePath('/objednavky');
+    revalidatePath('/', 'layout');
+    return;
+  }
+  if (op === 'cancel_request') {
+    await supabase.rpc('request_order_cancel', { target: id });
+    revalidatePath('/objednavky');
+    revalidatePath('/', 'layout');
+    return;
+  }
+  if (op === 'cancel_accept' || op === 'cancel_reject') {
+    const { error } = await supabase.rpc('answer_cancel_request', { target: id, p_accept: op === 'cancel_accept' });
+    if (!error && op === 'cancel_accept') await scheduleWatchFlush();
+    revalidatePath('/objednavky');
+    revalidatePath('/', 'layout');
+    return;
+  }
   // Kupující: souhlas se zvýšenou dopravou, nebo zrušení objednávky.
   if (op === 'ship_accept' || op === 'ship_reject') {
     const { error } = await supabase.rpc('answer_shipping_change', { target: id, p_accept: op === 'ship_accept' });
@@ -61,6 +81,17 @@ export async function addReview(form: FormData) {
   });
   revalidatePath('/objednavky');
   refreshCatalog();
+}
+
+/** Prodejce jednou odpoví na hodnocení (DS Reports › Hodnocení). */
+export async function replyReview(form: FormData) {
+  const supabase = await createClient();
+  const text = String(form.get('reply') ?? '').trim().slice(0, 500);
+  if (!text) return;
+  await supabase.rpc('reply_review', { p_order: String(form.get('orderId')), p_text: text });
+  revalidatePath('/prodejci', 'layout');
+  revalidatePath('/obchod', 'layout');
+  revalidatePath('/sberatel', 'layout');
 }
 
 export interface ShipChangeState { error?: string; ok?: boolean }

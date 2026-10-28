@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Achievements, ChipLink, initials } from '@/components/trezor';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { MessageSeller } from '@/components/shop/ShopClient';
+import { SellerTrust } from '@/components/shop/SellerTrust';
 import { getCurrentUser } from '@/lib/auth';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
@@ -43,7 +44,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
           {avatar ? <img src={avatar} alt="" /> : initials(seller.name)}
         </span>
         <div className={styles.headText}>
-        <p className="t-label muted">{seller.kind === 'shop' ? 'OBCHOD' : 'SBĚRATEL'}</p>
+        <p className="t-label muted">{seller.kind === 'shop' ? 'OBCHOD' : 'SBĚRATEL · SOUKROMÝ PRODEJCE'}</p>
         <h1 className="t-heading-l">{seller.name}</h1>
         <p className="muted">
           {seller.country === 'SK' ? 'Slovensko' : 'Česko'} ·{' '}
@@ -57,6 +58,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
         </div>
         {viewer?.id !== seller.id ? <MessageSeller sellerId={seller.id} /> : null}
       </section>
+      <section className="panel"><SellerTrust sellerId={seller.id} /></section>
 
       {cards.length ? (
         <>

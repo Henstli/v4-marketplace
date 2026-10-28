@@ -10,7 +10,7 @@ export default function PrivacyPage() {
     <div className="container section">
       <article className="panel" style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <h1 className="t-heading-l">Ochrana osobních údajů</h1>
-        <p className="muted">Platí od 25. 10. 2026 · beta verze webu</p>
+        <p className="muted">Platí od 28. 10. 2026 · beta verze webu</p>
 
         <h2 className="t-heading-m">Kdo údaje zpracovává</h2>
         <p>
@@ -25,7 +25,9 @@ export default function PrivacyPage() {
             zabezpečení účtu (plnění smlouvy).
           </li>
           <li>
-            <strong>Profil prodejce:</strong> jméno nebo název obchodu, typ prodejce a země. Zobrazují se u vašich
+            <strong>Profil prodejce:</strong> jméno nebo název obchodu, typ prodejce (obchod s IČO, nebo soukromý
+            prodejce s prohlášením a jeho datem) a země. U profilu ukazujeme i počet zrušených zaplacených objednávek
+            a nevyřešených hlášení za posledních 12 měsíců. Zobrazují se u vašich
             nabídek. Účel: provoz marketplace (plnění smlouvy podle{' '}
             <Link href="/obchodni-podminky">obchodních podmínek</Link>).
           </li>
@@ -48,6 +50,13 @@ export default function PrivacyPage() {
             <strong>Zprávy:</strong> text zpráv, které si napíšete s jiným uživatelem, a čas odeslání. Vidíte je jen vy
             a druhá strana. O nové zprávě vám pošleme e-mail. Účel: domluva kupujícího a prodejce (plnění smlouvy).
             Do zpráv nahlédneme jen při řešení nahlášeného porušení podmínek.
+          </li>
+          <li>
+            <strong>Hlášení problémů s objednávkou:</strong> důvod, popis, odpovědi obou stran, navržené dohody a
+            přílohy (fotky karty, potvrzení platby). Při dohodě o vrácení peněz si strany v hlášení vymění číslo účtu,
+            PayPal.Me nebo Revtag; ty smažeme hned po uzavření hlášení. Přílohy vidí ten, kdo je nahrál, náš tým a u
+            sporu o popis karty i druhá strana. Účel: řešení sporu a ochrana před podvody (náš oprávněný zájem). Policii
+            předáme údaje jen na její žádost podle zákona.
           </li>
           <li>
             <strong>Návrhy karet:</strong> údaje o kartě a fotka, kterou nahrajete. Po schválení se fotka zobrazí v
@@ -75,7 +84,9 @@ export default function PrivacyPage() {
           Po dobu trvání účtu. Po jeho zrušení údaje smažeme, kromě záznamů o objednávkách, které musíme uchovávat podle
           zákona. Zprávy, které jste poslali, zůstanou druhé straně v její konverzaci, ale bez vašeho jména. Doručovací
           údaje u objednávky smažeme 30 dní po jejím uzavření (převzetí, zrušení, odmítnutí nebo vypršení), u
-          objednávky zůstane jen město. Uloženou adresu v účtu smažeme, když ji smažete vy nebo zrušíte účet.
+          objednávky zůstane jen město. Přílohy hlášení smažeme 90 dní po uzavření hlášení. Záznam o hlášení (bez
+          příloh a platebních údajů) uchováváme po dobu trvání účtu, nejdéle 3 roky od uzavření, kvůli opakovaným
+          podvodům a případným soudním sporům. Uloženou adresu v účtu smažeme, když ji smažete vy nebo zrušíte účet.
         </p>
 
         <h2 className="t-heading-m">Vaše práva</h2>

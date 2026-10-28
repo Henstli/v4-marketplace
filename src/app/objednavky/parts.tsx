@@ -4,7 +4,9 @@ import { Button, CardThumb, Price, Status } from '@/components/trezor';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
 import { methodName, SHIPPING_PACKING, type PaymentMethod } from '@/lib/delivery';
-import { canChangeShipping, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder, type PaidVia } from '@/lib/order-flow';
+import { CancelLock } from '@/components/orders/CancelLock';
+import { ReportStrip } from '@/components/reports/ReportStrip';
+import { cancelFrom, canChangeShipping, canSellerCancel, deliveryLine, flowActions, orderLabel, trackingUrl, type FlowAction, type FlowOrder, type PaidVia } from '@/lib/order-flow';
 import { PaidButton } from '@/components/orders/PaidButton';
 import { PaidViaRow } from '@/components/orders/PaidViaRow';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
@@ -25,7 +27,7 @@ export const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 // Skončené bez obchodu.
 export const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
-export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, paid_via, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
+export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, paid_via, not_received_at, buyer_insist_at, cancel_request_at, cancel_agreed, delivered_at, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
 
 export interface OrderRow {
   id: string;
@@ -48,6 +50,13 @@ export interface OrderRow {
   cod_fee_czk: number;
   buyer_paid_at: string | null;
   paid_via: PaidVia | null;
+  /** Prodejce klikl na Nepřišla, kupující potvrdil odeslání, prodejce žádá o zrušení (DS Reports). */
+  not_received_at: string | null;
+  buyer_insist_at: string | null;
+  cancel_request_at: string | null;
+  /** Zrušeno se souhlasem kupujícího (nepočítá se prodejci). */
+  cancel_agreed: boolean;
+  delivered_at: string | null;
   tracking: string | null;
   /** Prodejce navrhl vyšší dopravu, čeká na kupujícího. */
   ship_change_czk: number | null;
@@ -141,12 +150,12 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 }
 
 /** Objednávka pro pravidla kroků (DS DeliveryPayment). */
-export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
+export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, notReceivedAt: o.not_received_at, buyerInsistAt: o.buyer_insist_at, cancelRequestAt: o.cancel_request_at, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk });
 
 /** Řádek PLATBA, když kupující napsal, jak zaplatil (DS OrderPayment › Jak jste zaplatili). */
 function PaidVia({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
   if (!o.paid_via || !o.buyer_paid_at || !['confirmed', 'paid', 'shipped'].includes(o.status)) return null;
-  return <PaidViaRow via={o.paid_via} at={o.buyer_paid_at} amount={o.total_czk} role={role} pending={o.status === 'confirmed'} />;
+  return <PaidViaRow via={o.paid_via} at={o.buyer_paid_at} amount={o.total_czk} role={role} pending={o.status === 'confirmed'} notReceived={!!o.not_received_at} insistAt={o.buyer_insist_at} />;
 }
 
 /** Akce kupujícího podle stavu (stejné na seznamu, v detailu i v chatu). */
@@ -155,24 +164,8 @@ export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }
     <>
       <PaidVia o={o} role="buyer" />
       {flowActions(flowOf(o), 'buyer').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
-      {o.status === 'delivered' && o.seller_id && !reviewed ? (
-        <form action={addReview} className={styles.review}>
-          <input type="hidden" name="orderId" value={o.id} />
-          <input type="hidden" name="sellerId" value={o.seller_id} />
-          <label className={styles.field}>
-            <span className="t-label muted">HODNOCENÍ</span>
-            <select name="rating" defaultValue="5" className={styles.input}>
-              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>)}
-            </select>
-          </label>
-          <label className={`${styles.field} ${styles.grow}`}>
-            <span className="t-label muted">KOMENTÁŘ (NEPOVINNÝ)</span>
-            <input name="comment" maxLength={500} className={styles.input} placeholder="Jak proběhl nákup?" />
-          </label>
-          <Button type="submit" variant="secondary">Ohodnotit prodejce</Button>
-        </form>
-      ) : null}
-      {reviewed ? <p className="t-small muted">Prodejce jste ohodnotili, děkujeme.</p> : null}
+      {!reviewed ? <ReviewForm o={o} /> : null}
+      {reviewed && canReview(o) ? <p className="t-small muted">Prodejce jste ohodnotili, děkujeme.</p> : null}
     </>
   );
 }
@@ -192,8 +185,43 @@ export function SellerActions({ o, shipCap }: { o: OrderRow; shipCap?: number | 
           cap={shipCap ?? null}
         />
       ) : null}
+      <SellerCancelLock o={o} />
       {flowActions(flowOf(o), 'seller').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
     </>
+  );
+}
+
+/** Kdy prodejce smí zrušit objednávku, kterou kupující označil jako zaplacenou (po Nepřišla). */
+function SellerCancelLock({ o }: { o: OrderRow }) {
+  const f = flowOf(o);
+  if (o.status !== 'confirmed' || !o.not_received_at || canSellerCancel(f)) return null;
+  const until = cancelFrom(f)!;
+  return <CancelLock from={o.buyer_insist_at ?? o.not_received_at} until={until.toISOString()} />;
+}
+
+/** Hodnocení prodejce: po převzetí, nebo když prodejce zrušil po Zaplaceno bez souhlasu (DS Reports › Hodnocení). */
+export const canReview = (o: OrderRow) =>
+  !!o.seller_id && (o.status === 'delivered' || (o.status === 'cancelled' && !!o.buyer_paid_at && !o.cancel_agreed));
+
+export function ReviewForm({ o }: { o: OrderRow }) {
+  if (!canReview(o)) return null;
+  return (
+    <form action={addReview} className={styles.review}>
+      <input type="hidden" name="orderId" value={o.id} />
+      <input type="hidden" name="sellerId" value={o.seller_id!} />
+      {o.status === 'cancelled' ? <p className="t-small">Zaplatili jste, ale prodejce objednávku zrušil. Můžete ho ohodnotit. U prodejce se hodnocení zobrazí se štítkem „Zrušeno po zaplacení“.</p> : null}
+      <label className={styles.field}>
+        <span className="t-label muted">HODNOCENÍ</span>
+        <select name="rating" defaultValue={o.status === 'cancelled' ? '1' : '5'} className={styles.input}>
+          {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>)}
+        </select>
+      </label>
+      <label className={`${styles.field} ${styles.grow}`}>
+        <span className="t-label muted">KOMENTÁŘ (NEPOVINNÝ)</span>
+        <input name="comment" maxLength={500} className={styles.input} placeholder={o.status === 'cancelled' ? 'Co se stalo?' : 'Jak proběhl nákup?'} />
+      </label>
+      <Button type="submit" variant="secondary">Ohodnotit prodejce</Button>
+    </form>
   );
 }
 
@@ -246,13 +274,15 @@ export function DeliveryInfo({ o }: { o: OrderRow }) {
   );
 }
 
-export function OrderCard({ order, counterpart, contact, payment, delivery, role, children }: {
+export function OrderCard({ order, counterpart, contact, payment, delivery, role, report, children }: {
   order: OrderRow;
   counterpart: string;
   contact?: string | null;
   payment?: Payment | null;
   delivery?: DeliveryRow | null;
   role: 'buyer' | 'seller';
+  /** Číslo otevřeného hlášení („Objednávku prošetřujeme“). */
+  report?: number | null;
   children?: React.ReactNode;
 }) {
   const counterpartId = role === 'buyer' ? order.seller_id : order.buyer_id;
@@ -297,6 +327,7 @@ export function OrderCard({ order, counterpart, contact, payment, delivery, role
           {role === 'seller' ? ' Potom objednávka vyprší a karty se vrátí do nabídky.' : ' Karty jsou zatím rezervované pro vás.'}
         </p>
       ) : null}
+      {report ? <ReportStrip number={report} /> : null}
       <ShipChangeNotice o={order} role={role} />
       {!ENDED.has(order.status) && order.status !== 'delivered' ? <DeliveryBox d={delivery} o={order} role={role} compact /> : null}
       <PaymentInfo payment={payment} role={role} order={order} />

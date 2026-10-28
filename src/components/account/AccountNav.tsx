@@ -21,6 +21,7 @@ const ICONS = {
   card: <><rect x="6" y="3" width="12" height="18" rx="2" /><path d="M12 8v6M9 11h6" /></>,
   plan: <path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z" />,
   gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></>,
+  flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   admin: <path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z" />,
   out: <path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />,
   down: <path d="M6 9l6 6 6-6" />,
@@ -65,6 +66,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
         { label: 'Moje nabídky', icon: 'offers', href: '/prodat', hint: a.listings ? a.listings.toLocaleString('cs-CZ') : undefined },
         { label: 'Objednávky', icon: 'orders', href: '/objednavky', count: pending || undefined },
         { label: 'Hlídané karty', icon: 'bell', href: '/ucet/hlidane', count: a.alerts || undefined },
+        { label: 'Hlášení', icon: 'flag', href: '/ucet/hlaseni', count: a.reports || undefined },
         ...(PLANS[a.plan].bulkImport ? [{ label: 'Hromadné nahrávání', icon: 'bulk' as const, href: '/prodat/import' }] : []),
         { label: 'Návrhy karet', icon: 'card', href: '/prodat/nova-karta' },
       ],
@@ -82,6 +84,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
           items: [
             { label: 'Schvalování karet', icon: 'admin' as const, href: '/sprava/karty' },
             { label: 'Předplatné prodejců', icon: 'admin' as const, href: '/sprava/predplatne' },
+            { label: 'Hlášení', icon: 'flag' as const, href: '/sprava/hlaseni' },
           ],
         }]
       : []),
@@ -129,7 +132,7 @@ export function AccountMenu({ a }: { a: AccountSummary }) {
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
-  const pending = a.toShip + a.toConfirm + a.alerts;
+  const pending = a.toShip + a.toConfirm + a.alerts + a.reports;
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {

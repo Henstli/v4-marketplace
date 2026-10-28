@@ -17,6 +17,7 @@ import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@
 import { canChangeShipping, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
 import { PaidButton } from '@/components/orders/PaidButton';
 import { PaidViaRow } from '@/components/orders/PaidViaRow';
+import { ReportStrip } from '@/components/reports/ReportStrip';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
@@ -172,6 +173,7 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
         </span>
         <span className={styles.ordTotal}><Price amount={o.total} /></span>
       </div>
+      {ended && o.report ? <ReportStrip number={o.report.number} /> : null}
       {ended ? null : (
         <>
           {payOpen ? <div data-stay className={styles.stay}><PayBlock payment={pay as ChatPayment | null} onHide={() => setPay('closed')} /></div> : null}
@@ -202,8 +204,9 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
             /></div>
           ) : null}
           {o.paidVia && o.buyerPaidAt && ['confirmed', 'paid', 'shipped'].includes(o.status) ? (
-            <div data-stay className={styles.stay}><PaidViaRow via={o.paidVia} at={o.buyerPaidAt} amount={o.total} role={mine ? 'buyer' : 'seller'} pending={o.status === 'confirmed'} compact /></div>
+            <div data-stay className={styles.stay}><PaidViaRow via={o.paidVia} at={o.buyerPaidAt} amount={o.total} role={mine ? 'buyer' : 'seller'} pending={o.status === 'confirmed'} notReceived={!!o.notReceivedAt} insistAt={o.buyerInsistAt} compact /></div>
           ) : null}
+          {o.report ? <ReportStrip number={o.report.number} /> : null}
           <div data-stay className={styles.stay}><OrderActions
             o={o}
             buyer={mine}
@@ -213,6 +216,9 @@ function OrderBubble({ o, mine }: { o: ChatOrder; mine: boolean }) {
           /></div>
         </>
       )}
+      {!o.report && o.status !== 'requested' && o.status !== 'declined' && o.status !== 'expired' ? (
+        <Link href={`${href}#nahlasit`} className={styles.ordReport}>Nahlásit problém</Link>
+      ) : null}
     </div>
   );
 }

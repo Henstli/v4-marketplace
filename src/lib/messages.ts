@@ -77,6 +77,12 @@ export interface ChatOrder {
   buyerPaidAt: string | null;
   /** Jak kupující podle sebe zaplatil */
   paidVia: PaidVia | null;
+  /** Nepřišla, Platba odešla a žádost o zrušení (DS Reports) */
+  notReceivedAt: string | null;
+  buyerInsistAt: string | null;
+  cancelRequestAt: string | null;
+  /** Otevřené hlášení k objednávce („Objednávku prošetřujeme“) */
+  report: { number: number; status: string } | null;
   /** Navržená vyšší doprava, čeká na kupujícího */
   shipChange: number | null;
   shipChangeReason: string | null;
@@ -213,7 +219,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: orders } = orderIds.length
     ? await supabase
       .from('orders')
-      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, paid_via, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name))')
+      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, paid_via, not_received_at, buyer_insist_at, cancel_request_at, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
   // Strop úpravy dopravy: ceník větší zásilky + balné (jako na stránce Objednávky).
@@ -221,6 +227,10 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: rates } = carriers.length
     ? await supabase.from('carrier_rates').select('carrier, price_czk, heavy_czk').in('carrier', carriers)
     : { data: [] };
+  const { data: reports } = orderIds.length
+    ? await supabase.rpc('order_open_reports', { p_orders: orderIds })
+    : { data: [] };
+  const reportOf = new Map(((reports ?? []) as Array<{ order_id: string; number: number; status: string }>).map((r) => [r.order_id, { number: r.number, status: r.status }]));
   const caps = new Map((rates ?? []).map((r) => [r.carrier as string, Math.max(r.heavy_czk as number, r.price_czk as number) + SHIPPING_PACKING]));
   const byId = new Map((orders ?? []).map((o) => {
     const items = ((o.order_items ?? []) as unknown as Array<{ quantity: number; price_czk: number; condition: string; cards: { name: string } | { name: string }[] | null }>)
@@ -240,6 +250,10 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       payment: (o.payment as PaymentMethod | null) ?? null,
       buyerPaidAt: (o.buyer_paid_at as string | null) ?? null,
       paidVia: (o.paid_via as PaidVia | null) ?? null,
+      notReceivedAt: (o.not_received_at as string | null) ?? null,
+      buyerInsistAt: (o.buyer_insist_at as string | null) ?? null,
+      cancelRequestAt: (o.cancel_request_at as string | null) ?? null,
+      report: reportOf.get(o.id as string) ?? null,
       shipChange: (o.ship_change_czk as number | null) ?? null,
       shipChangeReason: (o.ship_change_reason as string | null) ?? null,
       paymentName: o.payment ? PAYMENT_NAME[o.payment as PaymentMethod] : null,

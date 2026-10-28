@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ExpiryMeter, ExpiryStatus } from '@/components/orders/Expiry';
-import { ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
+import { Button, ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
+import { replyReview } from '../actions';
 import { getCurrentUser } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
@@ -10,7 +11,10 @@ import { ORDER_STATUS } from '@/lib/order-status';
 import { flowSteps, nextStep, orderLabel } from '@/lib/order-flow';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { BuyerActions, DeliveryBox, DeliveryInfo, ENDED, flowOf, loadContact, loadDeliveries, loadPayment, loadShipCaps, ORDER_SELECT, type OrderRow, PaymentInfo, SellerActions, ShipChangeNotice } from '../parts';
+import { ReportForm } from '@/components/reports/ReportForm';
+import { ReportStrip } from '@/components/reports/ReportStrip';
+import { canReport, loadOpenReports } from '@/lib/reports';
+import { BuyerActions, canReview, DeliveryBox, DeliveryInfo, ENDED, flowOf, loadContact, loadDeliveries, loadPayment, loadShipCaps, ORDER_SELECT, type OrderRow, PaymentInfo, ReviewForm, SellerActions, ShipChangeNotice } from '../parts';
 import styles from '../orders.module.css';
 
 type Props = { params: Promise<{ cislo: string }> };
@@ -44,15 +48,18 @@ export default async function OrderDetailPage({ params }: Props) {
   const role = order.buyer_id === user.id ? 'buyer' : 'seller';
   const otherId = role === 'buyer' ? order.seller_id : order.buyer_id;
 
-  const [{ data: other }, { data: events }, { data: review }, contact, payment, caps, deliveries] = await Promise.all([
+  const [{ data: other }, { data: events }, { data: review }, contact, payment, caps, deliveries, reports, { data: mine }] = await Promise.all([
     otherId ? supabase.from('profiles').select('display_name, kind, country').eq('id', otherId).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('messages').select('kind, body, created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
-    supabase.from('reviews').select('order_id').eq('order_id', order.id).maybeSingle(),
+    supabase.from('reviews').select('order_id, rating, comment, reply').eq('order_id', order.id).maybeSingle(),
     loadContact(supabase, order),
     loadPayment(supabase, order),
     loadShipCaps(supabase),
     loadDeliveries(supabase, [order.id]),
+    loadOpenReports(supabase, [order.id]),
+    supabase.from('reports').select('id').eq('order_id', order.id).eq('reporter_id', user.id).neq('status', 'closed').maybeSingle(),
   ]);
+  const report = reports.get(order.id);
   const delivery = deliveries.get(order.id);
   const history = (events ?? []).map((e) => ({ body: e.body as string, at: e.created_at as string }));
   const statusAt = new Map<string, string>();
@@ -91,6 +98,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
         <Price amount={order.total_czk} size="lg" />
       </header>
+      {report ? <ReportStrip number={report.number} /> : null}
 
       <div className={styles.detailGrid}>
         <div className={styles.detailCol}>
@@ -174,6 +182,9 @@ export default async function OrderDetailPage({ params }: Props) {
                 {role === 'buyer' ? 'Napsat prodejci' : 'Napsat kupujícímu'}
               </ButtonLink>
             ) : null}
+            {otherId && !mine && canReport({ created_at: order.created_at, delivered_at: order.delivered_at, status: order.status }) ? (
+              <ReportForm orderId={order.id} number={order.number} role={role} uid={user.id} delivered={['shipped', 'delivered', 'paid'].includes(order.status)} />
+            ) : null}
           </section>
 
           {!ended ? (
@@ -185,6 +196,28 @@ export default async function OrderDetailPage({ params }: Props) {
               <div className={`${styles.actions} ${styles.sideActions}`}>
                 {role === 'buyer' ? <BuyerActions o={order} reviewed={!!review} /> : <SellerActions o={order} shipCap={order.carrier ? caps.get(order.carrier) : null} />}
               </div>
+            </section>
+          ) : null}
+
+          {review ? (
+            <section className={styles.box} aria-labelledby="hodnoceni-kupujiciho">
+              <h2 id="hodnoceni-kupujiciho" className={styles.boxTitle}>{role === 'seller' ? 'Hodnocení od kupujícího' : 'Vaše hodnocení'}</h2>
+              <p><span aria-label={`${review.rating} z 5`}>{'★'.repeat(review.rating as number)}{'☆'.repeat(5 - (review.rating as number))}</span>{review.comment ? ` · ${review.comment}` : ''}</p>
+              {review.reply ? <p className="t-small"><strong>Odpověď prodejce:</strong> {review.reply as string}</p> : role === 'seller' ? (
+                <form action={replyReview} className={styles.review}>
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <label className={`${styles.field} ${styles.grow}`}>
+                    <span className="t-label muted">ODPOVĚĎ (JEN JEDNOU, VEŘEJNĚ U HODNOCENÍ)</span>
+                    <input name="reply" maxLength={500} required className={styles.input} />
+                  </label>
+                  <Button type="submit" variant="secondary">Odpovědět</Button>
+                </form>
+              ) : null}
+            </section>
+          ) : role === 'buyer' && ended && canReview(order) ? (
+            <section className={styles.box} aria-labelledby="hodnoceni">
+              <h2 id="hodnoceni" className={styles.boxTitle}>Hodnocení prodejce</h2>
+              <ReviewForm o={order} />
             </section>
           ) : null}
 

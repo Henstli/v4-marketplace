@@ -196,3 +196,5 @@
 .proposeWide select { width: 100%; font-family: var(--font-sans); }
 .proposeActions { display: flex; gap: 8px; }
 .propose > p { flex-basis: 100%; margin: 0; }
+/* Nahlásit problém pod bublinou objednávky (DS Reports). */
+.ordReport { align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }

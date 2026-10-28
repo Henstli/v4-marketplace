@@ -13,6 +13,7 @@ import {
   getCardsByIds, getGameCounts, getShopListings, getShopReviews, mediaImage, searchShopListings,
   type ListingFilter, type ShopListing, type ShopProfile,
 } from '@/lib/shop';
+import { SellerTrust } from './SellerTrust';
 import { AutoStrip, Countdown, HoloEffect, MapEmbed, MessageSeller, PreviewBridge, SiteHeaderHeight, VideoEmbed } from './ShopClient';
 import { CONDITION_NAMES, LANGUAGE_NAMES, type Language } from '@/lib/types';
 import type { GameId } from '@/lib/games';
@@ -683,11 +684,12 @@ function AboutView({ p }: { p: ShopProfile }) {
       <p className="muted" style={{ margin: 0 }}>Prodejce o sobě zatím nic nenapsal.</p>
     </section>
   );
-  if (side === 'none') return <div className={styles.aboutStack}>{about}<AboutPanels p={p} parts={['contact', 'store']} /></div>;
+  const trust = <section className={styles.panel}><SellerTrust sellerId={p.seller.id} /></section>;
+  if (side === 'none') return <div className={styles.aboutStack}>{about}{trust}<AboutPanels p={p} parts={['contact', 'store']} /></div>;
   const rest = hasAboutPart(p, ['contact', 'store']);
   return (
     <div className={styles.columns} data-sidebar={side}>
-      <div className={styles.main}>{about}</div>
+      <div className={styles.main}>{about}{trust}</div>
       {rest ? <div className={styles.asideWrap}><aside className={styles.aside}><AboutPanels p={p} parts={['contact', 'store']} /></aside></div> : null}
     </div>
   );
