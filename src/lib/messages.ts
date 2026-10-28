@@ -1,6 +1,6 @@
 // Zprávy mezi uživateli (jen na serveru). Čte se přes RLS, zapisuje přes funkce v databázi.
 import { methodName, PAYMENT_NAME, SHIPPING_PACKING, type PaymentMethod } from './delivery';
-import { deliveryLine } from './order-flow';
+import { deliveryLine, type PaidVia } from './order-flow';
 import { PLANS } from './plans';
 import { getSellerBrands, getSellerPlans } from './shop';
 import { planColor, shopHref } from './shop-config';
@@ -75,6 +75,8 @@ export interface ChatOrder {
   /** Způsob platby (prázdné u starších objednávek) a kdy kupující klikl na Zaplaceno */
   payment: PaymentMethod | null;
   buyerPaidAt: string | null;
+  /** Jak kupující podle sebe zaplatil */
+  paidVia: PaidVia | null;
   /** Navržená vyšší doprava, čeká na kupujícího */
   shipChange: number | null;
   shipChangeReason: string | null;
@@ -211,7 +213,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
   const { data: orders } = orderIds.length
     ? await supabase
       .from('orders')
-      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name))')
+      .select('id, number, total_czk, shipping_czk, delivery, status, expires_at, payment, carrier, carrier_label, buyer_paid_at, paid_via, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name))')
       .in('id', orderIds)
     : { data: [] };
   // Strop úpravy dopravy: ceník větší zásilky + balné (jako na stránce Objednávky).
@@ -237,6 +239,7 @@ export async function getThread(me: string, other: string): Promise<{ id: string
       expiresAt: (o.expires_at as string | null) ?? null,
       payment: (o.payment as PaymentMethod | null) ?? null,
       buyerPaidAt: (o.buyer_paid_at as string | null) ?? null,
+      paidVia: (o.paid_via as PaidVia | null) ?? null,
       shipChange: (o.ship_change_czk as number | null) ?? null,
       shipChangeReason: (o.ship_change_reason as string | null) ?? null,
       paymentName: o.payment ? PAYMENT_NAME[o.payment as PaymentMethod] : null,

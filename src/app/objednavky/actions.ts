@@ -10,6 +10,7 @@ import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { czAccountNumber, formatIban, spayd } from '@/lib/payment';
 import { fetchPrepay } from '@/lib/prepay';
+import type { PaidVia } from '@/lib/order-flow';
 import { scheduleWatchFlush } from '@/lib/watch';
 
 export async function setOrderStatus(form: FormData) {
@@ -18,7 +19,8 @@ export async function setOrderStatus(form: FormData) {
   const op = String(form.get('op') ?? 'status');
   // Zaplaceno (kupující) a Nepřišla (prodejce) stav nemění, jen zapíšou platbu a napíšou do chatu.
   if (op === 'mark_paid' || op === 'not_received') {
-    await supabase.rpc(op === 'mark_paid' ? 'mark_order_paid' : 'payment_not_received', { target: id });
+    if (op === 'mark_paid') await supabase.rpc('mark_order_paid_via', { target: id, p_via: String(form.get('via') ?? '') });
+    else await supabase.rpc('payment_not_received', { target: id });
     revalidatePath('/objednavky');
     revalidatePath('/', 'layout');
     return;
@@ -92,4 +94,12 @@ export async function orderPaymentQr(id: string): Promise<ChatPayment | null> {
     ? await QRCode.toString(spayd({ iban: p.iban, amount: p.amount, vs: p.vs, name: p.account_name }), { type: 'svg', margin: 1, width: 132 })
     : null;
   return { account: p.iban ? czAccountNumber(p.iban) ?? formatIban(p.iban) : null, owner: p.account_name, paypalMe: p.paypal_me, revtag: p.revtag, amount: p.amount, vs: p.vs, qr };
+}
+
+/** Způsoby platby předem, které prodejce u objednávky má (pro volbu u Zaplaceno). */
+export async function orderPaidMethods(id: string): Promise<PaidVia[]> {
+  const supabase = await createClient();
+  const p = await fetchPrepay(supabase, id);
+  if (!p) return [];
+  return [p.iban ? 'bank' : null, p.paypal_me ? 'paypal' : null, p.revtag ? 'revolut' : null].filter((m): m is PaidVia => !!m);
 }

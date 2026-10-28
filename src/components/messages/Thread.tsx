@@ -15,6 +15,7 @@ import { answerOffer, proposePrice } from '@/app/zpravy/offers';
 import { formatDateTime, formatPrice, plural } from '@/lib/format';
 import type { ChatMessage, ChatOffer, ChatOrder, ListingRef, MyListing } from '@/lib/messages';
 import { canChangeShipping, flowActions, flowSteps, orderLabel, type FlowAction } from '@/lib/order-flow';
+import { PaidButton } from '@/components/orders/PaidButton';
 import { ORDER_STATUS_SHORT, ORDER_TONE } from '@/lib/order-status';
 import styles from './messages.module.css';
 
@@ -53,6 +54,7 @@ function StatusSubmit({ variant, children }: { variant: 'primary' | 'secondary' 
 }
 function StepForm({ id, action }: { id: string; action: FlowAction }) {
   const tracking = action.op === 'status' && action.tracking;
+  if (action.op === 'mark_paid') return <PaidButton id={id} label={action.label} buttonClassName={styles.ordBtn} />;
   return (
     <form action={setOrderStatus} className={tracking ? styles.ordTrack : undefined}>
       <input type="hidden" name="id" value={id} />
