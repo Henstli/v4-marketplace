@@ -37,6 +37,7 @@ export interface EngineOptions {
 const NSG = 6;
 const W = 360;
 const SW = 60;
+const SGW = 64;
 const SPRING = 'cubic-bezier(.22,1.2,.36,1)';
 const STAGE_W = 960;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -89,7 +90,7 @@ export function fitCoverNames(root: ParentNode) {
 export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '', full = false) {
   const src = image ? (full ? image : thumbUrl(image) ?? image) : null;
   return `<div class="asl f-${s.film}"><svg aria-hidden="true"><use href="#s${s.id}"></use></svg>` +
-    `<div class="img">${src ? `<img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" draggable="false">` : ''}</div><span class="fm"></span></div>`;
+    `<div class="img">${src ? `<img src="${esc(src)}" alt="${esc(alt)}" decoding="sync" draggable="false">` : ''}</div><span class="fm"></span></div>`;
 }
 
 /** HTML desky alba (168 × 210). */
@@ -134,6 +135,7 @@ export class AlbumEngine {
   private edgeK = 1;
   private lastRoll = 0;
   private lastEdge = ['', ''];
+  private lastLR = [-2, -2];
 
   constructor(root: HTMLElement, o: EngineOptions) {
     this.root = root;
@@ -182,7 +184,7 @@ export class AlbumEngine {
     if (p < 1) return `<div class="pg ins ${side}"${st}><span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>`;
     let h = `<div class="pg ${side}${p > this.NP ? ' blank' : ''}" data-p="${p}"${st}>`;
     // proužek listu ukazuje jen ~62 px strany: karty mimo něj se nevykreslují (méně práce při listování)
-    const lo = left ? -parseFloat(left) : -1e9, hi = left ? lo + SW + 2 : 1e9;
+    const lo = left ? -parseFloat(left) : -1e9, hi = left ? lo + SGW + 2 : 1e9;
     for (let k = 0; k < 9; k++) {
       const x0 = 18 + (k % 3) * 111.33, vis = x0 + 101.33 > lo && x0 < hi;
       h += p > this.NP || !vis ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
@@ -200,8 +202,10 @@ export class AlbumEngine {
 
   private stripHTML(j: number, i: number): string {
     const left = j === 0 ? 0 : SW;
+    // proužek je o 4 px širší než rozestup, aby se sousední proužky v ohybu překrývaly a nebyla vidět svislá spára
+    const w = j === NSG - 1 ? SW : SGW;
     return `<div class="sg sg${j}" style="left:${left}px"><div class="sf fr">${this.face(i, false, 'r', `${-j * SW}px`)}<span class="ssh"></span></div>` +
-      `<div class="sf bk">${this.face(i, true, 'l', `${-(NSG - 1 - j) * SW}px`)}<span class="ssh"></span></div>${j < NSG - 1 ? this.stripHTML(j + 1, i) : ''}</div>`;
+      `<div class="sf bk">${this.face(i, true, 'l', `${-(NSG * SW - j * SW - w)}px`)}<span class="ssh"></span></div>${j < NSG - 1 ? this.stripHTML(j + 1, i) : ''}</div>`;
   }
 
   // ---------- kostra ----------
@@ -307,10 +311,11 @@ export class AlbumEngine {
     const key = `${lb}|${rb}|${m.join(',')}`;
     if (force || key !== this.lastBases) {
       this.lastBases = key;
-      // tloušťka bloku stran je stín na vlastní prázdné vrstvě: mění se každý snímek a překreslovat celou stranu s kartami by listování sekalo
-      this.bl.innerHTML = `<span class="edg l"></span>${this.face(lb, true, 'l')}`;
-      this.br.innerHTML = `<span class="edg r"></span>${this.face(rb, false, 'r')}`;
-      this.lastEdge = ['', ''];
+      // tloušťka bloku stran je stín na vlastní prázdné vrstvě: mění se každý snímek a překreslovat celou stranu s kartami by listování sekalo.
+      // Strana se přestaví jen když se opravdu změnila, jinak by karty při listování problikly.
+      if (force || lb !== this.lastLR[0]) { this.bl.innerHTML = `<span class="edg l"></span>${this.face(lb, true, 'l')}`; this.lastEdge[0] = ''; }
+      if (force || rb !== this.lastLR[1]) { this.br.innerHTML = `<span class="edg r"></span>${this.face(rb, false, 'r')}`; this.lastEdge[1] = ''; }
+      this.lastLR = [lb, rb];
       const want = new Set(m);
       this.leafbox.querySelectorAll<HTMLElement>('.leaf').forEach((el) => { if (force || !want.has(Number(el.dataset.i))) el.remove(); });
       for (const i of m) {
@@ -599,7 +604,7 @@ export class AlbumEngine {
     const wrap = document.createElement('div');
     wrap.innerHTML =
       `<div class="ov"></div><div class="pc" style="left:${from.x}px;top:${from.y}px;width:${from.w}px;height:${from.h}px;transition:none">` +
-      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="glare"></span></div><div class="fc bk"><div class="cback"></div></div></div></div>` +
+      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="glare"></span></div><div class="fc bk slv"><div class="asl rub f-${this.o.sleeve.film}"><svg aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="fm"></span></div></div></div></div>` +
       `<div class="info"><b>${esc(c.name)}</b><span>#${esc(c.number)}${c.setName ? ' · ' + esc(c.setName) : ''}${c.owned > 1 ? ` · ${c.owned} kusy` : ''} · táhni kartou a otáčej s ní</span>` +
       `<div class="btns"><button type="button" class="bt pri" data-a="flip">Otočit kartu</button><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
     wrap.className = 'popw';
@@ -896,7 +901,7 @@ export class AlbumEngine {
   private cardHTML(card: EngineCard) {
     const src = card.image ? thumbUrl(card.image) ?? card.image : '';
     return `<div class="asl own f-${this.o.sleeve.film}"><svg class="sv" aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="sb"></span>` +
-      `<div class="img">${src ? `<img src="${esc(src)}" alt="" draggable="false">` : ''}</div><span class="fm"></span></div>`;
+      `<div class="img">${src ? `<img src="${esc(src)}" alt="" decoding="sync" draggable="false">` : ''}</div><span class="fm"></span></div>`;
   }
 
   /**
