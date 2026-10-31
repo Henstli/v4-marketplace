@@ -4,11 +4,12 @@ import { redirect } from 'next/navigation';
 import { AlbumBook } from '@/components/album/AlbumBook';
 import { ButtonLink, PlusIcon } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
-import { getCollectionCards, getCollectionOverview, type AlbumCard, type AlbumSummary } from '@/lib/collection';
+import { getCollectionCards, getCollectionOverview, type AlbumSummary } from '@/lib/collection';
 import { formatNumber } from '@/lib/format';
 import { getGame } from '@/lib/games';
-import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { CardItem } from './CardItem';
+import { CardsBrowser } from './CardsBrowser';
 import { CollectionTabs } from './CollectionTabs';
 import s from './kolekce.module.css';
 import { shortAlbumName } from '@/lib/album/designs';
@@ -48,34 +49,16 @@ function AlbumTile({ a }: { a: AlbumSummary }) {
   );
 }
 
-function CardItem({ c, missing, extra }: { c: AlbumCard; missing?: boolean; extra?: string }) {
-  const src = c.image ? thumbUrl(c.image) ?? c.image : null;
-  return (
-    <Link href={`/karty/${c.slug}`} className={s.mc}>
-      <div className={`${s.mcImg} ${missing ? s.missing : ''}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {src ? <img src={src} alt={c.name} loading="lazy" /> : null}
-        <span className={s.num}>#{c.number}</span>
-        {!missing && c.owned > 1 ? <span className={s.qty}>×{c.owned}</span> : null}
-      </div>
-      <b>{c.name}</b>
-      <div className={s.mcRow}>
-        <span>{missing ? (c.offers ? `${c.offers} ${c.offers === 1 ? 'nabídka' : c.offers <= 4 ? 'nabídky' : 'nabídek'}` : 'zatím bez nabídky') : extra ?? c.setName}</span>
-        {c.minPrice ? <strong>od <Kc n={c.minPrice} /></strong> : null}
-      </div>
-    </Link>
-  );
-}
-
 export default async function CollectionPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   if (!isSupabaseConfigured()) redirect('/');
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/kolekce');
   const { tab: rawTab } = await searchParams;
   const tab = rawTab === 'karty' || rawTab === 'chybi' ? rawTab : 'alba';
-  const [o, all] = await Promise.all([getCollectionOverview(), getCollectionCards(400)]);
+  const [o, all] = await Promise.all([getCollectionOverview(), getCollectionCards()]);
   const complete = o.albums.filter((a) => a.kind === 'set' && a.total > 0 && a.have >= a.total).length;
   const firstMissing = o.missing.filter((m) => m.offers > 0).slice(0, 12);
+  const albumOpts = o.albums.map((a) => ({ id: a.id, name: a.name }));
   const albumsWithMissing = [...new Set(firstMissing.map((m) => m.albumName))];
 
   return (
@@ -124,7 +107,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           ),
           karty: (
         all.length ? (
-          <div className={s.cards} style={{ marginTop: 'var(--space-6)' }}>{all.map((c) => <CardItem key={c.id} c={c} />)}</div>
+          <CardsBrowser cards={all} albums={albumOpts} cardAlbums={o.cardAlbums} />
         ) : (
           <div className={s.empty}>
             <h2>Zatím tu nejsou žádné karty</h2>
@@ -135,10 +118,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           ),
           chybi: (
         o.missing.length ? (
-          <>
-            <p className={s.hint} style={{ marginTop: 'var(--space-4)' }}>Karty, které ti chybí v albech sad. Nahoře jsou ty, které teď někdo prodává.{o.missingTotal > o.missing.length ? ` Zobrazeno ${o.missing.length} z ${formatNumber(o.missingTotal)}.` : ''}</p>
-            <div className={s.cards}>{o.missing.map((c) => <CardItem key={`${c.albumId}-${c.id}`} c={c} missing />)}</div>
-          </>
+          <CardsBrowser cards={o.missing} albums={albumOpts.filter((a) => o.missing.some((m) => m.albumId === a.id))} missing />
         ) : (
           <div className={s.empty}>
             <h2>Nic ti nechybí</h2>
