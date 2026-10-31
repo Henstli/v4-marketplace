@@ -127,7 +127,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
             design={look.design}
             sleeve={look.sleeve}
             cards={cards}
-            open={!founding}
+            open={false}
             counterTotal={album.kind === 'set'}
             onEmpty={(_c, i) => setSel(i)}
             onRemove={remove}
