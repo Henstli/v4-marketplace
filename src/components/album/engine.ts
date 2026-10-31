@@ -199,7 +199,6 @@ export class AlbumEngine {
   private sumData: { title: string; sub: string; spreads: number[]; fresh: Set<number> } | null = null;
   private lastT = -1;
   private edgeK = 1;
-  private lastRoll = 0;
   private lastEdge = ['', ''];
   private lastLR = [-2, -2];
 
@@ -306,7 +305,7 @@ export class AlbumEngine {
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
       `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
       `<button type="button" class="arr nx" aria-label="Další strana">${arrow('M8.5 5 L14.5 11 L8.5 17')}</button>` +
-      `<div class="ind"><span class="txt"></span><span class="dots"></span><span class="cnt"></span></div>` +
+      `<div class="ind"><span class="txt"></span><span class="dots"></span></div>` +
       `<div class="deck"></div><div class="sum"></div></div>`;
     this.stage = this.root.querySelector('.alb-stage')!;
     this.book = this.root.querySelector('.book')!;
@@ -418,8 +417,10 @@ export class AlbumEngine {
     this.root.querySelector('.pv')!.classList.toggle('off', t <= 0);
     this.root.querySelector('.nx')!.classList.toggle('off', t >= NL);
     const pages = [2 * t - 2, 2 * t - 1].filter((p) => p >= 1 && p <= this.NP);
-    const txt = t === 0 ? 'Album je zavřené' : pages.length === 2 ? `Strany ${pages[0]}–${pages[1]} z ${this.NP}` : pages.length ? `Strana ${pages[0]} z ${this.NP}` : 'Konec alba';
-    this.root.querySelector('.ind .txt')!.textContent = txt;
+    const txt = this.root.querySelector<HTMLElement>('.ind .txt')!;
+    txt.classList.toggle('plain', !pages.length);
+    txt.innerHTML = t === 0 ? 'Zavřené album' : !pages.length ? 'Konec alba'
+      : `<span>${pages.length === 2 ? 'Strany' : 'Strana'}</span><b>${pages.join('–')}</b><span>z ${this.NP}</span>`;
     const dots = this.root.querySelector<HTMLElement>('.ind .dots')!;
     if (dots.childElementCount !== NL + 1) {
       dots.innerHTML = Array.from({ length: NL + 1 }, (_, i) => `<span class="dot" data-t="${i}" title="${i === 0 ? 'Zavřít album' : 'Dvoustrana ' + i}"></span>`).join('');
@@ -427,7 +428,6 @@ export class AlbumEngine {
     }
     dots.querySelectorAll<HTMLElement>('.dot').forEach((d, i) => d.classList.toggle('on', i === t));
     if (t !== this.lastT) { this.lastT = t; this.o.onSpread?.(t); }
-    if (!this.busy) this.counter(this.cards.filter((c) => c.owned > 0).length, false);
   }
 
   private edgeShadow(nLeaves: number, sx: number) {
@@ -966,7 +966,6 @@ export class AlbumEngine {
     const haveBefore = this.cards.filter((c, i) => c.owned > 0 && !this.hidden.has(i)).length;
     let have = haveBefore;
     this.sync(true);
-    this.counter(have, false);
     this.root.querySelector('.ind')?.classList.add('live');
 
     // hromádka (2B): obaly se nasadí všem kartám naráz, zatímco se otevírá deska
@@ -996,7 +995,7 @@ export class AlbumEngine {
       this.hidden.delete(ci); this.glow.add(ci);
       const el = kc(ci);
       if (el) this.landCard(el, k, single);
-      have++; this.counter(have, true);
+      have++;
     };
     const pop = (ci: number) => {
       this.hidden.delete(ci); this.glow.add(ci);
@@ -1005,7 +1004,7 @@ export class AlbumEngine {
         el.classList.remove('off'); el.parentElement?.classList.add('glow');
         el.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1.08)', offset: 0.6 }, { opacity: 1, transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
       }
-      have++; this.counter(have, true);
+      have++;
     };
 
     if (founding) {
@@ -1036,7 +1035,7 @@ export class AlbumEngine {
                 e2.classList.remove('off'); e2.parentElement?.classList.add('glow');
                 e2.animate([{ transform: 'scale(.9)' }, { transform: 'scale(1.06)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
               }
-              have++; this.counter(have, true);
+              have++;
             } else { pop(ci); await sleep(60 + 140 * k); }
           }));
         });
@@ -1097,28 +1096,6 @@ export class AlbumEngine {
     } else {
       setTimeout(() => { if (!this.dead) { this.glow.clear(); this.root.querySelectorAll('.pk.glow').forEach((e) => e.classList.remove('glow')); } }, 3200);
     }
-  }
-
-  /** Počítadlo karet pod albem; při přidání se číslo protočí nahoru. */
-  private counter(have: number, roll: boolean) {
-    const el = this.root.querySelector<HTMLElement>('.ind .cnt');
-    if (!el) return;
-    const total = this.o.counterTotal ? ` / ${this.cards.length}` : '';
-    const prev = el.querySelector<HTMLElement>('b');
-    if (!roll || !prev) { el.innerHTML = `<b><i>${have}</i></b>${total}`; return; }
-    // při rychlém vkládání se číslo jen přepíše, protáčení by se překrývalo
-    const now = performance.now();
-    if (now - this.lastRoll < 220) { this.lastRoll = now; prev.innerHTML = `<i>${have}</i>`; return; }
-    this.lastRoll = now;
-    while (prev.childElementCount > 1) prev.firstElementChild!.remove();
-    const ni = document.createElement('i');
-    ni.textContent = String(have);
-    const old = prev.firstElementChild as HTMLElement | null;
-    prev.appendChild(ni);
-    if (old) {
-      old.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-100%)', opacity: 0 }], { duration: 260, easing: 'cubic-bezier(.3,1.6,.5,1)', fill: 'forwards' }).onfinish = () => old.remove();
-    }
-    ni.animate([{ transform: 'translateY(100%)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.3,1.6,.5,1)' });
   }
 
   /** Karta v obalu pro hromádku a let (obal je samostatná vrstva, aby se dal nasunout). */

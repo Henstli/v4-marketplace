@@ -131,8 +131,8 @@
 .alb .arr:hover{background:#1d2530;transform:scale(1.06)}
 .alb .arr.off{opacity:.25;pointer-events:none}
 .alb .arr.pv{left:44px}.alb .arr.nx{right:44px}
-.alb .ind{position:absolute;left:0;right:0;top:562px;display:flex;justify-content:center;align-items:center;gap:14px;font:500 13px Inter,sans-serif;color:#a3adbb}
-.alb .ind .dots{display:flex;gap:6px;flex-wrap:wrap;max-width:520px;justify-content:center}
+.alb .ind{position:absolute;left:50%;width:max-content;max-width:900px;top:558px;transform:translateX(-50%);display:flex;justify-content:center;align-items:center;gap:14px;padding:6px 16px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font:500 13px Inter,sans-serif;color:#a3adbb;white-space:nowrap}
+.alb .ind .dots{display:flex;gap:6px;flex-wrap:wrap;max-width:520px;justify-content:center;padding-left:14px;border-left:1px solid rgba(255,255,255,.1)}
 .alb .ind .dot{width:7px;height:7px;border-radius:50%;background:#3a4350;cursor:pointer;transition:background .2s,transform .2s}
 .alb .ind .dot.on{background:#7cf2c8;transform:scale(1.25);box-shadow:0 0 6px #7cf2c8}
 /* balíček a let karty */
@@ -219,7 +219,6 @@
 .alb .lfx .lr.r2{border-color:#fff2c2;box-shadow:0 0 22px #fff2c2}
 .alb .lfx .sw{position:absolute;inset:4px;border-radius:7px;opacity:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.35) 50%,transparent 65%);background-size:260% 100%}
 .alb .lfx .stamp{position:absolute;right:-10px;top:-8px;padding:2px 7px;border-radius:5px;background:#7cf2c8;color:#0b0e13;font:800 10px/14px "Space Grotesk",sans-serif;letter-spacing:.08em;box-shadow:0 4px 10px rgba(0,0,0,.5);opacity:0}
-.alb .ind .cnt{font:500 13px "JetBrains Mono",monospace;color:#a3adbb}
-.alb .ind .cnt b{display:inline-grid;overflow:hidden;vertical-align:bottom;color:#e8ecf1;font-weight:600}
-.alb .ind .cnt b i{grid-area:1/1;font-style:normal}
-.alb .ind.live .txt,.alb .ind.live .cnt b{color:#7cf2c8}
+.alb .ind .txt{display:inline-flex;align-items:baseline;gap:6px;min-width:112px;justify-content:center;color:#7d8794;font-size:12px}
+.alb .ind .txt b{font:600 14px "JetBrains Mono",monospace;color:#e8ecf1;letter-spacing:.02em}
+.alb .ind .txt.plain{color:#a3adbb;font-size:13px}
