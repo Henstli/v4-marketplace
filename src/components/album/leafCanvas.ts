@@ -262,7 +262,6 @@ export class LeafCanvas {
       rr(g, ix, iy, iw, ih, 6 * sx); g.fillStyle = '#151a22'; g.fill();
     }
     g.restore();
-    this.paintFilm(g, x, y, 92, 126);
     g.restore();
     if (c.owned > 1) {
       const t = `×${c.owned}`;
@@ -270,24 +269,6 @@ export class LeafCanvas {
       const w = g.measureText(t).width + 10;
       rr(g, x + 4, y + 126 - 4 - 16, w, 16, 5); g.fillStyle = 'rgba(11,14,19,.85)'; g.fill();
       g.fillStyle = '#e8ecf1'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(t, x + 9, y + 126 - 12);
-    }
-  }
-
-  // povrch obalu (.fm v album.css)
-  private paintFilm(g: G, x: number, y: number, w: number, h: number) {
-    const f = this.look.film;
-    if (f === 'matte') { g.fillStyle = cssLinear(g, 160, x, y, w, h, [[0, 'rgba(255,255,255,.07)'], [1, 'rgba(255,255,255,.02)']]); g.fillRect(x, y, w, h); return; }
-    if (f === 'gloss') {
-      g.fillStyle = cssLinear(g, 125, x, y, w, h, [[0, 'rgba(255,255,255,.22)'], [0.24, 'rgba(255,255,255,.06)'], [0.4, 'rgba(255,255,255,0)'], [0.66, 'rgba(255,255,255,0)'], [0.78, 'rgba(255,255,255,.08)'], [0.9, 'rgba(255,255,255,0)']]);
-      g.fillRect(x, y, w, h); return;
-    }
-    g.fillStyle = cssLinear(g, 125, x, y, w, h, [[0, 'rgba(255,255,255,.2)'], [f === 'holo' ? 0.3 : 0.35, 'rgba(255,255,255,0)']]);
-    g.fillRect(x, y, w, h);
-    if (f === 'holo') {
-      const st: Array<[number, string]> = [];
-      const cols = ['rgba(255,139,209,0)', 'rgba(255,139,209,.16)', 'rgba(255,211,110,.16)', 'rgba(124,242,200,.16)', 'rgba(110,168,255,.16)'];
-      for (let o = 0; o < 1; o += 0.4) cols.forEach((c, i) => st.push([o + i * 0.08, c]));
-      g.fillStyle = cssLinear(g, 115, x, y, w, h, st); g.fillRect(x, y, w, h);
     }
   }
 

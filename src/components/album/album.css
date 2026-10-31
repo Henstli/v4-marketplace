@@ -69,10 +69,12 @@
 .alb .em:hover{background:rgba(124,242,200,.06);color:#a8f7dc}
 .alb .pk.sel .em{outline:2px solid #7cf2c8;outline-offset:-4px;color:#7cf2c8;background:rgba(124,242,200,.08)}
 .alb .kc{position:relative;width:92px;height:126px;border-radius:7px;cursor:pointer;transition:transform .6s cubic-bezier(.22,1,.36,1),box-shadow .5s;box-shadow:0 2px 4px rgba(0,0,0,.55)}
+/* lesk karty v albu jako holo na stránce obchodu (.tz-holo): v klidu žádný, při najetí pruh za kurzorem */
+.alb .kc .fm{display:none}
 .alb .kc .asl{position:absolute;left:0;top:0;transform:scale(.6134,.6117);transform-origin:0 0}
 .alb .kc.off{opacity:0}
-.alb .kc.hv{will-change:transform;transition:transform .45s ease-out,box-shadow .3s;box-shadow:0 14px 22px -10px rgba(0,0,0,.85);z-index:3}
-.alb .kc .gs{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .35s;mix-blend-mode:color-dodge;z-index:4;
+.alb .kc.hv{will-change:transform;transition:transform .25s ease-out,box-shadow .25s;box-shadow:0 14px 22px -10px rgba(0,0,0,.85);z-index:3}
+.alb .kc .gs{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .25s;mix-blend-mode:color-dodge;z-index:4;
  background:linear-gradient(105deg,transparent calc(var(--mx,50%) - 25%),rgba(255,255,255,.55) var(--mx,50%),transparent calc(var(--mx,50%) + 25%)),linear-gradient(115deg,rgba(124,242,200,.4),rgba(180,140,255,.4))}
 .alb .kc.hv .gs{opacity:.7}
 .alb .kc .qty{position:absolute;left:4px;bottom:4px;z-index:5;padding:0 5px;border-radius:5px;background:rgba(11,14,19,.85);font:700 10px/16px Inter;color:#e8ecf1}

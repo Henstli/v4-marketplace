@@ -702,7 +702,7 @@ export class AlbumEngine {
     if (k !== this.hk) { this.unhover(); this.hk = k; if (k) k.classList.add('hv'); }
     if (!k) return;
     const r = k.getBoundingClientRect(), mx = (e.clientX - r.left) / r.width, my = (e.clientY - r.top) / r.height;
-    k.style.transform = `perspective(700px) rotateY(${((mx - 0.5) * 17).toFixed(2)}deg) rotateX(${((0.5 - my) * 17).toFixed(2)}deg) scale(1.045)`;
+    k.style.transform = `perspective(700px) rotateY(${((mx - 0.5) * 16).toFixed(2)}deg) rotateX(${((0.5 - my) * 16).toFixed(2)}deg) scale(1.045)`;
     k.style.setProperty('--mx', `${(mx * 100).toFixed(1)}%`);
   }
 
