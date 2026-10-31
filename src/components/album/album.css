@@ -52,6 +52,8 @@
 .alb .bl,.alb .br,.alb .leafbox{position:absolute;left:0;top:0;width:360px;height:480px}
 .alb .bl,.alb .br{z-index:2}.alb .leafbox{z-index:5;pointer-events:none}
 .alb .bl>.pg,.alb .br>.pg{cursor:grab}
+/* stín bloku stran nesmí přesahovat přes hřbet na protější stranu: otáčený list v plátně by ho neměl a po dosednutí by strana u hřbetu ztmavla */
+.alb .bl{clip-path:inset(-200px 360px -200px -600px)}.alb .br{clip-path:inset(-200px -600px -200px 0)}
 .alb .edg{position:absolute;top:0;width:360px;height:480px;will-change:transform;pointer-events:none}
 .alb .edg.l{left:-360px;border-radius:14px 6px 6px 14px}.alb .edg.r{left:0;border-radius:6px 14px 14px 6px}
 .alb .bl>.pg{left:-360px}
@@ -72,8 +74,8 @@
 .alb .kc.hv .gs{opacity:.7}
 .alb .kc .qty{position:absolute;left:4px;bottom:4px;z-index:5;padding:0 5px;border-radius:5px;background:rgba(11,14,19,.85);font:700 10px/16px Inter;color:#e8ecf1}
 .alb .gl{position:absolute;inset:0;pointer-events:none;z-index:2}
-.alb .pg.r .gl{background:linear-gradient(90deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%)}
-.alb .pg.l .gl{background:linear-gradient(270deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%)}
+.alb .pg.r .gl{background:var(--gut-r,linear-gradient(90deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%));background-size:100% 100%}
+.alb .pg.l .gl{background:var(--gut-l,linear-gradient(270deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%));background-size:100% 100%}
 .alb .shade{position:absolute;inset:0;pointer-events:none;z-index:4;background:#000;opacity:0;border-radius:inherit;will-change:opacity}
 .alb .cbl{display:none}
 .alb .pg.ins{background:var(--lining)}
