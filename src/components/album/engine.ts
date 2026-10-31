@@ -102,57 +102,87 @@ function capHeight(cs: CSSStyleDeclaration, fs: number) {
   return fontMetrics(cs, fs)?.cap ?? 0;
 }
 
-/** Vejde název do štítku na desce stejně jako v návrzích alb: nejdřív ubírá rozpal písmen, pak velikost písma. */
+/** Šířka inkoustu textu: písmena včetně přesahu kurzívy, rozpal mezi nimi a obrys. */
+function inkWidth(cs: CSSStyleDeclaration, text: string, fs: number, ls: number, stroke = 0) {
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  if (!measureCtx) return 0;
+  measureCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${fs}px ${cs.fontFamily}`;
+  const m = measureCtx.measureText(text);
+  return Math.abs(m.actualBoundingBoxLeft) + Math.abs(m.actualBoundingBoxRight) + ls * Math.max(0, Array.from(text).length - 1) + stroke;
+}
+
+/**
+ * Vejde název do štítku nebo mezi okraje přední strany desky: nejdřív ubírá rozpal písmen, pak velikost písma
+ * do 45 % původní (ne pod 7 px), a když ani to nestačí, název zkrátí a přidá tři tečky. Text se nikdy nedotkne
+ * ohraničení štítku (data-w je šířka uvnitř štítku i s mezerou od jeho okrajů).
+ */
 export function fitCoverNames(root: ParentNode) {
   root.querySelectorAll<HTMLElement | SVGTextElement>('.nm').forEach((el) => {
     try {
-      if (el instanceof SVGTextElement) {
-        if (!el.dataset.w) return;
-        if (el.dataset.ls0 === undefined) el.dataset.ls0 = String(parseFloat(el.getAttribute('letter-spacing') || '0'));
-        let fs = Number(el.dataset.fs), ls = Number(el.dataset.ls0);
-        const w = Number(el.dataset.w), mid = el.getAttribute('text-anchor') === 'middle';
-        const set = () => {
-          el.setAttribute('font-size', String(fs));
-          if (el.hasAttribute('letter-spacing')) el.setAttribute('letter-spacing', String(ls));
-          if (mid) el.setAttribute('dx', String(ls / 2));
-        };
-        set();
-        el.removeAttribute('textLength'); el.removeAttribute('lengthAdjust');
-        let n = 0;
-        while (el.getComputedTextLength() > w && (fs > 6 || ls > 0) && n++ < 200) {
-          if (ls > 0.3 && ls > fs * 0.1) ls = Math.max(0, ls - 0.5); else if (fs > 6) fs -= 0.5; else ls = 0;
-          set();
+      if (el.dataset.full === undefined) el.dataset.full = el.textContent || '';
+      const full = el.dataset.full;
+      const cs = getComputedStyle(el);
+      const svg = el instanceof SVGTextElement;
+      if (svg && !el.dataset.w) return;
+      if (!svg && !el.dataset.fs0) {
+        el.dataset.fs0 = String(parseFloat(cs.fontSize));
+        el.dataset.ls0 = String(parseFloat(cs.letterSpacing) || 0);
+        el.dataset.pt0 = String(parseFloat(cs.paddingTop) || 0);
+        el.dataset.pb0 = String(parseFloat(cs.paddingBottom) || 0);
+      }
+      if (svg && el.dataset.ls0 === undefined) el.dataset.ls0 = String(parseFloat(el.getAttribute('letter-spacing') || '0'));
+      const fs0 = Number(svg ? el.dataset.fs : el.dataset.fs0), ls0 = Number(el.dataset.ls0);
+      const stroke = svg ? parseFloat(el.getAttribute('stroke-width') || '0') || 0 : 0;
+      const w = svg
+        ? Number(el.dataset.w)
+        : (el as HTMLElement).clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (!(w > 0)) return;
+      const minFs = Math.min(fs0, Math.max(7, fs0 * 0.45));
+      // HTML štítek posouvá text o rozpal doprava (text-indent), aby byl i s rozpalem za posledním písmenem na středu
+      const fits = (t: string, f: number, l: number) => inkWidth(cs, t, f, l, stroke) + (svg ? 0 : l) <= w;
+
+      let fs = fs0, ls = ls0, text = full, n = 0;
+      // rozpal jen do 8 % písma, pak menší písmo, a teprve pod nejmenším písmem rozpal úplně pryč
+      while (!fits(text, fs, ls) && n++ < 400) {
+        if (ls > 0.3 && ls > fs * 0.08) ls = Math.max(0, ls - 0.5);
+        else if (fs - 0.5 >= minFs) fs -= 0.5;
+        else if (ls > 0) ls = Math.max(0, ls - 0.5);
+        else break;
+      }
+      if (!fits(text, fs, ls)) {
+        const ch = Array.from(full);
+        let lo = 0, hi = ch.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi + 1) >> 1;
+          if (fits(ch.slice(0, mid).join('').trimEnd() + '...', fs, ls)) lo = mid; else hi = mid - 1;
         }
-        if (el.getComputedTextLength() > w) { el.setAttribute('textLength', String(w)); el.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
+        text = ch.slice(0, lo).join('').trimEnd() + '...';
+      }
+      if (el.textContent !== text) el.textContent = text;
+
+      if (svg) {
+        el.setAttribute('font-size', String(fs));
+        if (el.hasAttribute('letter-spacing')) el.setAttribute('letter-spacing', String(ls));
+        if (el.getAttribute('text-anchor') === 'middle') el.setAttribute('dx', String(ls / 2));
+        el.removeAttribute('textLength'); el.removeAttribute('lengthAdjust');
         // Svisle: střed velkých písmen na střed štítku (data-cy), jinak tam, kde byl při původní velikosti písma.
-        const cs = getComputedStyle(el);
         if (el.dataset.y0 === undefined) el.dataset.y0 = el.getAttribute('y') || '0';
-        const fs0 = Number(el.dataset.fs), y0 = Number(el.dataset.y0);
         const c0 = capHeight(cs, fs0);
         if (c0 > 0) {
-          const cy = el.dataset.cy !== undefined ? Number(el.dataset.cy) : y0 - c0 / 2;
+          const cy = el.dataset.cy !== undefined ? Number(el.dataset.cy) : Number(el.dataset.y0) - c0 / 2;
           el.setAttribute('y', String(Math.round((cy + capHeight(cs, fs) / 2) * 100) / 100));
         }
       } else {
-        const cs = getComputedStyle(el);
-        if (!el.dataset.fs0) { el.dataset.fs0 = String(parseFloat(cs.fontSize)); el.dataset.ls0 = String(parseFloat(cs.letterSpacing) || 0); }
-        let fs = Number(el.dataset.fs0), ls = Number(el.dataset.ls0), n = 0;
-        const set = () => { el.style.fontSize = fs + 'px'; el.style.letterSpacing = ls + 'px'; el.style.textIndent = ls + 'px'; };
-        set();
-        while (el.scrollWidth > el.clientWidth && (fs > 8 || ls > 0.5) && n++ < 200) {
-          if (ls > 0.5 && ls > fs * 0.08) ls = Math.max(0.5, ls - 0.5); else fs -= 0.5;
-          set();
-        }
-        while (fs > 6 && el.scrollWidth > el.clientWidth && n++ < 400) { fs -= 0.5; set(); }
+        const h = el as HTMLElement;
+        h.style.fontSize = fs + 'px'; h.style.letterSpacing = ls + 'px'; h.style.textIndent = ls + 'px';
         // Svisle: střed velkých písmen na střed štítku. Řádek písmo posadí podle svých metrik, které má každé písmo jiné.
-        if (el.dataset.pt0 === undefined) { el.dataset.pt0 = String(parseFloat(cs.paddingTop) || 0); el.dataset.pb0 = String(parseFloat(cs.paddingBottom) || 0); }
-        const m = fontMetrics(getComputedStyle(el), fs);
-        const lh = parseFloat(getComputedStyle(el).lineHeight);
+        const m = fontMetrics(cs, fs);
+        const lh = parseFloat(getComputedStyle(h).lineHeight);
         if (m && lh > 0) {
           const base = (lh - (m.a + m.d)) / 2 + m.a;
           const dy = Math.round((lh / 2 - (base - m.cap / 2)) * 100) / 100;
-          el.style.paddingTop = Number(el.dataset.pt0) + dy + 'px';
-          el.style.paddingBottom = Number(el.dataset.pb0) - dy + 'px';
+          h.style.paddingTop = Number(h.dataset.pt0) + dy + 'px';
+          h.style.paddingBottom = Number(h.dataset.pb0) - dy + 'px';
         }
       }
     } catch { /* písmo ještě není nebo prvek není vidět */ }
