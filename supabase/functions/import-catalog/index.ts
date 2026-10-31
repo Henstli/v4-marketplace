@@ -1,5 +1,5 @@
 // Import katalogů karet do databáze.
-//   Pokémon: TCGdex (https://tcgdex.dev), Magic: Scryfall (https://scryfall.com/docs/api),
+//   Pokémon: TCGdex (https://tcgdex.dev), chybějící obrázky z pokemontcg.io a Limitless TCG, Magic: Scryfall (https://scryfall.com/docs/api),
 //   Riftbound: oficiální galerie Riotu (https://playriftbound.com/en-us/card-gallery/), promo sady a záloha
 //   Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
 //   One Piece: OPTCG API (https://optcgapi.com/documentation), chybějící obrázky z Limitless TCG.
@@ -111,6 +111,28 @@ let ptcgSets: Map<string, string> | null = null;
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const numberKey = (s: string) => s.toUpperCase().replace(/^([A-Z]*)0+(?=\d)/, '$1');
 
+// Sady, které se v pokemontcg.io jmenují jinak než v TCGdex (id TCGdex → id pokemontcg.io).
+const PTCG_SET_IDS: Record<string, string> = {
+  'tk-ex-m': 'tk2b',
+  'tk-ex-p': 'tk2a',
+  'tk-ex-latia': 'tk1a',
+  'tk-ex-latio': 'tk1b',
+  '2011bw': 'mcd11',
+  '2012bw': 'mcd12',
+  '2014xy': 'mcd14',
+  '2015xy': 'mcd15',
+  '2016xy': 'mcd16',
+  '2017sm': 'mcd17',
+  '2018sm': 'mcd18',
+  '2019sm': 'mcd19',
+  '2021swsh': 'mcd21',
+  '2022swsh': 'mcd22',
+  'cel25cc': 'cel25c',
+  '30th-c': 'me55c',
+};
+// U těchto sad má pokemontcg.io původní čísla karet (Charizard 4/102), TCGdex nová (CC002), párujeme podle jména.
+const PTCG_BY_NAME = new Set(['cel25cc']);
+
 async function ptcgImages(setId: string, setName: string): Promise<Map<string, string>> {
   const images = new Map<string, string>();
   if (!ptcgSets) {
@@ -124,18 +146,37 @@ async function ptcgImages(setId: string, setName: string): Promise<Map<string, s
     }
   }
   try {
-    const ptcgId = ptcgSets?.get(nameKey(setName)) ?? setId.replace(/\./g, '');
+    const ptcgId = PTCG_SET_IDS[setId] ?? ptcgSets?.get(nameKey(setName)) ?? setId.replace(/\./g, '');
     for (let page = 1; ; page++) {
-      const res = await getJson<{ data: Array<{ number: string; images?: { large?: string } }>; totalCount: number }>(
-        `https://api.pokemontcg.io/v2/cards?q=set.id:${encodeURIComponent(ptcgId)}&select=number,images&pageSize=250&page=${page}`,
+      const res = await getJson<{ data: Array<{ number: string; name: string; images?: { large?: string } }>; totalCount: number }>(
+        `https://api.pokemontcg.io/v2/cards?q=set.id:${encodeURIComponent(ptcgId)}&select=number,name,images&pageSize=250&page=${page}`,
       );
-      for (const c of res.data) if (c.images?.large) images.set(numberKey(c.number), c.images.large);
+      for (const c of res.data) {
+        if (c.images?.large) images.set(PTCG_BY_NAME.has(setId) ? nameKey(c.name) : numberKey(c.number), c.images.large);
+      }
       if (page * 250 >= res.totalCount) break;
     }
   } catch {
     // Záložní zdroj je jen doplněk; bez něj karta zůstane se zástupnou plochou.
   }
   return images;
+}
+
+// Třetí zdroj obrázků: Limitless TCG (https://limitlesstcg.com/cards) má skeny nových promo a energií,
+// které TCGdex ani pokemontcg.io zatím nemají. Adresa obrázku se dá složit z kódu sady a čísla karty.
+const LIMITLESS_SETS: Record<string, string> = { mep: 'MEP', mee: 'MEE', svp: 'SVP', sve: 'SVE', xyp: 'XYP', smp: 'SMP' };
+
+async function limitlessPokemonImage(setId: string, localId: string): Promise<string | null> {
+  const code = LIMITLESS_SETS[setId];
+  const digits = localId.match(/^[A-Za-z]*0*(\d+)$/)?.[1];
+  if (!code || !digits) return null;
+  const url = `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/${code}/${code}_${digits.padStart(3, '0')}_R_EN_LG.png`;
+  try {
+    const res = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': HEADERS['User-Agent'] } });
+    return res.ok ? url : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchPokemonSet(id: string): Promise<ImportedSet> {
@@ -149,6 +190,11 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
     }
   });
   const fallback = set.cards.some((c) => !c.image) ? await ptcgImages(set.id, set.name) : new Map<string, string>();
+  for (const c of set.cards) {
+    if (c.image || fallback.has(numberKey(c.localId))) continue;
+    const url = await limitlessPokemonImage(set.id, c.localId);
+    if (url) fallback.set(numberKey(c.localId), url);
+  }
   return {
     code,
     name: set.name,
@@ -160,7 +206,9 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
         name: c.name,
         number,
         rarity: rarities[i],
-        image_url: c.image ? `${c.image}/high.webp` : fallback.get(numberKey(c.localId)) ?? null,
+        image_url: c.image
+          ? `${c.image}/high.webp`
+          : fallback.get(numberKey(c.localId)) ?? (PTCG_BY_NAME.has(set.id) ? fallback.get(nameKey(c.name)) : undefined) ?? null,
         external_id: `tcgdex:${c.id}`,
       };
     }),
