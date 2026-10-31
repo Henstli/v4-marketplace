@@ -61,6 +61,8 @@ export class LeafCanvas {
   readonly el: HTMLCanvasElement;
   private g: G;
   private R = 1;
+  // plátno má do prvního nastavení výchozích 300 × 150 px; bez toho by se při zvětšení 1 roztáhlo
+  private sized = false;
   private tex = new Map<string, HTMLCanvasElement>();
   private imgs = new Map<string, HTMLImageElement>();
   private sleeve: HTMLImageElement | null = null;
@@ -89,7 +91,8 @@ export class LeafCanvas {
   setScale(k: number) {
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     const R = Math.min(2, Math.max(1, k * dpr));
-    if (Math.abs(R - this.R) < 0.02 && this.el.width) return;
+    if (this.sized && Math.abs(R - this.R) < 0.02) return;
+    this.sized = true;
     this.R = R;
     this.el.width = Math.round((LW + 2 * PADX) * R);
     this.el.height = Math.round((LH + PADT + PADB) * R);
