@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { AlbumBook, Sleeve } from '@/components/album/AlbumBook';
 import { cardsWord } from '@/components/album/engine';
-import { Button, Chip, SearchField, Steps } from '@/components/trezor';
+import { Button, ButtonLink, Chip, SearchField, Steps } from '@/components/trezor';
 import { GAMES, type GameId } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { createAlbum, findSets, searchForAlbum, setCards, type PickCard, type SetOption } from '../actions';
@@ -183,7 +183,7 @@ export function NewAlbumWizard() {
 
           {err ? <p className={s.err}>{err}</p> : null}
           <div className={s.wizFoot}>
-            {step > 0 ? <Button variant="ghost" onClick={() => { setStep(step - 1); setQ(''); }}>← Zpět</Button> : <Link href="/kolekce" className={s.hint} style={{ margin: 0 }}>Zrušit</Link>}
+            {step > 0 ? <Button variant="ghost" onClick={() => { setStep(step - 1); setQ(''); }}>← Zpět</Button> : <ButtonLink variant="secondary" href="/kolekce">Zrušit</ButtonLink>}
             {step < 2 ? (
               <Button disabled={!canNext} onClick={() => { setStep(step + 1); setQ(''); }}>Pokračovat</Button>
             ) : (
