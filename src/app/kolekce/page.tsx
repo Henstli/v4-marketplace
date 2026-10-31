@@ -75,7 +75,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   const tab = rawTab === 'karty' || rawTab === 'chybi' ? rawTab : 'alba';
   const [o, all] = await Promise.all([getCollectionOverview(), getCollectionCards(400)]);
   const complete = o.albums.filter((a) => a.kind === 'set' && a.total > 0 && a.have >= a.total).length;
-  const firstMissing = o.missing.filter((m) => m.offers > 0).slice(0, 6);
+  const firstMissing = o.missing.filter((m) => m.offers > 0).slice(0, 12);
   const albumsWithMissing = [...new Set(firstMissing.map((m) => m.albumName))];
 
   return (
@@ -117,7 +117,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                 <h2>Chybí ti a jsou v nabídce<small>z alb {albumsWithMissing.join(', ')}</small></h2>
                 <Link href="/kolekce?tab=chybi" data-tab="chybi">Všechny chybějící →</Link>
               </div>
-              <div className={s.cards}>{firstMissing.map((c) => <CardItem key={`${c.albumId}-${c.id}`} c={c} missing />)}</div>
+              <div className={`${s.cards} ${s.oneRow}`}>{firstMissing.map((c) => <CardItem key={`${c.albumId}-${c.id}`} c={c} missing />)}</div>
             </>
           ) : null}
         </>

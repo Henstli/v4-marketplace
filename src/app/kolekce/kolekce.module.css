@@ -41,6 +41,7 @@
 .sec h2 small{margin-left:10px;font:500 13px var(--font-sans);color:var(--ink-muted)}
 .sec a{color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-4);margin-top:var(--space-4)}
+.oneRow{grid-template-rows:auto;grid-auto-rows:0;row-gap:0;overflow:hidden}
 .mc{display:flex;flex-direction:column;gap:6px;color:var(--ink);text-decoration:none}
 .mcImg{position:relative;aspect-ratio:63/88;border-radius:4.8%/3.45%;overflow:hidden;background:var(--surface-sunken)}
 .mcImg img{width:100%;height:100%;object-fit:contain;display:block}
