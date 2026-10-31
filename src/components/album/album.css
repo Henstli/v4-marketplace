@@ -78,6 +78,8 @@
 .alb .pg.r .gl{background:var(--gut-r,linear-gradient(90deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%));background-size:100% 100%}
 .alb .pg.l .gl{background:var(--gut-l,linear-gradient(270deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%));background-size:100% 100%}
 .alb .shade{position:absolute;inset:0;pointer-events:none;z-index:4;background:#000;opacity:0;border-radius:inherit;will-change:opacity}
+/* stín strany pod zvedaným listem nesahá až ke hřbetu: tam list zůstává přichycený a krajní pixel by jinak prosvítal jako tmavá čára */
+.alb .pg.r .shade{left:2px}.alb .pg.l .shade{right:2px}
 .alb .cbl{display:none}
 /* vnitřek desek: tmavší prohlubeň, kam dosedají strany, a šev po okraji */
 .alb .pg.ins{background:rgba(0,0,0,.13);box-shadow:inset 0 2px 5px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.1)}
