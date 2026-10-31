@@ -35,6 +35,8 @@ export interface EngineOptions {
 }
 
 const W = 360;
+// otáčený list = NS svislých proužků po SW px; každý se promítá sám (bez sdíleného 3D prostoru) a o SOV px přesahuje do dalšího
+const NS = 12, SW = W / NS, SOV = 2, PERSP = 1800;
 const SPRING = 'cubic-bezier(.22,1.2,.36,1)';
 const STAGE_W = 960;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -180,7 +182,12 @@ export class AlbumEngine {
     const st = left ? ` style="left:${left}"` : '';
     if (p < 1) return `<div class="pg ins ${side}"${st}><span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>`;
     let h = `<div class="pg ${side}${p > this.NP ? ' blank' : ''}" data-p="${p}"${st}>`;
-    for (let k = 0; k < 9; k++) h += p > this.NP ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
+    // proužek listu ukazuje jen kousek strany: karty mimo něj se nevykreslují (méně práce při listování)
+    const lo = left ? -parseFloat(left) : -1e9, hi = left ? lo + SW + SOV + 1 : 1e9;
+    for (let k = 0; k < 9; k++) {
+      const x0 = 18 + (k % 3) * 111.33, vis = x0 + 101.33 > lo && x0 < hi;
+      h += p > this.NP || !vis ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
+    }
     return h + '<span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>';
   }
 
@@ -193,14 +200,20 @@ export class AlbumEngine {
   }
 
   /**
-   * Otáčený list: líc a rub jako dvě pevné plochy. Ohyb z desky 3A dělaly svislé proužky, jenže na jejich
-   * stycích se v prohlížeči objevovaly světlé spáry přes karty; ohyb proto naznačuje jen stínování.
+   * Otáčený list z desky 3A: svislé proužky, které se ohýbají jako papír. Každý proužek má vlastní promítnutí
+   * a přesahuje do souseda, takže mezi nimi nevznikají spáry. Odvrácenou stranu skrývá kód podle natočení,
+   * protože backface-visibility některé prohlížeče u karet s obrázky nedodrží.
    */
   private leafHTML(i: number): string {
-    return `<div class="sg"><div class="sf fr">${this.face(i, false, 'r')}<span class="crv"></span><span class="ssh"></span></div>` +
-      `<div class="sf bk">${this.face(i, true, 'l')}<span class="crv"></span><span class="ssh"></span></div></div>`;
+    let h = '';
+    for (let j = 0; j < NS; j++) {
+      const ww = j < NS - 1 ? SW + SOV : SW;
+      h += `<div class="sg${j === 0 ? ' s0' : j === NS - 1 ? ' sn' : ''}" style="width:${ww}px">` +
+        `<div class="sf fr">${this.face(i, false, 'r', `${-j * SW}px`)}</div>` +
+        `<div class="sf bk">${this.face(i, true, 'l', `${-(W - j * SW - ww)}px`)}</div></div>`;
+    }
+    return h;
   }
-
 
   // ---------- kostra ----------
   private build() {
@@ -368,14 +381,8 @@ export class AlbumEngine {
       const i = Number(el.dataset.i), f = this.F[i];
       if (!f) return;
       const q = f.q, th = -180 * q, b = Math.sin(Math.PI * clamp(q, 0, 1));
-      const lean = b * 4 * f.ls * f.bs;
       el.style.zIndex = String(q < 0.5 ? 50 - i : 50 + i);
-      const sg = el.firstElementChild as HTMLElement | null;
-      if (sg) sg.style.transform = `rotateY(${th.toFixed(2)}deg) skewY(${(-lean).toFixed(2)}deg)`;
-      // stín na listu plynule roste do poloviny otočení a na rubu zase plynule mizí (žádné probliknutí uprostřed)
-      const ff = el.querySelector<HTMLElement>('.sf.fr'), fb = el.querySelector<HTMLElement>('.sf.bk');
-      if (ff) { ff.style.setProperty('--sh', (0.42 * smooth(clamp(q / 0.5, 0, 1))).toFixed(3)); ff.style.setProperty('--cv', b.toFixed(3)); }
-      if (fb) { fb.style.setProperty('--sh', (0.42 * smooth(clamp((1 - q) / 0.5, 0, 1))).toFixed(3)); fb.style.setProperty('--cv', b.toFixed(3)); }
+      this.bendLeaf(el, f, th, b);
     });
     let lA = 0, rA = 0;
     for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
@@ -389,6 +396,31 @@ export class AlbumEngine {
     // stín, který list vrhá na stranu pod sebou: nejsilnější v půli otáčení a k nule klesne, než list dosedne
     if (sl) sl.style.opacity = qMinL === null ? '0' : (0.5 * qMinL * Math.sin(Math.PI * clamp(qMinL, 0, 1))).toFixed(3);
     if (sr) sr.style.opacity = qMaxR === null ? '0' : (0.5 * (1 - qMaxR) * Math.sin(Math.PI * clamp(qMaxR, 0, 1))).toFixed(3);
+  }
+
+  /** Rozloží list na proužky podél ohnuté křivky (volný okraj se opožďuje a mírně klesá) a každý promítne. */
+  private bendLeaf(el: HTMLElement, f: Leaf, th: number, b: number) {
+    const dyn = clamp(f.v * 0.35, -1, 1), bend = b * (13 + 9 * Math.abs(dyn)) * f.bs, sag = b * 22 * f.ls * f.bs;
+    const ox = W / 2, oy = 240;
+    const A: number[] = [];
+    for (let k = 0; k <= NS; k++) { const s = k / NS; A.push(clamp(th + bend * (3.1 * s + 1.9 * s * s), -180, 0)); }
+    // stín podle natočení: líc tmavne, jak se odvrací od světla, rub naopak
+    const shF = (a: number) => 0.46 * (1 - Math.cos(a * Math.PI / 180)) / 2;
+    const shB = (a: number) => 0.46 * (1 + Math.cos(a * Math.PI / 180)) / 2;
+    const sg = el.children;
+    let x = 0, z = 0;
+    for (let j = 0; j < sg.length; j++) {
+      const s = sg[j] as HTMLElement, a = (A[j] + A[j + 1]) / 2, r = a * Math.PI / 180, ca = Math.cos(r), sa = Math.sin(r);
+      const d0 = -sag * (j / NS) ** 2, d1 = -sag * ((j + 1) / NS) ** 2, k = Math.atan2(d1 - d0, SW) * 180 / Math.PI;
+      s.style.transform = `translate(${ox}px,${oy}px) perspective(${PERSP}px) translate3d(${(x - ox).toFixed(2)}px,${d0.toFixed(2)}px,${z.toFixed(2)}px) rotateY(${a.toFixed(2)}deg) skewY(${k.toFixed(2)}deg) translateY(${-oy}px)`;
+      const mx = x + SW / 2 * ca, mz = z - SW / 2 * sa, front = (ox - mx) * sa + (PERSP - mz) * ca >= 0;
+      s.style.zIndex = String(Math.round(500 + mz));
+      const fr = s.firstElementChild as HTMLElement, bk = s.lastElementChild as HTMLElement;
+      if (s.dataset.f !== (front ? '1' : '0')) { s.dataset.f = front ? '1' : '0'; fr.style.visibility = front ? '' : 'hidden'; bk.style.visibility = front ? 'hidden' : 'visible'; }
+      // stín jako jas celé plochy proužku: samostatná stínová vrstva by na stycích proužků nechávala světlé linky
+      (front ? fr : bk).style.filter = `brightness(${(1 - (front ? shF(a) : shB(a))).toFixed(3)})`;
+      x += SW * ca; z -= SW * sa;
+    }
   }
 
   // jedna smyčka pohne všemi listy; dokončené listy se uloží na svou stranu
@@ -649,6 +681,10 @@ export class AlbumEngine {
     if (!el) return;
     el.style.transition = 'none';
     el.style.transform = `rotateX(${this.rx.toFixed(2)}deg) rotateY(${this.ry.toFixed(2)}deg)`;
+    // líc a rub přepíná kód podle natočení: backface-visibility některé prohlížeče u obrázků nedodrží a ukážou zrcadlový líc
+    const front = Math.cos(this.rx * Math.PI / 180) * Math.cos(this.ry * Math.PI / 180) >= 0, fc = el.children;
+    (fc[0] as HTMLElement).style.visibility = front ? '' : 'hidden';
+    (fc[1] as HTMLElement).style.visibility = front ? 'hidden' : 'visible';
     const g = this.pop?.el.querySelector<HTMLElement>('.glare');
     if (g) g.style.backgroundPosition = `${(50 + Math.sin(this.ry * Math.PI / 180) * 70 + this.rx).toFixed(1)}% 0`;
   }
