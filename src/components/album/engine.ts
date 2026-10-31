@@ -117,6 +117,22 @@ export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '', full
     `<div class="img">${src ? `<img src="${esc(src)}" alt="${esc(alt)}" decoding="sync" draggable="false">` : ''}</div><span class="fm"></span></div>`;
 }
 
+/** Hrana desky v zaoblených rozích (rádius 27 × 29 px jako desky v návrhu) poskládaná z krátkých úseků. */
+function coverCorners() {
+  const N = 6, rx = 27, ry = 29, x0 = 349;
+  let h = '';
+  for (const [cy, sy] of [[29, -1], [475, 1]] as const) {
+    for (let k = 0; k < N; k++) {
+      const a0 = (k / N) * Math.PI / 2, a1 = ((k + 1) / N) * Math.PI / 2;
+      const p0 = [x0 + rx * Math.sin(a0), cy + sy * ry * Math.cos(a0)], p1 = [x0 + rx * Math.sin(a1), cy + sy * ry * Math.cos(a1)];
+      const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.8, ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180 / Math.PI;
+      const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+      h += `<span class="ce cr" style="width:${len.toFixed(2)}px;transform:translate(${(mx - len / 2).toFixed(2)}px,${(my - 3.5).toFixed(2)}px) rotateZ(${ang.toFixed(2)}deg) rotateX(90deg)"></span>`;
+    }
+  }
+  return h;
+}
+
 /** HTML desky alba (168 × 210). */
 export function coverHTML(d: AlbumDesign, name: string) {
   return `<div class="acv" style="background:${d.mat}">${coverDeco(d, name)}<span class="gl"></span></div>`;
@@ -249,7 +265,7 @@ export class AlbumEngine {
       `<div class="alb-stage"><div class="book">` +
       `<span class="spn"></span><span class="brd"${d.glow ? ` style="box-shadow:0 0 34px ${d.glow}55,0 40px 60px -24px #000"` : ''}></span>` +
       `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="csh"></span></div>` +
-      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span><span class="ce c1"></span><span class="ce c2"></span></div>` +
+      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
       `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
       `<button type="button" class="arr nx" aria-label="Další strana">${arrow('M8.5 5 L14.5 11 L8.5 17')}</button>` +
@@ -387,8 +403,8 @@ export class AlbumEngine {
     const ca = -180 * cq;
     this.cov.style.transform = `rotateY(${ca.toFixed(2)}deg)`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
-    // hřbet vystupuje jen u otevřeného alba; zavřené vypadá zepředu jako v návrhu
-    if (this.spn) this.spn.style.opacity = clamp(cq * 5, 0, 1).toFixed(3);
+    // hřbet je vidět až zevnitř otevřeného alba (při otevírání se z vnějšku neukazuje)
+    if (this.spn) this.spn.style.opacity = clamp((cq - 0.5) * 4, 0, 1).toFixed(3);
     const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
     cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
     cs[1].style.opacity = (0.4 * (1 + c) / 2).toFixed(3);
