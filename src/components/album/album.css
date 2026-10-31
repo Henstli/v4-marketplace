@@ -98,8 +98,9 @@
 .alb .cf.in::before{content:"";position:absolute;left:14px;top:12px;right:2px;bottom:12px;border-radius:14px 6px 6px 14px;background:linear-gradient(rgba(0,0,0,.13),rgba(0,0,0,.13)),var(--lining);box-shadow:inset 0 2px 5px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.1)}
 .alb .cf.in::after{content:"";position:absolute;left:6px;top:5px;right:-2px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-right:none;border-radius:22px 0 0 22px/24px 0 0 24px}
 .alb .cov.flat{transform-style:flat}.alb .cov.flat .cf.out,.alb .cov.flat .ce{display:none}
-.alb .cov.flat .cf.in{transform:translateX(-372px)}
-.alb .cov.shut{transform-style:flat}.alb .cov.shut .cf.in,.alb .cov.shut .ce{display:none}.alb .cov.shut .cf.out{transform:none}
+/* naplocho se stejnou velikostí jako ve 3D (deska leží 3,5 px blíž k divákovi, perspektiva 1800 px → zvětšení 1800/1796,5) */
+.alb .cov.flat .cf.in{transform-origin:554px 252px;transform:translateX(-372px) scale(1.001948)}
+.alb .cov.shut{transform-style:flat}.alb .cov.shut .cf.in,.alb .cov.shut .ce{display:none}.alb .cov.shut .cf.out{transform-origin:182px 252px;transform:scale(1.001948)}
 .alb .ce{position:absolute;pointer-events:none;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)),var(--mat)}
 .alb .ce.er{left:371.5px;top:29px;width:8px;height:446px;transform:rotateY(90deg)}
 .alb .ce.eh{display:none}
