@@ -196,6 +196,8 @@ export class AlbumEngine {
   private ro: ResizeObserver | null = null;
   private dead = false;
   private busy = false;
+  /** Přeskočení animace založení (tlačítko Přeskočit). */
+  private skipping = false;
   private pop: { i: number; el: HTMLElement; closing?: boolean } | null = null;
   private ry = 0; private rx = 0; private tilt = { x: 0, y: 0 }; private w = 0; private vx = 0; private mode: 'free' | 'snap' = 'snap'; private tgt = 0;
   private r: { x: number; y: number; ry: number; rx: number; h: Array<[number, number]> } | null = null;
@@ -662,7 +664,7 @@ export class AlbumEngine {
 
   private delayFlip(i: number, to: number, delay: number, dur?: number) {
     if (!delay) return this.flip(i, to, dur ? { dur } : undefined);
-    return sleep(delay).then(() => (this.dead ? undefined : this.flip(i, to, dur ? { dur } : undefined)));
+    return sleep(delay).then(() => (this.dead || this.skipping ? undefined : this.flip(i, to, dur ? { dur } : undefined)));
   }
 
   /** Otevře album na dvoustraně s kartou a zvýrazní její kapsu. */
@@ -975,20 +977,52 @@ export class AlbumEngine {
     this.sync(true);
     this.root.querySelector('.ind')?.classList.add('live');
 
+    // Přeskočit (jen při založení): místo ukazatele stran ukazuje postup a hned vloží zbylé karty
+    this.skipping = false;
+    let skipNow = () => {};
+    const skipped = new Promise<void>((res) => { skipNow = res; });
+    const race = <T,>(p: Promise<T>) => Promise.race([p, skipped]);
+    let skp: HTMLElement | null = null;
+    const progress = () => {
+      if (!skp) return;
+      const done = have - haveBefore;
+      skp.querySelector('b')!.textContent = `${done} / ${n}`;
+      skp.querySelector<HTMLElement>('.bar i')!.style.width = `${(100 * done / n).toFixed(1)}%`;
+    };
+    if (founding && !single) {
+      skp = document.createElement('div');
+      skp.className = 'skp';
+      skp.innerHTML = `<span>Vloženo</span><b></b><span class="bar"><i></i></span>` +
+        `<button type="button" class="go">Přeskočit <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2 3l7 5-7 5zM9 3l5 5-5 5z"/></svg></button>`;
+      this.stage.appendChild(skp);
+      progress();
+      requestAnimationFrame(() => skp?.classList.add('on'));
+      this.root.querySelector('.ind')?.classList.add('hid');
+      skp.querySelector('.go')!.addEventListener('click', () => {
+        if (this.skipping) return;
+        this.skipping = true;
+        skp?.classList.remove('on');
+        // letící karty zmizí a rozjeté listy doběhnou hned
+        this.stage.querySelectorAll<HTMLElement>('.fly.arc').forEach((f) => f.getAnimations().forEach((a) => a.cancel()));
+        for (const k in this.F) { const tw = this.F[k].tw; if (tw) tw.dur = 1; }
+        skipNow();
+      });
+    }
+
     // hromádka (2B): obaly se nasadí všem kartám naráz, zatímco se otevírá deska
     const pile = this.makePile(list);
     const intro = pile.intro();
     const D = pile.origin();
-    if (founding) { await sleep(500); if (!alive()) return; }
+    if (founding) { await race(sleep(500)); if (!alive()) return; }
 
     if (this.side[0] === 'R' && !this.F[0]) {
       if (founding) {
         // hloubka listů vyjíždí postupně zpod otevírané desky (3B)
         this.edgeK = 0;
-        await Promise.all([
-          this.flip(0, 1, { dur: 1000, ease: easeBack }),
-          this.tween(1000, (t) => { this.edgeK = clamp((t - 0.35) / 0.65, 0, 1); this.apply(); }),
-        ]);
+        await race(Promise.all([
+          this.flip(0, 1, { dur: this.skipping ? 1 : 1000, ease: easeBack }),
+          this.tween(this.skipping ? 1 : 1000, (t) => { this.edgeK = clamp((t - 0.35) / 0.65, 0, 1); this.apply(); }),
+        ]));
         this.edgeK = 1; this.apply();
       } else await Promise.all([this.flip(0, 1, { dur: 900, ease: easeBack }), sleep(single ? 0 : 200)]);
     }
@@ -1002,7 +1036,7 @@ export class AlbumEngine {
       this.hidden.delete(ci); this.glow.add(ci);
       const el = kc(ci);
       if (el) this.landCard(el, k);
-      have++;
+      have++; progress();
     };
     const pop = (ci: number) => {
       this.hidden.delete(ci); this.glow.add(ci);
@@ -1011,18 +1045,19 @@ export class AlbumEngine {
         el.classList.remove('off'); el.parentElement?.classList.add('glow');
         el.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1.08)', offset: 0.6 }, { opacity: 1, transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
       }
-      have++;
+      have++; progress();
     };
 
     if (founding) {
       // 3B: plynulé zrychlení přes prvních 5 dvoustran (kosinová křivka), pak se dvoustrany plní okamžitě
-      await intro;
+      await race(intro);
       if (!alive()) return;
-      for (let s = 0; s < spreads.length; s++) {
+      for (let s = 0; s < spreads.length && !this.skipping; s++) {
         if (!alive()) return;
         const tgt = spreads[s];
-        if (tgt !== this.logicalT()) await this.goToRaw(tgt, 220 + 480 * cos(s / 5), 70);
+        if (tgt !== this.logicalT()) await race(this.goToRaw(tgt, 220 + 480 * cos(s / 5), 70));
         if (!alive()) return;
+        if (this.skipping) break;
         const mine = list.filter((i) => this.spreadOf(i) === tgt);
         const lands: Promise<void>[] = [];
         let t = 0;
@@ -1031,24 +1066,36 @@ export class AlbumEngine {
           const k = Math.max(0.2, cos((s + idx / Math.max(1, mine.length)) / 5)), t0 = t;
           t += 6 + 52 * k;
           lands.push(sleep(t0).then(async () => {
-            if (!alive()) return;
+            if (!alive() || this.skipping) return;
             pile.take();
             const el = kc(ci);
             if (k > 0.18 && el) {
               await this.flyArc(ci, D, rel(el), k, idx);
-              if (!alive()) return;
+              if (!alive() || this.skipping) return;
               this.hidden.delete(ci); this.glow.add(ci);
               const e2 = kc(ci);
               if (e2) {
                 e2.classList.remove('off'); e2.parentElement?.classList.add('glow');
                 e2.animate([{ transform: 'scale(.9)' }, { transform: 'scale(1.06)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
               }
-              have++;
+              have++; progress();
             } else { pop(ci); await sleep(60 + 140 * k); }
           }));
         });
-        await Promise.all(lands);
-        await sleep(30 + 200 * cos((s + 1) / 5));
+        await race(Promise.all(lands));
+        await race(sleep(30 + 200 * cos((s + 1) / 5)));
+      }
+      if (this.skipping && alive()) {
+        // zbylé karty jsou hned v albu a album stojí na poslední dvoustraně, kam karty přibyly
+        await sleep(50);
+        if (!alive()) return;
+        const last = spreads[spreads.length - 1];
+        this.F = {};
+        for (let i = 0; i < this.NL; i++) this.side[i] = i < last ? 'L' : 'R';
+        this.edgeK = 1;
+        list.forEach((ci) => { this.hidden.delete(ci); this.glow.add(ci); });
+        have = haveBefore + n;
+        this.sync(true);
       }
     } else {
       // 2B / 2C: karty odlétají z hromádky po 420 ms; po ~12 kartách se tempo zrychluje až k okamžitému vkládání
@@ -1084,8 +1131,10 @@ export class AlbumEngine {
     }
     if (!alive()) return;
     pile.end();
-    await sleep(single ? 900 : 650);
-    this.root.querySelector('.ind')?.classList.remove('live');
+    if (skp) { const el = skp; el.classList.remove('on'); setTimeout(() => el.remove(), 400); }
+    await sleep(single ? 900 : this.skipping ? 200 : 650);
+    this.skipping = false;
+    this.root.querySelector('.ind')?.classList.remove('live', 'hid');
     this.busy = false;
     const fresh = new Set(list);
     if (!single) {

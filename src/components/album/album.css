@@ -213,3 +213,15 @@
 .alb .ind .txt{display:inline-flex;align-items:baseline;gap:6px;min-width:112px;justify-content:center;color:#7d8794;font-size:12px}
 .alb .ind .txt b{font:600 14px "JetBrains Mono",monospace;color:#e8ecf1;letter-spacing:.02em}
 .alb .ind .txt.plain{color:#a3adbb;font-size:13px}
+/* Přeskočit založení: nahradí ukazatel stran postupem vkládání */
+.alb .ind{transition:opacity .25s}
+.alb .ind.hid{opacity:0;pointer-events:none}
+.alb .skp{position:absolute;left:50%;top:552px;transform:translate(-50%,6px);z-index:46;display:inline-flex;align-items:center;gap:12px;padding:6px 6px 6px 18px;border-radius:999px;background:rgba(18,23,30,.95);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.45);font:500 13px Inter,sans-serif;color:#a3adbb;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s cubic-bezier(.22,1,.36,1)}
+.alb .skp.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.alb .skp b{font:600 14px "JetBrains Mono",monospace;color:#e8ecf1;min-width:64px}
+.alb .skp .bar{width:120px;height:5px;border-radius:3px;background:#2a313c;overflow:hidden}
+.alb .skp .bar i{display:block;height:100%;width:0;background:#7cf2c8;box-shadow:0 0 6px #7cf2c8;transition:width .2s}
+.alb .skp .go{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:0;border-radius:999px;background:#7cf2c8;color:#0b0e13;font:700 13px Inter,sans-serif;cursor:pointer;transition:filter .15s}
+.alb .skp .go:hover{filter:brightness(1.1)}
+.alb .skp .go:focus-visible{outline:2px solid #e8ecf1;outline-offset:2px}
+.alb .skp .go svg{width:14px;height:14px}
