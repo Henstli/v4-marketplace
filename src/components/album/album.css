@@ -107,6 +107,7 @@
 .alb .ce.cr{left:0;top:0;height:8px;transform-origin:50% 50%}
 .alb .ce.et{left:9px;top:-3.5px;width:340px;height:8px;transform:rotateX(90deg)}
 .alb .ce.eb{left:9px;top:499.5px;width:340px;height:8px;transform:rotateX(90deg)}
+.alb .cf.in .lsh{position:absolute;left:14px;top:12px;right:2px;bottom:12px;border-radius:14px 6px 6px 14px;background:#000;opacity:0;pointer-events:none;z-index:5}
 .alb .csh{position:absolute;inset:0;border-radius:inherit;background:#000;opacity:0;pointer-events:none;z-index:6}
 /* otáčené listy kreslí plátno (leafCanvas.ts) */
 .alb .lcv{position:absolute;pointer-events:none}
