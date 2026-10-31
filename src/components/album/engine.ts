@@ -203,6 +203,9 @@ export class AlbumEngine {
   private r: { x: number; y: number; ry: number; rx: number; h: Array<[number, number]> } | null = null;
   private sraf = 0;
   private sumPage = 0;
+  /** Přehled sám přechází na další dvoustrany a nakonec zpět do alba, dokud uživatel nezasáhne. */
+  private sumAuto = false;
+  private sumTimer: ReturnType<typeof setTimeout> | null = null;
   private sumData: { title: string; sub: string; spreads: number[]; fresh: Set<number> } | null = null;
   private lastT = -1;
   private edgeK = 1;
@@ -1149,6 +1152,7 @@ export class AlbumEngine {
         fresh,
       };
       this.sumPage = 0;
+      this.sumAuto = true;
       this.showSum(true);
     } else {
       setTimeout(() => { if (!this.dead) { this.glow.clear(); this.root.querySelectorAll('.pk.glow').forEach((e) => e.classList.remove('glow')); } }, 3200);
@@ -1412,6 +1416,7 @@ export class AlbumEngine {
   private showSum(anim: boolean) {
     const sd = this.sumData;
     if (!sd) return;
+    if (this.sumTimer) { clearTimeout(this.sumTimer); this.sumTimer = null; }
     const sum = this.root.querySelector<HTMLElement>('.sum')!;
     const per = 6, P = Math.ceil(sd.spreads.length / per);
     const list = sd.spreads.slice(this.sumPage * per, (this.sumPage + 1) * per);
@@ -1462,9 +1467,19 @@ export class AlbumEngine {
         { boxShadow: '0 0 0 2px #7cf2c8,0 0 22px rgba(124,242,200,.9)', transform: 'translateY(-4px) scale(1.06)', offset: 0.23 },
         { boxShadow: '0 0 0 1.5px rgba(124,242,200,.85),0 0 10px rgba(124,242,200,.45)', transform: 'translateY(-2px) scale(1.03)' },
       ], { duration: 700, delay: t0 + j * step, easing: 'ease-out', fill: 'both' }));
+      if (this.sumAuto) {
+        // po rozsvícení všech nových karet přehled sám přejde na dalších 6 dvoustran, po poslední se vrátí do alba
+        const end = t0 + Math.max(0, fresh.length - 1) * step + 700 + 1100;
+        this.sumTimer = setTimeout(() => {
+          this.sumTimer = null;
+          if (this.dead || this.sumData !== sd || !this.sumAuto) return;
+          if (this.sumPage < P - 1) { this.sumPage++; this.showSum(true); } else this.closeSum(null);
+        }, end);
+      }
     }
-    sum.querySelector<HTMLElement>('.spg .pv')?.addEventListener('click', () => { this.sumPage--; this.showSum(true); });
-    sum.querySelector<HTMLElement>('.spg .nx')?.addEventListener('click', () => { this.sumPage++; this.showSum(true); });
+    const manual = () => { this.sumAuto = false; };
+    sum.querySelector<HTMLElement>('.spg .pv')?.addEventListener('click', () => { manual(); this.sumPage--; this.showSum(true); });
+    sum.querySelector<HTMLElement>('.spg .nx')?.addEventListener('click', () => { manual(); this.sumPage++; this.showSum(true); });
     sum.querySelectorAll<HTMLElement>('.ms').forEach((el) => el.addEventListener('click', () => this.closeSum(Number(el.dataset.t))));
     sum.querySelector<HTMLElement>('.done')!.addEventListener('click', () => this.closeSum(null));
   }
@@ -1473,6 +1488,8 @@ export class AlbumEngine {
     const sum = this.root.querySelector<HTMLElement>('.sum')!;
     sum.classList.remove('on');
     this.sumData = null;
+    this.sumAuto = false;
+    if (this.sumTimer) { clearTimeout(this.sumTimer); this.sumTimer = null; }
     this.glow.clear();
     this.book.getAnimations().forEach((a) => a.cancel());
     this.book.animate([{ opacity: 0, transform: `${this.book.style.transform} scale(.96)` }, { opacity: 1, transform: this.book.style.transform }], { duration: 380, easing: 'ease-out' });
