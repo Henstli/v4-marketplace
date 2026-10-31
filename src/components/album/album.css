@@ -147,6 +147,12 @@
 /* líc a rub přepíná kód (visibility); backface-visibility Firefox u téhle karty vyhodnotí špatně a kartu skryje celou */
 .alb .rot .fc{position:absolute;inset:0;border-radius:4.5%/3.3%;overflow:hidden;background:#151a22;box-shadow:0 30px 60px -20px rgba(0,0,0,.9),inset 0 0 0 1.5px rgba(255,255,255,.25)}
 .alb .rot .fc img{width:100%;height:100%;object-fit:contain;display:block}
+/* líc vyjeté karty bez fólie jako v albu; při návratu do alba se stín, odlesk i okraj srovnají s kartou v kapse, aby výměna nepoblikla */
+.alb .rot .fc:first-child .fm{display:none}
+.alb .rot .fc{transition:box-shadow .5s}
+.alb .popw.cl .rot .fc{box-shadow:0 2px 4px rgba(0,0,0,.55),inset 0 0 0 0 rgba(255,255,255,0)}
+.alb .glare{transition:opacity .2s}
+.alb .popw.cl .glare{opacity:0}
 .alb .rot .fc.slv{background:none}
 .alb .rot .fc.slv .asl{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit}
 .alb .rot .fc.slv .asl .img{left:4.7%;right:4.7%;top:3.883%;bottom:3.883%;border-radius:3.2%/2.3%}
