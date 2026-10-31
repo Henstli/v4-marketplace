@@ -119,7 +119,7 @@ export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '', full
 
 /** Hrana desky v zaoblených rozích (rádius 27 × 29 px jako desky v návrhu) poskládaná z krátkých úseků. */
 function coverCorners() {
-  const N = 6, rx = 27, ry = 29, x0 = 349;
+  const N = 8, rx = 26.5, ry = 28.5, x0 = 349; // o půl px pod plochou desky, aby mezi hranou a deskou nevznikla spára
   let h = '';
   for (const [cy, sy] of [[29, -1], [475, 1]] as const) {
     for (let k = 0; k < N; k++) {
@@ -127,7 +127,7 @@ function coverCorners() {
       const p0 = [x0 + rx * Math.sin(a0), cy + sy * ry * Math.cos(a0)], p1 = [x0 + rx * Math.sin(a1), cy + sy * ry * Math.cos(a1)];
       const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.8, ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180 / Math.PI;
       const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
-      h += `<span class="ce cr" style="width:${len.toFixed(2)}px;transform:translate(${(mx - len / 2).toFixed(2)}px,${(my - 3.5).toFixed(2)}px) rotateZ(${ang.toFixed(2)}deg) rotateX(90deg)"></span>`;
+      h += `<span class="ce cr" style="width:${len.toFixed(2)}px;transform:translate(${(mx - len / 2).toFixed(2)}px,${(my - 4).toFixed(2)}px) rotateZ(${ang.toFixed(2)}deg) rotateX(90deg)"></span>`;
     }
   }
   return h;
