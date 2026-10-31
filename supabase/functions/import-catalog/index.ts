@@ -1,6 +1,7 @@
 // Import katalogů karet do databáze.
 //   Pokémon: TCGdex (https://tcgdex.dev), Magic: Scryfall (https://scryfall.com/docs/api),
-//   Riftbound: Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
+//   Riftbound: oficiální galerie Riotu (https://playriftbound.com/en-us/card-gallery/), promo sady a záloha
+//   Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
 //   One Piece: OPTCG API (https://optcgapi.com/documentation).
 // Volá ho plánovač v databázi (pg_cron) s hlavičkou x-import-secret (heslo je ve Vaultu jako import_secret).
 //   { "mode": "discover" }  doplní seznam sad do catalog_sources
@@ -229,7 +230,208 @@ async function fetchMagicSet(code: string): Promise<ImportedSet> {
   };
 }
 
-// ---------- Riftbound (Riftcodex) ----------
+// ---------- Riftbound (oficiální galerie Riotu, záloha Riftcodex) ----------
+//
+// Hlavní zdroj je oficiální galerie karet https://playriftbound.com/en-us/card-gallery/.
+// Riot nemá veřejné API, všechny karty jsou ale jako JSON přímo ve stránce (__NEXT_DATA__).
+// Promo sady (JDG, OPP, PR) v galerii nejsou, ty dál bereme z Riftcodexu. Riftcodex je zároveň
+// záloha, kdyby galerie nešla stáhnout nebo Riot změnil stránku.
+
+const RIOT_GALLERY_URL = 'https://playriftbound.com/en-us/card-gallery/';
+
+interface RiotCard {
+  id: string; // „rad-065-167“
+  name: string;
+  subtitle?: string | null;
+  publicCode: string; // „RAD-065/167“, „OGN-119a/298“, „UNL-230*/219“, „VEN-R01“, „UNL-T01“
+  set: { value: { id: string; label: string } };
+  cardType?: { type?: Array<{ id: string }>; superType?: Array<{ id: string }> };
+  rarity?: { value?: { label?: string } };
+  tags?: { tags?: string[] };
+  cardImage?: { url?: string };
+}
+
+let riotGalleryCache: { at: number; cards: RiotCard[] } | null = null;
+
+// Najde v datech stránky pole karet (objekty s publicCode), ať je zanořené kdekoli.
+function findRiotCards(node: unknown, depth = 0): RiotCard[] | null {
+  if (depth > 12 || !node || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    const first = node[0] as Record<string, unknown> | undefined;
+    if (first && typeof first === 'object' && 'publicCode' in first && 'set' in first) return node as RiotCard[];
+    for (const item of node) {
+      const found = findRiotCards(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  for (const value of Object.values(node)) {
+    const found = findRiotCards(value, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function riotGallery(): Promise<RiotCard[]> {
+  // Jedno stažení (~4 MB) stačí pro všechny sady v jednom běhu funkce.
+  if (riotGalleryCache && Date.now() - riotGalleryCache.at < 10 * 60_000) return riotGalleryCache.cards;
+  let html = '';
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(RIOT_GALLERY_URL, { headers: { 'User-Agent': HEADERS['User-Agent'], Accept: 'text/html' } });
+    if (res.ok) {
+      html = await res.text();
+      break;
+    }
+    if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+    throw new Error(`${res.status} ${RIOT_GALLERY_URL}`);
+  }
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) throw new Error('Galerie Riotu: ve stránce chybí __NEXT_DATA__');
+  const cards = findRiotCards(JSON.parse(match[1]));
+  // Pojistka proti nečekané změně stránky: radši spadnout na zálohu než naimportovat polovinu.
+  if (!cards || cards.length < 500) throw new Error(`Galerie Riotu: našlo se jen ${cards?.length ?? 0} karet`);
+  riotGalleryCache = { at: Date.now(), cards };
+  return cards;
+}
+
+// Galerie neuvádí datum vydání. Novou sadu najde noční kontrola v den vydání, takže jako datum
+// vezmeme den, kdy ji poprvé uvidíme (u sad, které už známe, zůstane datum z Riftcodexu).
+function riotSets(cards: RiotCard[]): DiscoveredSet[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const sets = new Map<string, string>();
+  for (const c of cards) sets.set(c.set.value.id.toUpperCase(), c.set.value.label);
+  return [...sets].map(([id, name]) => ({ id, name, released_on: today }));
+}
+
+// Číslo karty bez kódu sady: „RAD-065/167“ → „065/167“, „VEN-R01“ → „R01“.
+function riotNumber(c: RiotCard): string {
+  const dash = c.publicCode.indexOf('-');
+  return dash >= 0 ? c.publicCode.slice(dash + 1) : c.publicCode;
+}
+
+// Jméno ve stejném tvaru, jaký už v katalogu máme z Riftcodexu: „Seraphine - Inspiring“,
+// u legend „Ahri - Nine-Tailed Fox“ a u variant přípona „(Alternate Art)“, „(Signature)“, „(Overnumbered)“.
+function riotName(c: RiotCard, number: string): string {
+  let name = c.name;
+  const isLegend = c.cardType?.type?.some((t) => t.id === 'legend');
+  const champion = c.tags?.tags?.at(-1);
+  if (c.subtitle) name = `${c.name} - ${c.subtitle}`;
+  else if (isLegend && champion && champion !== c.name) name = `${champion} - ${c.name}`;
+  const m = number.match(/^(\d+)([a-z*]*)\/(\d+)$/);
+  if (number.includes('*')) name += ' (Signature)';
+  else if (/^R\d+a$/.test(number) || (m && m[2] === 'a')) name += ' (Alternate Art)';
+  else if (m && Number(m[1]) > Number(m[3])) name += ' (Overnumbered)';
+  return name;
+}
+
+// Obrázky Riotu mají v adrese otisk souboru, podle něj poznáme stejnou kartu i při jiném čísle.
+function imageHash(url: string | null | undefined): string | null {
+  return url?.match(/\/([0-9a-f]{40})-/)?.[1] ?? null;
+}
+
+async function fetchRiotSet(code: string, cards: RiotCard[]): Promise<ImportedSet> {
+  const { data: source } = await supabase
+    .from('catalog_sources')
+    .select('name, released_on')
+    .match({ game_id: 'riftbound', source_set_id: code })
+    .maybeSingle();
+
+  // Karty, které už v katalogu jsou (z Riftcodexu). Necháme jim slug i jméno, aby nabídky,
+  // kolekce a alba dál ukazovaly na stejný řádek; obnoví se jen číslo, vzácnost a obrázek.
+  const { data: existing, error } = await supabase
+    .from('cards')
+    .select('slug, name, number, image_url, card_sets!inner(game_id, code)')
+    .eq('card_sets.game_id', 'riftbound')
+    .eq('card_sets.code', code);
+  if (error) throw error;
+  const byHash = new Map<string, typeof existing>();
+  const byNumber = new Map<string, typeof existing>();
+  for (const row of existing ?? []) {
+    const h = imageHash(row.image_url);
+    if (h) byHash.set(h, [...(byHash.get(h) ?? []), row]);
+    const n = row.number.toLowerCase();
+    byNumber.set(n, [...(byNumber.get(n) ?? []), row]);
+  }
+  const used = new Set<string>();
+  const free = (rows: typeof existing | undefined) => (rows ?? []).filter((r) => !used.has(r.slug));
+
+  const out: ImportedCard[] = [];
+  for (const c of cards) {
+    const number = riotNumber(c);
+    const image = c.cardImage?.url ?? null;
+    const h = imageHash(image);
+    // 1) stejný obrázek, 2) stejné číslo, 3) Riftcodex psal runy a žetony jen číslem („R01“ → „1“).
+    const alt = number.match(/^[A-Z]+0*(\d+)$/)?.[1];
+    let matches = free(h ? byHash.get(h) : undefined);
+    if (!matches.length) matches = free(byNumber.get(number.toLowerCase()));
+    if (!matches.length && alt) matches = free(byNumber.get(alt));
+    const base = {
+      number,
+      rarity: c.rarity?.value?.label ?? null,
+      // Obrázky Riotu jsou PNG kolem 1,4 MB, CDN je umí převést na WebP (~140 kB).
+      image_url: image ? `${image}${image.includes('?') ? '&' : '?'}fm=webp` : null,
+      external_id: `riot:${c.id}`,
+    };
+    if (matches.length) {
+      // Riftcodex má u některých karet dvojí záznam, obnovíme oba.
+      for (const row of matches) {
+        used.add(row.slug);
+        out.push({ ...base, slug: row.slug, name: row.name });
+      }
+    } else {
+      const name = riotName(c, number);
+      out.push({ ...base, slug: slugify(name, code, number), name });
+    }
+  }
+
+  return {
+    code,
+    name: source?.name ?? cards[0]?.set.value.label ?? code,
+    released_on: source?.released_on ?? null,
+    cards: out,
+  };
+}
+
+async function discoverRiftbound(): Promise<DiscoveredSet[]> {
+  const found = new Map<string, DiscoveredSet>();
+  const errors: string[] = [];
+  try {
+    for (const s of await discoverRiftcodex()) found.set(s.id.toUpperCase(), { ...s, id: s.id.toUpperCase() });
+  } catch (e) {
+    errors.push(`Riftcodex: ${describe(e)}`);
+  }
+  try {
+    for (const s of riotSets(await riotGallery())) if (!found.has(s.id)) found.set(s.id, s);
+  } catch (e) {
+    errors.push(describe(e));
+  }
+  if (!found.size) throw new Error(errors.join('; '));
+  return [...found.values()];
+}
+
+async function fetchRiftboundSet(id: string): Promise<ImportedSet> {
+  const code = id.toUpperCase();
+  let riotError: unknown = null;
+  try {
+    const gallery = await riotGallery();
+    // Nové sady z galerie zapíšeme hned, plánovač je pak naimportuje bez čekání na pondělní discover.
+    const rows = riotSets(gallery).map((s) => ({ game_id: 'riftbound', source_set_id: s.id, name: s.name, released_on: s.released_on }));
+    await supabase.from('catalog_sources').upsert(rows, { onConflict: 'game_id,source_set_id', ignoreDuplicates: true });
+    const cards = gallery.filter((c) => c.set.value.id.toUpperCase() === code);
+    if (cards.length) return await fetchRiotSet(code, cards);
+  } catch (e) {
+    riotError = e;
+  }
+  try {
+    return await fetchRiftcodexSet(id);
+  } catch (e) {
+    if (riotError) throw new Error(`${describe(riotError)}; Riftcodex: ${describe(e)}`);
+    throw e;
+  }
+}
 
 interface RiftSet { set_id: string; name: string; published_on?: string }
 interface RiftCard {
@@ -241,18 +443,19 @@ interface RiftCard {
   media?: { image_url?: string };
 }
 
-async function discoverRiftbound(): Promise<DiscoveredSet[]> {
+async function discoverRiftcodex(): Promise<DiscoveredSet[]> {
   const { items } = await getJson<{ items: RiftSet[] }>('https://api.riftcodex.com/sets?size=100');
   return items.map((s) => ({ id: s.set_id, name: s.name, released_on: s.published_on?.slice(0, 10) }));
 }
 
-async function fetchRiftboundSet(id: string): Promise<ImportedSet> {
-  const sets = await discoverRiftbound();
-  const set = sets.find((s) => s.id === id);
+async function fetchRiftcodexSet(id: string): Promise<ImportedSet> {
+  const sets = await discoverRiftcodex();
+  const set = sets.find((s) => s.id.toUpperCase() === id.toUpperCase());
+  if (!set) throw new NotFound(`Riftcodex nemá sadu ${id}`);
   const cards: RiftCard[] = [];
   for (let page = 1; ; page++) {
     const res = await getJson<{ items: RiftCard[]; pages: number }>(
-      `https://api.riftcodex.com/cards?set_id=${encodeURIComponent(id)}&size=100&page=${page}`,
+      `https://api.riftcodex.com/cards?set_id=${encodeURIComponent(set.id)}&size=100&page=${page}`,
     );
     cards.push(...res.items);
     if (page >= res.pages) break;
@@ -260,8 +463,8 @@ async function fetchRiftboundSet(id: string): Promise<ImportedSet> {
   const code = id.toUpperCase();
   return {
     code,
-    name: set?.name ?? code,
-    released_on: set?.released_on ?? null,
+    name: set.name,
+    released_on: set.released_on ?? null,
     cards: cards.map((c) => {
       // riftbound_id má tvar „unl-229*-219“: sada, číslo karty (s označením varianty) a počet karet v sadě.
       const parts = c.riftbound_id.split('-');
@@ -509,16 +712,20 @@ Deno.serve(async (req) => {
     if (body.mode === 'set') return json({ imported: await importSet(body.game, body.id) });
 
     // Režim next: nejdřív sady, které ještě nebyly, pak ty starší než 7 dní a hodinu staré chyby.
+    // Riftbound se navíc kontroluje každou noc (0–4 h UTC), aby nové karty z galerie Riotu byly hned v katalogu.
     // Víc sad za sebou, dokud je čas.
     const started = Date.now();
     const done: Array<{ set: string; imported?: number; error?: string }> = [];
     while (Date.now() - started < NEXT_BUDGET_MS) {
       const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
       const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+      const nightly = new Date().getUTCHours() < 4
+        ? `,and(game_id.eq.riftbound,imported_at.lt.${new Date(Date.now() - 12 * 3_600_000).toISOString()})`
+        : '';
       const { data: next } = await supabase
         .from('catalog_sources')
         .select('game_id, source_set_id')
-        .or(`imported_at.is.null,imported_at.lt.${weekAgo},and(last_error.not.is.null,imported_at.lt.${hourAgo})`)
+        .or(`imported_at.is.null,imported_at.lt.${weekAgo},and(last_error.not.is.null,imported_at.lt.${hourAgo})${nightly}`)
         .order('imported_at', { ascending: true, nullsFirst: true })
         .order('released_on', { ascending: false, nullsFirst: false })
         .limit(1)
