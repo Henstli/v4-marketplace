@@ -1001,7 +1001,7 @@ export class AlbumEngine {
     const land = (ci: number, k: number) => {
       this.hidden.delete(ci); this.glow.add(ci);
       const el = kc(ci);
-      if (el) this.landCard(el, k, single);
+      if (el) this.landCard(el, k);
       have++;
     };
     const pop = (ci: number) => {
@@ -1324,8 +1324,8 @@ export class AlbumEngine {
     return new Promise<void>((res) => { an.onfinish = () => { f.remove(); res(); }; an.oncancel = () => { f.remove(); res(); }; });
   }
 
-  /** Dopad do kapsy (1B): odskok, zmáčknutí, záře kapsy, kruhy, lesk; u jedné karty i přiblížení a razítko NOVÉ. */
-  private landCard(kc: HTMLElement, k: number, single: boolean) {
+  /** Dopad do kapsy (1B): odskok, zmáčknutí, záře kapsy, kruhy, lesk; stejné pro jednu i více karet. */
+  private landCard(kc: HTMLElement, k: number) {
     kc.classList.remove('off');
     const pk = kc.parentElement as HTMLElement | null;
     kc.animate([
@@ -1346,21 +1346,13 @@ export class AlbumEngine {
     ], { duration: 3000 * Math.max(0.4, k), easing: 'ease-out' });
     const fx = document.createElement('span');
     fx.className = 'lfx';
-    fx.innerHTML = '<i class="lr"></i><i class="lr r2"></i><i class="sw"></i>' + (single ? '<b class="stamp">NOVÉ</b>' : '');
+    fx.innerHTML = '<i class="lr"></i><i class="lr r2"></i><i class="sw"></i>';
     pk.appendChild(fx);
     const [r1, r2, sw] = [...fx.querySelectorAll<HTMLElement>('i')];
     r1.animate([{ opacity: 1, transform: 'scale(.85)' }, { opacity: 0, transform: 'scale(2.7)' }], { duration: 1150, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'forwards' });
     r2.animate([{ opacity: 0.7, transform: 'scale(.85)' }, { opacity: 0, transform: 'scale(1.6)' }], { duration: 1230, delay: 170, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
     sw.animate([{ opacity: 0, backgroundPosition: '160% 0' }, { opacity: 1, offset: 0.1 }, { opacity: 0, backgroundPosition: '-60% 0' }], { duration: 1200, delay: 100, easing: 'cubic-bezier(.3,0,.3,1)', fill: 'both' });
-    if (single) {
-      fx.querySelector<HTMLElement>('.stamp')!.animate([
-        { opacity: 0, transform: 'rotate(35deg) scale(2.4)' },
-        { opacity: 1, transform: 'rotate(12deg) scale(1)' },
-      ], { duration: 430, delay: 180, easing: 'cubic-bezier(.3,1.7,.5,1)', fill: 'both' });
-      // krátké přiblížení alba při dopadu (aCam)
-      this.book.animate([{ scale: '1' }, { scale: '1.065', offset: 0.2 }, { scale: '1' }], { duration: 950, easing: 'cubic-bezier(.2,.8,.3,1)' });
-    }
-    setTimeout(() => fx.remove(), single ? 6000 : 1600);
+    setTimeout(() => fx.remove(), 1600);
   }
 
   // ---------- přehled dvoustran (2A) ----------

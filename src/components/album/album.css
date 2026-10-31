@@ -210,7 +210,6 @@
 .alb .lfx .lr{position:absolute;inset:-6px;border-radius:10px;border:3px solid #7cf2c8;box-shadow:0 0 22px #7cf2c8;opacity:0}
 .alb .lfx .lr.r2{border-color:#fff2c2;box-shadow:0 0 22px #fff2c2}
 .alb .lfx .sw{position:absolute;inset:4px;border-radius:7px;opacity:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.35) 50%,transparent 65%);background-size:260% 100%}
-.alb .lfx .stamp{position:absolute;right:-10px;top:-8px;padding:2px 7px;border-radius:5px;background:#7cf2c8;color:#0b0e13;font:800 10px/14px "Space Grotesk",sans-serif;letter-spacing:.08em;box-shadow:0 4px 10px rgba(0,0,0,.5);opacity:0}
 .alb .ind .txt{display:inline-flex;align-items:baseline;gap:6px;min-width:112px;justify-content:center;color:#7d8794;font-size:12px}
 .alb .ind .txt b{font:600 14px "JetBrains Mono",monospace;color:#e8ecf1;letter-spacing:.02em}
 .alb .ind .txt.plain{color:#a3adbb;font-size:13px}
