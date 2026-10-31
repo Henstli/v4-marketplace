@@ -157,6 +157,8 @@ export class AlbumEngine {
   private NL = 2;
   private side: Array<'L' | 'R'> = [];
   private F: Record<number, Leaf> = {};
+  /** Kolikrát větší se deska vykresluje (viz fit). */
+  private ss = 1;
   private raf = 0;
   private dragLoop = 0;
   private g: Grab | null = null;
@@ -300,6 +302,12 @@ export class AlbumEngine {
       const k = Math.min(1.25, this.root.clientWidth / STAGE_W);
       this.stage.style.transform = `scale(${k})`;
       this.lc.setScale(k);
+      // deska se při otáčení kreslí ve 3D a prohlížeč ji rastruje v jejích vlastních pixelech, pak ji teprve zvětší
+      // (zvětšení alba × hustota obrazovky). Deska se proto vykreslí ss× větší a zmenší zpět: otáčená je stejně ostrá jako v klidu.
+      const dpr = window.devicePixelRatio || 1, zs = typeof CSS !== 'undefined' && CSS.supports('zoom', '2');
+      this.ss = zs ? Math.min(3, Math.max(2, Math.ceil(k * dpr - 0.05))) : 1;
+      this.root.style.setProperty('--ss', String(this.ss));
+      if (!this.dead) this.apply();
       this.root.style.height = `${600 * k}px`;
     };
     fit();
@@ -424,7 +432,9 @@ export class AlbumEngine {
     const flat = !f0 && cq >= 1, shut = !f0 && cq <= 0;
     this.cov.classList.toggle('flat', flat);
     this.cov.classList.toggle('shut', shut);
-    this.cov.style.transform = flat || shut ? 'none' : `rotateY(${ca.toFixed(2)}deg)`;
+    const ss = this.ss, inv = `scale(${(1 / ss).toFixed(6)})`;
+    // posuny uvnitř transformace se násobí zoomem desky, proto /ss
+    this.cov.style.transform = flat || shut ? inv : `translateX(${2 / ss}px) rotateY(${ca.toFixed(2)}deg) translateX(${-2 / ss}px) ${inv}`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
     // hřbet je vidět až zevnitř otevřeného alba (při otevírání se z vnějšku neukazuje)
     if (this.spn) this.spn.style.opacity = clamp((cq - 0.5) * 4, 0, 1).toFixed(3);
