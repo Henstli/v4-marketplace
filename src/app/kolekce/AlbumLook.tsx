@@ -16,8 +16,8 @@ export function LookFields({ value, onChange }: { value: Look; onChange: (v: Loo
       <SleeveSprite />
       <label className={s.field}>
         <span>Název alba</span>
-        <input className={s.input} value={value.name} maxLength={24} placeholder="Třeba Kanto 1999" onChange={(e) => onChange({ ...value, name: e.target.value })} />
-        <small>Název se vytiskne na desky. Nejvýš 24 znaků.</small>
+        <input className={s.input} value={value.name} maxLength={60} placeholder="Třeba Kanto 1999" onChange={(e) => onChange({ ...value, name: e.target.value })} />
+        <small>Název se vytiskne na desky. Nejvýš 60 znaků, dlouhý název se na deskách zkrátí.</small>
       </label>
       <div className={s.field}>
         <span>Desky alba <small>· {albumDesign(value.design).name}</small></span>
