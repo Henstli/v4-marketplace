@@ -241,7 +241,8 @@ export class LeafCanvas {
     const sx = 92 / 150, sy = 126 / 206;
     g.save();
     g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
-    rr(g, x, y, 92, 126, 6); g.fillStyle = '#151a22'; g.fill();
+    // jen vržený stín jako v DOM (.kc box-shadow): tvar má barvu strany, takže kolem obalu neprosvítá tmavý okraj
+    rr(g, x, y, 92, 126, 7); g.fillStyle = this.look.page; g.fill();
     g.restore();
     g.save();
     rr(g, x, y, 92, 126, 9 * sx); g.clip();
