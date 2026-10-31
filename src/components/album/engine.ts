@@ -264,7 +264,7 @@ export class AlbumEngine {
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
       `<span class="spn"></span><span class="brd"${d.glow ? ` style="box-shadow:0 0 34px ${d.glow}55,0 40px 60px -24px #000"` : ''}></span>` +
-      `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="csh"></span></div>` +
+      `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="hng"></span><span class="csh"></span></div>` +
       `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
       `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
