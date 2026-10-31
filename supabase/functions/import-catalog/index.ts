@@ -2,7 +2,7 @@
 //   Pokémon: TCGdex (https://tcgdex.dev), Magic: Scryfall (https://scryfall.com/docs/api),
 //   Riftbound: oficiální galerie Riotu (https://playriftbound.com/en-us/card-gallery/), promo sady a záloha
 //   Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
-//   One Piece: OPTCG API (https://optcgapi.com/documentation).
+//   One Piece: OPTCG API (https://optcgapi.com/documentation), chybějící obrázky z Limitless TCG.
 // Volá ho plánovač v databázi (pg_cron) s hlavičkou x-import-secret (heslo je ve Vaultu jako import_secret).
 //   { "mode": "discover" }  doplní seznam sad do catalog_sources
 //   { "mode": "next" }      importuje sady, které ještě nebyly nebo jsou starší než 7 dní (kolik stihne za ~40 s)
@@ -563,6 +563,22 @@ async function discoverOnePiece(): Promise<DiscoveredSet[]> {
   ];
 }
 
+// Záložní obrázky z Limitless TCG (https://onepiece.limitlesstcg.com) pro karty, ke kterým optcgapi obrázek nemá.
+// Bereme jen přesnou shodu čísla karty bez varianty (P-051, ST14-004). Promo varianty běžných karet
+// (OP01-001 v sadě promo, _pr1…) mají vlastní art, obrázek běžné verze by ukazoval jinou kartu.
+async function limitlessOnePieceImage(cardId: string, setCode: string): Promise<string | null> {
+  if (cardId.includes('_')) return null;
+  if (!cardId.startsWith('P-') && (setCode === 'PROMO' || setCode === 'DON')) return null;
+  const prefix = cardId.split('-')[0];
+  const url = `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/one-piece/${prefix}/${cardId}_EN.webp`;
+  try {
+    const res = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': HEADERS['User-Agent'] } });
+    return res.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchOnePieceSet(id: string): Promise<ImportedSet> {
   let name: string;
   let cards: OptcgCard[];
@@ -576,6 +592,12 @@ async function fetchOnePieceSet(id: string): Promise<ImportedSet> {
     name = all?.name ?? id;
   }
   const code = id.toUpperCase();
+  const fallback = new Map<string, string>();
+  for (const c of cards) {
+    if (c.card_image || fallback.has(c.card_image_id)) continue;
+    const url = await limitlessOnePieceImage(c.card_image_id, code);
+    if (url) fallback.set(c.card_image_id, url);
+  }
   const seen = new Map<string, number>();
   return {
     code,
@@ -597,7 +619,7 @@ async function fetchOnePieceSet(id: string): Promise<ImportedSet> {
         name: cardName,
         number,
         rarity: c.rarity ? ONEPIECE_RARITY[c.rarity] ?? c.rarity : null,
-        image_url: c.card_image ?? null,
+        image_url: c.card_image ?? fallback.get(c.card_image_id) ?? null,
         external_id: `optcg:${code}:${c.card_image_id}${n > 1 ? `:${n}` : ''}`,
       };
     }),
