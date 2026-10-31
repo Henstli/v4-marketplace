@@ -10,7 +10,7 @@ import { albumsForCard } from '@/lib/collection';
 
 export type Result<T = object> = ({ ok: true } & T) | { error: string };
 
-const clean = (s: string) => s.replace(/\s+/g, ' ').trim().slice(0, 24);
+const clean = (s: string) => s.replace(/\s+/g, ' ').trim().slice(0, 60);
 const isId = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f-]{36}$/i.test(s);
 
 async function user() {

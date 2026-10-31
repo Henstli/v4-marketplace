@@ -65,7 +65,7 @@ export function NewAlbumWizard() {
 
   const chooseSet = (o: SetOption) => {
     setSet(o);
-    if (!named.current || !look.name.trim()) { setLook((l) => ({ ...l, name: o.name.slice(0, 24) })); named.current = false; }
+    if (!named.current || !look.name.trim()) { setLook((l) => ({ ...l, name: o.name.slice(0, 60) })); named.current = false; }
   };
 
   const total = kind === 'set' ? [...picked.values()].reduce((a, b) => a + b, 0) : tray.length;
