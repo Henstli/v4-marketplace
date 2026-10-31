@@ -35,7 +35,7 @@ export function LookFields({ value, onChange }: { value: Look; onChange: (v: Loo
         <div className={s.designs}>
           {SLEEVES.map((sl) => (
             <button key={sl.id} type="button" className={s.dOpt} aria-pressed={value.sleeve === sl.id} onClick={() => onChange({ ...value, sleeve: sl.id })} title={sl.desc}>
-              <Sleeve sleeve={sl.id} image={null} scale={0.42} />
+              <Sleeve sleeve={sl.id} image={null} scale={0.42} back />
               {sl.name}
             </button>
           ))}

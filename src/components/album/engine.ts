@@ -134,6 +134,11 @@ export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '', full
     `<div class="img">${src ? `<img src="${esc(src)}" alt="${esc(alt)}" decoding="sync" draggable="false">` : ''}</div><span class="fm"></span></div>`;
 }
 
+/** Obal zezadu, bez karty (150 × 206), jako rub vyjeté karty v detailu. */
+export function sleeveBackHTML(s: SleeveDesign) {
+  return `<div class="asl rub f-${s.film}"><svg aria-hidden="true"><use href="#s${s.id}"></use></svg><span class="fm"></span></div>`;
+}
+
 /** Hrana desky v zaoblených rozích (rádius 27 × 29 px jako desky v návrhu) poskládaná z krátkých úseků. */
 function coverCorners() {
   const N = 8, rx = 26.5, ry = 28.5, x0 = 349; // o půl px pod plochou desky, aby mezi hranou a deskou nevznikla spára
@@ -798,7 +803,7 @@ export class AlbumEngine {
     const wrap = document.createElement('div');
     wrap.innerHTML =
       `<div class="ov"></div><div class="pc" style="left:${from.x}px;top:${from.y}px;width:${from.w}px;height:${from.h}px;transition:none">` +
-      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="gs"></span><span class="glare"></span></div><div class="fc bk slv"><div class="asl rub f-${this.o.sleeve.film}"><svg aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="fm"></span></div></div></div></div>` +
+      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="gs"></span><span class="glare"></span></div><div class="fc bk slv">${sleeveBackHTML(this.o.sleeve)}</div></div></div>` +
       `<div class="info"><b>${esc(c.name)}</b><span>#${esc(c.number)}${c.setName ? ' · ' + esc(c.setName) : ''}${c.owned > 1 ? ` · ${c.owned} kusy` : ''} · táhni kartou a otáčej s ní</span>` +
       `<div class="btns"><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
     wrap.className = 'popw';
