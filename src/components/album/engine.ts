@@ -401,7 +401,7 @@ export class AlbumEngine {
     const T = Math.round(48 * (1 - Math.exp(-Math.max(0, nLeaves) / 3))) / 4, C = Math.ceil(T / 2 - 0.01), L: string[] = [];
     for (let k = 1; k <= C; k++) {
       const x = T * k / C;
-      L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 30%,#000)`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 72%,#000)`);
+      L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 80%,#000)`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 96%,#000)`);
     }
     L.push('0 40px 70px -28px #000');  // vržený stín bloku
     return L.join(',');
