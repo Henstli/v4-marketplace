@@ -1,5 +1,5 @@
 // Import katalogů karet do databáze.
-//   Pokémon: TCGdex (https://tcgdex.dev), Magic: Scryfall (https://scryfall.com/docs/api),
+//   Pokémon: TCGdex (https://tcgdex.dev), chybějící obrázky z pokemontcg.io, pkmncards.com a Limitless TCG, Magic: Scryfall (https://scryfall.com/docs/api),
 //   Riftbound: oficiální galerie Riotu (https://playriftbound.com/en-us/card-gallery/), promo sady a záloha
 //   Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
 //   One Piece: OPTCG API (https://optcgapi.com/documentation), chybějící obrázky z Limitless TCG.
@@ -111,6 +111,28 @@ let ptcgSets: Map<string, string> | null = null;
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const numberKey = (s: string) => s.toUpperCase().replace(/^([A-Z]*)0+(?=\d)/, '$1');
 
+// Sady, které se v pokemontcg.io jmenují jinak než v TCGdex (id TCGdex → id pokemontcg.io).
+const PTCG_SET_IDS: Record<string, string> = {
+  'tk-ex-m': 'tk2b',
+  'tk-ex-p': 'tk2a',
+  'tk-ex-latia': 'tk1a',
+  'tk-ex-latio': 'tk1b',
+  '2011bw': 'mcd11',
+  '2012bw': 'mcd12',
+  '2014xy': 'mcd14',
+  '2015xy': 'mcd15',
+  '2016xy': 'mcd16',
+  '2017sm': 'mcd17',
+  '2018sm': 'mcd18',
+  '2019sm': 'mcd19',
+  '2021swsh': 'mcd21',
+  '2022swsh': 'mcd22',
+  'cel25cc': 'cel25c',
+  '30th-c': 'me55c',
+};
+// U těchto sad má pokemontcg.io původní čísla karet (Charizard 4/102), TCGdex nová (CC002), párujeme podle jména.
+const PTCG_BY_NAME = new Set(['cel25cc']);
+
 async function ptcgImages(setId: string, setName: string): Promise<Map<string, string>> {
   const images = new Map<string, string>();
   if (!ptcgSets) {
@@ -124,16 +146,79 @@ async function ptcgImages(setId: string, setName: string): Promise<Map<string, s
     }
   }
   try {
-    const ptcgId = ptcgSets?.get(nameKey(setName)) ?? setId.replace(/\./g, '');
+    const ptcgId = PTCG_SET_IDS[setId] ?? ptcgSets?.get(nameKey(setName)) ?? setId.replace(/\./g, '');
     for (let page = 1; ; page++) {
-      const res = await getJson<{ data: Array<{ number: string; images?: { large?: string } }>; totalCount: number }>(
-        `https://api.pokemontcg.io/v2/cards?q=set.id:${encodeURIComponent(ptcgId)}&select=number,images&pageSize=250&page=${page}`,
+      const res = await getJson<{ data: Array<{ number: string; name: string; images?: { large?: string } }>; totalCount: number }>(
+        `https://api.pokemontcg.io/v2/cards?q=set.id:${encodeURIComponent(ptcgId)}&select=number,name,images&pageSize=250&page=${page}`,
       );
-      for (const c of res.data) if (c.images?.large) images.set(numberKey(c.number), c.images.large);
+      for (const c of res.data) {
+        if (c.images?.large) images.set(PTCG_BY_NAME.has(setId) ? nameKey(c.name) : numberKey(c.number), c.images.large);
+      }
       if (page * 250 >= res.totalCount) break;
     }
   } catch {
     // Záložní zdroj je jen doplněk; bez něj karta zůstane se zástupnou plochou.
+  }
+  return images;
+}
+
+// Třetí zdroj obrázků: Limitless TCG (https://limitlesstcg.com/cards) má skeny nových promo a energií,
+// které TCGdex ani pokemontcg.io zatím nemají. Adresa obrázku se dá složit z kódu sady a čísla karty.
+const LIMITLESS_SETS: Record<string, string> = { mep: 'MEP', mee: 'MEE', svp: 'SVP', sve: 'SVE', xyp: 'XYP', smp: 'SMP' };
+
+async function limitlessPokemonImage(setId: string, localId: string): Promise<string | null> {
+  const code = LIMITLESS_SETS[setId];
+  const digits = localId.match(/^[A-Za-z]*0*(\d+)$/)?.[1];
+  if (!code || !digits) return null;
+  const url = `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/${code}/${code}_${digits.padStart(3, '0')}_R_EN_LG.png`;
+  try {
+    const res = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': HEADERS['User-Agent'] } });
+    return res.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+// Čtvrtý zdroj: pkmncards.com má skeny Trainer Kitů a McDonald's 2023, které jinde nejsou.
+// Jedna stránka sady obsahuje všechny karty, číslo je v názvu souboru (en_US-TK6A-001-spoink.jpg).
+const PKMNCARDS_SETS: Record<string, string> = {
+  'tk-sm-r': 'sun-moon-trainer-kit-alolan-raichu',
+  'tk-sm-l': 'sun-moon-trainer-kit-lycanroc',
+  'tk-dp-l': 'diamond-pearl-trainer-kit-lucario',
+  'tk-dp-m': 'diamond-pearl-trainer-kit-manaphy',
+  'tk-hs-g': 'hs-trainer-kit-gyarados',
+  'tk-hs-r': 'hs-trainer-kit-raichu',
+  'tk-bw-e': 'black-white-trainer-kit-excadrill',
+  'tk-bw-z': 'black-white-trainer-kit-zoroark',
+  'tk-xy-n': 'xy-trainer-kit-noivern',
+  'tk-xy-sy': 'xy-trainer-kit-sylveon',
+  'tk-xy-b': 'xy-trainer-kit-bisharp',
+  'tk-xy-w': 'xy-trainer-kit-wigglytuff',
+  'tk-xy-latia': 'xy-trainer-kit-latias',
+  'tk-xy-latio': 'xy-trainer-kit-latios',
+  'tk-xy-p': 'xy-trainer-kit-pikachu-libre',
+  'tk-xy-su': 'xy-trainer-kit-suicune',
+  '2023sv': 'mcdonalds-match-battle-2023',
+};
+
+async function pkmncardsImages(setId: string): Promise<Map<string, { url: string; name: string | null }>> {
+  const images = new Map<string, { url: string; name: string | null }>();
+  const slug = PKMNCARDS_SETS[setId];
+  if (!slug) return images;
+  try {
+    const res = await fetch(`https://pkmncards.com/set/${slug}/?display=images&sort=number&ord=auto`, {
+      headers: { 'User-Agent': HEADERS['User-Agent'], Accept: 'text/html' },
+    });
+    if (!res.ok) return images;
+    const html = await res.text();
+    // en_US-TK6A-001-spoink.jpg (číslo a jméno karty) nebo m23_en_001_std.jpg (jen číslo).
+    const re = /src="(https:\/\/pkmncards\.com\/wp-content\/uploads\/(?:en_US-[A-Za-z0-9]+-0*(\d+)-([a-z0-9_]+)|[a-z0-9]+_en_0*(\d+)_std)\.jpg)"/g;
+    for (const m of html.matchAll(re)) {
+      const number = m[2] ?? m[4];
+      if (!images.has(number)) images.set(number, { url: m[1], name: m[3] ?? null });
+    }
+  } catch {
+    // Záložní zdroj je jen doplněk.
   }
   return images;
 }
@@ -149,6 +234,19 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
     }
   });
   const fallback = set.cards.some((c) => !c.image) ? await ptcgImages(set.id, set.name) : new Map<string, string>();
+  const missing = set.cards.filter((c) => !c.image && !fallback.has(numberKey(c.localId)));
+  const pkmncards = missing.length ? await pkmncardsImages(set.id) : new Map<string, { url: string; name: string | null }>();
+  for (const c of missing) {
+    // U starších kitů pkmncards ukazuje jen část karet a občas z druhé poloviny balíčku,
+    // proto obrázek bereme, jen když sedí i jméno karty.
+    const fromPkmncards = pkmncards.get(numberKey(c.localId));
+    if (fromPkmncards && (!fromPkmncards.name || nameKey(c.name).startsWith(nameKey(fromPkmncards.name)))) {
+      fallback.set(numberKey(c.localId), fromPkmncards.url);
+      continue;
+    }
+    const url = await limitlessPokemonImage(set.id, c.localId);
+    if (url) fallback.set(numberKey(c.localId), url);
+  }
   return {
     code,
     name: set.name,
@@ -160,7 +258,9 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
         name: c.name,
         number,
         rarity: rarities[i],
-        image_url: c.image ? `${c.image}/high.webp` : fallback.get(numberKey(c.localId)) ?? null,
+        image_url: c.image
+          ? `${c.image}/high.webp`
+          : fallback.get(numberKey(c.localId)) ?? (PTCG_BY_NAME.has(set.id) ? fallback.get(nameKey(c.name)) : undefined) ?? null,
         external_id: `tcgdex:${c.id}`,
       };
     }),
