@@ -402,9 +402,11 @@ export class AlbumEngine {
     const cq = f0 ? f0.q : (this.side[0] === 'L' ? 1 : 0);
     const ca = -180 * cq;
     // úplně otevřená deska v klidu se kreslí naplocho (bez 3D), jinak ji Firefox rozdělí na dlaždice a mezi nimi ukáže tmavou spáru
-    const flat = !f0 && cq >= 1;
+    // stejně tak zavřená deska v klidu (hrany desky jsou potřeba jen při otáčení, jinak v rozích vykukují jako pixel)
+    const flat = !f0 && cq >= 1, shut = !f0 && cq <= 0;
     this.cov.classList.toggle('flat', flat);
-    this.cov.style.transform = flat ? 'none' : `rotateY(${ca.toFixed(2)}deg)`;
+    this.cov.classList.toggle('shut', shut);
+    this.cov.style.transform = flat || shut ? 'none' : `rotateY(${ca.toFixed(2)}deg)`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
     // hřbet je vidět až zevnitř otevřeného alba (při otevírání se z vnějšku neukazuje)
     if (this.spn) this.spn.style.opacity = clamp((cq - 0.5) * 4, 0, 1).toFixed(3);
