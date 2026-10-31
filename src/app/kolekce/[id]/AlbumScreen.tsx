@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { AlbumBook } from '@/components/album/AlbumBook';
 import { AlbumViewer, type AlbumHandle } from '@/components/album/AlbumViewer';
 import { cardsWord } from '@/components/album/engine';
-import { Button, ButtonLink, SearchField } from '@/components/trezor';
+import { Button, ButtonLink, PlusIcon, SearchField } from '@/components/trezor';
 import { WatchButton } from '@/components/WatchButton';
 import type { AlbumCard, AlbumDetail } from '@/lib/collection';
 import { formatNumber } from '@/lib/format';
@@ -114,7 +114,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
         </div>
         <div className={s.actions}>
           <Button variant="secondary" onClick={() => setDrawer('look')}>Vzhled alba</Button>
-          <Button onClick={() => setDrawer('add')}>＋ Přidat karty</Button>
+          <Button onClick={() => setDrawer('add')}><PlusIcon />Přidat karty</Button>
         </div>
       </div>
 

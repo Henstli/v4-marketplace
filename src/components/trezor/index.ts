@@ -15,3 +15,4 @@ export { FileDrop } from './FileDrop';
 export { Status, type StatusTone } from './Status';
 export { BulkBar } from './BulkBar';
 export { SellerBadge, ShopLogo, ShopHeader, ShopSection, ShopTicker, Achievements, CardTag, ShopDivider, shopStyle, initials, type ShopLayout } from './Shop';
+export { PlusIcon } from './PlusIcon';

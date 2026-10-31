@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AlbumBook } from '@/components/album/AlbumBook';
-import { ButtonLink } from '@/components/trezor';
+import { ButtonLink, PlusIcon } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
 import { getCollectionCards, getCollectionOverview, type AlbumCard, type AlbumSummary } from '@/lib/collection';
 import { formatNumber } from '@/lib/format';
@@ -84,7 +84,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           <p>Tvoje alba, všechny karty a co ti do sad ještě chybí.</p>
         </div>
         <div className={s.actions}>
-          <ButtonLink href="/kolekce/nove" variant="primary">＋ Nové album</ButtonLink>
+          <ButtonLink href="/kolekce/nove" variant="primary"><PlusIcon />Nové album</ButtonLink>
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           <div className={s.grid}>
             {o.albums.map((a) => <AlbumTile key={a.id} a={a} />)}
             <Link href="/kolekce/nove" className={s.new}>
-              <span className={s.plus}>＋</span>
+              <span className={s.plus}><PlusIcon size={28} stroke={2.5} /></span>
               <b>Nové album</b>
               <span>Celá sada s prázdnými místy, nebo vlastní výběr karet.</span>
             </Link>
