@@ -65,16 +65,12 @@ export default async function AccountOverviewPage() {
           {plural(a.listings, 'aktivní nabídka', 'aktivní nabídky', 'aktivních nabídek')}
           <span className="tz-acct-tile-link">{a.listings ? 'Spravovat' : 'Vystavit kartu'}</span>
         </Link>
-        <div className="tz-acct-tile">
-          <span className="tz-acct-tile-title"><Icon name="coll" />Sbírka</span>
-          <span className="tz-acct-tile-num">Brzy</span>
-          Evidence vašich karet a jejich hodnoty
-        </div>
-        <div className="tz-acct-tile">
-          <span className="tz-acct-tile-title"><Icon name="wish" />Wishlist</span>
-          <span className="tz-acct-tile-num">Brzy</span>
-          Karty, které sháníte, a upozornění na nové nabídky
-        </div>
+        <Link href="/kolekce" className="tz-acct-tile">
+          <span className="tz-acct-tile-title"><Icon name="coll" />Moje kolekce</span>
+          <span className="tz-acct-tile-num">Alba</span>
+          Vaše karty v albech, jejich hodnota a co vám do sad chybí
+          <span className="tz-acct-tile-link">Otevřít kolekci</span>
+        </Link>
         <Link href="/ucet/predplatne" className="tz-acct-tile">
           <span className="tz-acct-tile-title"><Icon name="plan" />Předplatné</span>
           <span className="tz-acct-tile-num">{PLANS[a.plan].name}</span>

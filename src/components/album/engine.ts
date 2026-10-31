@@ -1,0 +1,1044 @@
+// Otevřené album podle desek 3A (listování, tloušťka, vyjetí karty) a 3B (plnění z balíčku, zrychlování, přehled 2A).
+// Kreslí se přímo do DOM: pohyb listů běží ve smyčce requestAnimationFrame, React by ho zbytečně brzdil.
+import { coverDeco, type AlbumDesign, type SleeveDesign } from '@/lib/album/designs';
+import { thumbUrl } from '@/lib/images';
+
+export interface EngineCard {
+  id: string;
+  slug: string;
+  name: string;
+  number: string;
+  image: string | null;
+  /** Kolik kusů uživatel má (0 = prázdná kapsa) */
+  owned: number;
+  setName?: string;
+  rarity?: string | null;
+  minPrice?: number | null;
+  offers?: number;
+}
+
+export interface EngineOptions {
+  cards: EngineCard[];
+  design: AlbumDesign;
+  sleeve: SleeveDesign;
+  name: string;
+  /** Klik na prázdnou kapsu */
+  onEmpty?: (card: EngineCard, index: number) => void;
+  /** Tlačítko „Odebrat“ u vyjeté karty */
+  onRemove?: (card: EngineCard, index: number) => void;
+  /** Změna otevřené dvoustrany */
+  onSpread?: (t: number) => void;
+  /** Počítadlo „máš / celkem“ (alba sad) */
+  counterTotal?: boolean;
+  /** Album začne otevřené na první straně */
+  open?: boolean;
+}
+
+const NSG = 6;
+const W = 360;
+const SW = 60;
+const SPRING = 'cubic-bezier(.22,1.2,.36,1)';
+const STAGE_W = 960;
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const smooth = (p: number) => p * p * (3 - 2 * p);
+const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
+const easeBack = (p: number) => { const c = 1.15; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+// velikost letící karty proti kartě v kapse: u balíčku, po zvednutí (podle desky 1B: .62, .78 a .404)
+const S_PREP = 1.535;
+const S_LIFT = 1.93;
+// dráha letu z desky 1B: [průběh, odchylka x, odchylka y od přímky balíček→kapsa, otočení, natažení x, y]
+const FLIGHT: Array<[number, number, number, number, number, number]> = [[0,0,0,1.1,0.998,1.004],[0.019,-6.2,-1,2.1,0.998,1.004],[0.038,-12.5,-2.2,1.9,0.998,1.004],[0.056,-18.7,-3.6,1.6,0.998,1.005],[0.075,-25.1,-5.6,1.3,0.997,1.006],[0.094,-31.3,-8.7,1.1,0.996,1.008],[0.113,-37.5,-13.3,1,0.994,1.011],[0.131,-43.7,-20.3,1.3,0.992,1.015],[0.15,-49.6,-30.1,2.1,0.99,1.021],[0.169,-55,-43.6,4.1,0.986,1.027],[0.188,-58.2,-61.3,10.2,0.982,1.035],[0.206,-55.1,-82.5,23,0.978,1.044],[0.225,-40.9,-102.8,49,0.973,1.054],[0.244,-16.1,-85.6,113.3,0.968,1.065],[0.263,-7.1,-43.8,155.6,0.962,1.077],[0.281,-9.3,8.9,170.7,0.956,1.089],[0.3,-13.8,69.2,170.4,0.949,1.102],[0.319,27,117.8,136.8,0.943,1.115],[0.338,91.5,144.4,111.2,0.936,1.128],[0.356,168.4,154.5,97.8,0.929,1.141],[0.375,253.7,154.3,89,0.923,1.153],[0.394,345,139.5,80.7,0.918,1.165],[0.413,437.1,103.1,67,0.912,1.175],[0.431,510.2,26.9,44.7,0.908,1.184],[0.45,522,-83.7,7.1,0.904,1.191],[0.469,458.3,-186.6,-29.3,0.902,1.196],[0.488,340.5,-235.5,-62.8,0.9,1.199],[0.506,211.4,-252.7,-80.1,0.9,1.2],[0.525,82,-244.2,-93.2,0.902,1.196],[0.544,-37.9,-205,-109.6,0.905,1.189],[0.563,-132,-131.1,-132.3,0.91,1.179],[0.582,-155.4,-27.1,-175.5,0.917,1.167],[0.6,-97.3,48.2,-218.1,0.924,1.152],[0.619,-20.4,81,-248.2,0.932,1.136],[0.638,50,72.4,-281.5,0.941,1.119],[0.657,89.2,23.5,-316.4,0.949,1.101],[0.675,99.5,-29.8,-341.9,0.958,1.084],[0.694,98.3,-75.2,-352.3,0.966,1.067],[0.713,95.5,-110.5,-354.9,0.974,1.052],[0.732,90.4,-136.7,-358,0.981,1.038],[0.75,84.3,-154.9,-359.9,0.987,1.026],[0.769,77.9,-166.8,-360.6,0.991,1.017],[0.788,71.6,-174.2,-360.5,0.994,1.012],[0.807,65.4,-178.4,-360,0.996,1.008],[0.825,59,-172,-359.8,0.996,1.008],[0.844,52.7,-164.8,-359.8,0.995,1.01],[0.863,46.3,-156.4,-359.8,0.994,1.013],[0.882,40,-145.7,-359.9,0.992,1.017],[0.9,33.7,-132.3,-359.9,0.989,1.022],[0.919,27.3,-115.5,-359.9,0.986,1.028],[0.938,21,-94.7,-360,0.982,1.035],[0.957,14.6,-68.9,-360,0.978,1.043],[0.975,8.3,-37.8,-360,0.974,1.053],[1,0,0,-360,1,1]];
+
+interface Leaf {
+  q: number; v: number; tq: number; k: number; c: number; bs: number; ls: number;
+  tw: { t0: number; dur: number; from: number; to: number; ease: (p: number) => number } | null;
+  drag?: boolean;
+  wait: Array<() => void>;
+}
+
+interface Grab {
+  side: 'l' | 'r'; x: number; y: number; moved: boolean; sc: number; spine: number; top: boolean;
+  card: { i: number; rect: DOMRect } | null; empty: number | null; on: boolean;
+  i?: number; a0?: number; q0?: number; hist?: Array<[number, number]>; nq?: number;
+}
+
+/** Počet dvoustran česky */
+export function spreadsWord(n: number) {
+  return n === 1 ? 'dvoustrana' : n >= 2 && n <= 4 ? 'dvoustrany' : 'dvoustran';
+}
+export function cardsWord(n: number) {
+  return n === 1 ? 'karta' : n >= 2 && n <= 4 ? 'karty' : 'karet';
+}
+
+/** Zmenší název na desce, aby se vešel do štítku (data-w = šířka štítku). */
+export function fitCoverNames(root: ParentNode) {
+  root.querySelectorAll<SVGTextElement>('text.nm[data-w]').forEach((t) => {
+    const w = Number(t.dataset.w), fs = Number(t.dataset.fs);
+    t.setAttribute('font-size', String(fs));
+    try {
+      const len = t.getComputedTextLength();
+      if (len > w) t.setAttribute('font-size', (fs * w / len).toFixed(2));
+    } catch { /* písmo ještě není */ }
+  });
+}
+
+/** HTML obalu s kartou (150 × 206, v albu zmenšené). */
+export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '') {
+  const src = image ? thumbUrl(image) ?? image : null;
+  return `<div class="asl f-${s.film}"><svg aria-hidden="true"><use href="#s${s.id}"></use></svg>` +
+    `<div class="img">${src ? `<img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" draggable="false">` : ''}</div><span class="fm"></span></div>`;
+}
+
+/** HTML desky alba (168 × 210). */
+export function coverHTML(d: AlbumDesign, name: string) {
+  return `<div class="acv" style="background:${d.mat}">${coverDeco(d, name)}<span class="gl"></span></div>`;
+}
+
+export class AlbumEngine {
+  private o: EngineOptions;
+  private cards: EngineCard[];
+  private root: HTMLElement;
+  private stage!: HTMLElement;
+  private book!: HTMLElement;
+  private cov!: HTMLElement;
+  private bl!: HTMLElement;
+  private br!: HTMLElement;
+  private leafbox!: HTMLElement;
+  private NP = 1;
+  private NL = 2;
+  private side: Array<'L' | 'R'> = [];
+  private F: Record<number, Leaf> = {};
+  private raf = 0;
+  private dragLoop = 0;
+  private g: Grab | null = null;
+  private hk: HTMLElement | null = null;
+  private hidden = new Set<number>();
+  private glow = new Set<number>();
+  private sel: number | null = null;
+  private lastBases = '';
+  private ro: ResizeObserver | null = null;
+  private dead = false;
+  private busy = false;
+  private pop: { i: number; el: HTMLElement; closing?: boolean } | null = null;
+  private ry = 0; private rx = 0; private w = 0; private vx = 0; private mode: 'free' | 'snap' = 'snap'; private tgt = 0;
+  private r: { x: number; y: number; ry: number; rx: number; h: Array<[number, number]> } | null = null;
+  private sraf = 0;
+  private sumPage = 0;
+  private sumData: { title: string; sub: string; spreads: number[]; fresh: Set<number> } | null = null;
+  private lastT = -1;
+  private edgeK = 1;
+  private lastRoll = 0;
+
+  constructor(root: HTMLElement, o: EngineOptions) {
+    this.root = root;
+    this.o = o;
+    this.cards = o.cards.slice();
+    this.layout();
+    this.build();
+    if (o.open) { this.side[0] = 'L'; this.sync(true); }
+  }
+
+  destroy() {
+    this.dead = true;
+    cancelAnimationFrame(this.raf); cancelAnimationFrame(this.dragLoop); cancelAnimationFrame(this.sraf);
+    this.ro?.disconnect();
+    this.root.innerHTML = '';
+  }
+
+  // ---------- rozměry ----------
+  private layout() {
+    this.NP = Math.max(1, Math.ceil(this.cards.length / 9));
+    this.NL = 1 + Math.max(1, Math.ceil(this.NP / 2));
+    const prev = this.side;
+    this.side = Array.from({ length: this.NL }, (_, i) => prev[i] ?? 'R');
+  }
+
+  /** t = kolik listů leží vlevo (0 = zavřené album; t: vlevo strana 2t−2, vpravo 2t−1). */
+  get t() { return this.logicalT(); }
+  get spreads() { return this.NL; }
+
+  private spreadOf(index: number) { const p = Math.floor(index / 9) + 1; return Math.floor(p / 2) + 1; }
+
+  // ---------- HTML stran ----------
+  private pocket(idx: number) {
+    const c = this.cards[idx];
+    const cls = 'pk' + (this.glow.has(idx) ? ' glow' : '') + (this.sel === idx ? ' sel' : '');
+    if (!c) return `<div class="pk"></div>`;
+    if (c.owned > 0) {
+      return `<div class="${cls}"><div class="kc${this.hidden.has(idx) ? ' off' : ''}" data-c="${idx}">${sleeveHTML(this.o.sleeve, c.image, c.name)}` +
+        `<span class="gs"></span>${c.owned > 1 ? `<span class="qty">×${c.owned}</span>` : ''}</div></div>`;
+    }
+    return `<div class="${cls}"><div class="em" data-e="${idx}" title="${esc(c.name)}"><span>#${esc(c.number)}</span><small>${esc(c.name)}</small></div></div>`;
+  }
+
+  private pageHTML(p: number, side: 'l' | 'r', left = '') {
+    const st = left ? ` style="left:${left}"` : '';
+    if (p < 1) return `<div class="pg ins ${side}"${st}><span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>`;
+    let h = `<div class="pg ${side}${p > this.NP ? ' blank' : ''}" data-p="${p}"${st}>`;
+    for (let k = 0; k < 9; k++) h += p > this.NP ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
+    return h + '<span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>';
+  }
+
+  /** Strana listu i (líc = strana 2i−1, rub = 2i); list 0 je deska. */
+  private face(i: number, back: boolean, side: 'l' | 'r', left = ''): string {
+    if (i < 0 || (i === 0 && back)) return `<div class="pg none ${side}"></div>`;
+    if (i >= this.NL) return this.pageHTML(0, side, left);
+    if (i === 0) return this.face(1, false, side, left);
+    return this.pageHTML(back ? 2 * i : 2 * i - 1, side, left);
+  }
+
+  private stripHTML(j: number, i: number): string {
+    const left = j === 0 ? 0 : SW;
+    return `<div class="sg sg${j}" style="left:${left}px"><div class="sf fr">${this.face(i, false, 'r', `${-j * SW}px`)}<span class="ssh"></span></div>` +
+      `<div class="sf bk">${this.face(i, true, 'l', `${-(NSG - 1 - j) * SW}px`)}<span class="ssh"></span></div>${j < NSG - 1 ? this.stripHTML(j + 1, i) : ''}</div>`;
+  }
+
+  // ---------- kostra ----------
+  private build() {
+    const d = this.o.design;
+    this.root.classList.add('alb');
+    if (d.square) this.root.classList.add('sq');
+    this.root.style.setProperty('--page', d.page);
+    this.root.style.setProperty('--lining', d.lining);
+    this.root.style.setProperty('--mat', d.mat);
+    this.root.style.setProperty('--pocket', d.pocket);
+    this.root.style.setProperty('--empty', d.empty);
+    this.root.style.setProperty('--edge', 'rgba(0,0,0,.55)');
+    const arrow = (dir: string) => `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir}"></path></svg>`;
+    this.root.innerHTML =
+      `<div class="alb-stage"><div class="book">` +
+      `<span class="spn"></span><span class="brd"${d.glow ? ` style="box-shadow:0 0 34px ${d.glow}55,0 40px 60px -24px #000"` : ''}></span>` +
+      `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="csh"></span></div>` +
+      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span><span class="ce c1"></span><span class="ce c2"></span></div>` +
+      `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
+      `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
+      `<button type="button" class="arr nx" aria-label="Další strana">${arrow('M8.5 5 L14.5 11 L8.5 17')}</button>` +
+      `<div class="ind"><span class="txt"></span><span class="dots"></span><span class="cnt"></span></div>` +
+      `<div class="deck"></div><div class="sum"></div></div>`;
+    this.stage = this.root.querySelector('.alb-stage')!;
+    this.book = this.root.querySelector('.book')!;
+    this.cov = this.root.querySelector('.cov')!;
+    this.bl = this.root.querySelector('.bl')!;
+    this.br = this.root.querySelector('.br')!;
+    this.leafbox = this.root.querySelector('.leafbox')!;
+    fitCoverNames(this.cov);
+    if (typeof document !== 'undefined' && document.fonts) document.fonts.ready.then(() => { if (!this.dead) fitCoverNames(this.cov); });
+
+    this.root.querySelector('.pv')!.addEventListener('click', () => this.turn(-1));
+    this.root.querySelector('.nx')!.addEventListener('click', () => this.turn(1));
+    this.cov.addEventListener('pointerdown', (e) => this.down(this.side[0] === 'R' && !this.F[0] ? 'r' : (this.F[0] && this.F[0].tq === 0 ? 'r' : 'l'), e as PointerEvent));
+    this.bl.addEventListener('pointerdown', (e) => this.down('l', e as PointerEvent));
+    this.br.addEventListener('pointerdown', (e) => this.down('r', e as PointerEvent));
+    this.stage.addEventListener('pointermove', (e) => this.move(e as PointerEvent));
+    this.stage.addEventListener('pointerup', () => this.up());
+    this.stage.addEventListener('pointercancel', () => this.up());
+    this.stage.addEventListener('pointerleave', () => this.unhover());
+
+    const fit = () => {
+      const k = Math.min(1.25, this.root.clientWidth / STAGE_W);
+      this.stage.style.transform = `scale(${k})`;
+      this.root.style.height = `${600 * k}px`;
+    };
+    fit();
+    if (typeof ResizeObserver !== 'undefined') { this.ro = new ResizeObserver(fit); this.ro.observe(this.root); }
+    this.sync(true);
+  }
+
+  // ---------- stav listů ----------
+  private moving() { return Object.keys(this.F).map(Number).sort((a, b) => a - b); }
+  private logicalT() { let t = 0; for (let i = 0; i < this.NL; i++) { const f = this.F[i]; if (f ? f.tq === 1 : this.side[i] === 'L') t = i + 1; } return t; }
+  private bases() {
+    const m = this.moving();
+    let lb = -1, rb = this.NL;
+    if (m.length) {
+      for (let i = m[0] - 1; i >= 0; i--) if (this.side[i] === 'L') { lb = i; break; }
+      for (let i = m[m.length - 1] + 1; i < this.NL; i++) if (this.side[i] === 'R') { rb = i; break; }
+    } else {
+      for (let i = 0; i < this.NL; i++) { if (this.side[i] === 'L') lb = i; else { rb = i; break; } }
+    }
+    return { lb, rb };
+  }
+
+  /** Překreslí strany pod listy a otáčené listy (po změně, která listů se hýbe). */
+  private sync(force = false) {
+    const { lb, rb } = this.bases();
+    const m = this.moving().filter((i) => i > 0);
+    const key = `${lb}|${rb}|${m.join(',')}`;
+    if (force || key !== this.lastBases) {
+      this.lastBases = key;
+      this.bl.innerHTML = this.face(lb, true, 'l');
+      this.br.innerHTML = this.face(rb, false, 'r');
+      const want = new Set(m);
+      this.leafbox.querySelectorAll<HTMLElement>('.leaf').forEach((el) => { if (force || !want.has(Number(el.dataset.i))) el.remove(); });
+      for (const i of m) {
+        if (this.leafbox.querySelector(`.leaf[data-i="${i}"]`)) continue;
+        const el = document.createElement('div');
+        el.className = 'leaf';
+        el.dataset.i = String(i);
+        el.innerHTML = this.stripHTML(0, i);
+        this.leafbox.appendChild(el);
+      }
+    }
+    this.ui();
+    this.apply();
+  }
+
+  private ui() {
+    const t = this.logicalT(), NL = this.NL;
+    this.root.querySelector('.pv')!.classList.toggle('off', t <= 0);
+    this.root.querySelector('.nx')!.classList.toggle('off', t >= NL);
+    const pages = [2 * t - 2, 2 * t - 1].filter((p) => p >= 1 && p <= this.NP);
+    const txt = t === 0 ? 'Album je zavřené' : pages.length === 2 ? `Strany ${pages[0]}–${pages[1]} z ${this.NP}` : pages.length ? `Strana ${pages[0]} z ${this.NP}` : 'Konec alba';
+    this.root.querySelector('.ind .txt')!.textContent = txt;
+    const dots = this.root.querySelector<HTMLElement>('.ind .dots')!;
+    if (dots.childElementCount !== NL + 1) {
+      dots.innerHTML = Array.from({ length: NL + 1 }, (_, i) => `<span class="dot" data-t="${i}" title="${i === 0 ? 'Zavřít album' : 'Dvoustrana ' + i}"></span>`).join('');
+      dots.querySelectorAll<HTMLElement>('.dot').forEach((d) => d.addEventListener('click', () => this.goTo(Number(d.dataset.t))));
+    }
+    dots.querySelectorAll<HTMLElement>('.dot').forEach((d, i) => d.classList.toggle('on', i === t));
+    if (t !== this.lastT) { this.lastT = t; this.o.onSpread?.(t); }
+    if (!this.busy) this.counter(this.cards.filter((c) => c.owned > 0).length, false);
+  }
+
+  private edgeShadow(nLeaves: number, sx: number) {
+    // tloušťka roste s počtem listů jen do ~12 px, aby blok stran nevylezl z desek
+    const T = 12 * (1 - Math.exp(-Math.max(0, nLeaves) / 3)), C = Math.ceil(T / 2 - 0.01), L: string[] = [];
+    for (let k = 1; k <= C; k++) {
+      const x = T * k / C;
+      L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 #0e1218`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 #4a5466`);
+    }
+    L.push('0 40px 70px -28px #000');
+    return L.join(',');
+  }
+
+  private apply() {
+    const f0 = this.F[0];
+    const cq = f0 ? f0.q : (this.side[0] === 'L' ? 1 : 0);
+    const ca = -180 * cq;
+    this.cov.style.transform = `rotateY(${ca.toFixed(2)}deg)`;
+    this.cov.style.zIndex = ca > -90 ? '60' : '1';
+    const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
+    cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
+    cs[1].style.opacity = (0.4 * (1 + c) / 2).toFixed(3);
+    this.book.style.transform = `translateX(${(-180 * Math.max(0, 1 - Math.min(1.04, cq))).toFixed(1)}px)`;
+    const m = this.moving().filter((i) => i > 0);
+    this.leafbox.querySelectorAll<HTMLElement>('.leaf').forEach((el) => {
+      const i = Number(el.dataset.i), f = this.F[i];
+      if (!f) return;
+      const q = f.q, th = -180 * q, b = Math.sin(Math.PI * clamp(q, 0, 1));
+      const dyn = clamp(f.v * 0.35, -1, 1), bend = b * (13 + 9 * Math.abs(dyn)) * f.bs, lean = b * 6 * f.ls * f.bs;
+      el.style.zIndex = String(q < 0.5 ? 50 - i : 50 + i);
+      const sg = el.querySelectorAll<HTMLElement>('.sg');
+      for (let j = 0; j < sg.length; j++) {
+        sg[j].style.transform = j === 0 ? `rotateY(${th.toFixed(2)}deg)` : `rotateY(${(bend * (0.55 + 0.15 * j)).toFixed(2)}deg) skewY(${(-lean * j / NSG).toFixed(2)}deg)`;
+      }
+      const fs = (0.45 * Math.min(1, q / 0.45) * (q < 0.5 ? 1 : 0)).toFixed(3);
+      el.querySelectorAll<HTMLElement>('.sf.fr>.ssh').forEach((e) => { e.style.opacity = fs; });
+    });
+    let lA = 0, rA = 0;
+    for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
+    const pl = this.bl.firstElementChild as HTMLElement | null, pr = this.br.firstElementChild as HTMLElement | null;
+    if (pl && !pl.classList.contains('none')) pl.style.boxShadow = this.edgeShadow((lA - 1) * this.edgeK, -1);
+    if (pr && !pr.classList.contains('none')) pr.style.boxShadow = this.edgeShadow((rA - 1) * this.edgeK, 1);
+    const sl = this.bl.querySelector<HTMLElement>('.shade'), sr = this.br.querySelector<HTMLElement>('.shade');
+    const qMinL = m.length ? this.F[m[0]].q : null, qMaxR = m.length ? this.F[m[m.length - 1]].q : null;
+    if (sl) sl.style.opacity = qMinL === null ? '0' : (0.4 * qMinL * qMinL).toFixed(3);
+    if (sr) sr.style.opacity = qMaxR === null ? '0' : (0.4 * (1 - qMaxR) * (1 - qMaxR)).toFixed(3);
+  }
+
+  // jedna smyčka pohne všemi listy; dokončené listy se uloží na svou stranu
+  private run() {
+    if (this.raf) return;
+    let last = performance.now();
+    const step = (now: number) => {
+      if (this.dead) return;
+      const dt = Math.min(0.032, (now - last) / 1000); last = now;
+      const done: number[] = [];
+      for (const k in this.F) {
+        const f = this.F[k];
+        if (f.drag) continue;
+        if (f.tw) {
+          const w = f.tw, p = Math.min(1, (now - w.t0) / w.dur), nq = w.from + (w.to - w.from) * w.ease(p);
+          f.v = dt > 0 ? (nq - f.q) / dt : 0; f.q = nq;
+          if (p >= 1) { f.tw = null; f.q = f.tq; f.v = 0; done.push(Number(k)); }
+          continue;
+        }
+        const a = f.k * (f.tq - f.q) - f.c * f.v; f.v += a * dt; f.q += f.v * dt;
+        if (Math.abs(f.tq - f.q) < 0.0015 && Math.abs(f.v) < 0.02) { f.q = f.tq; f.v = 0; done.push(Number(k)); }
+      }
+      this.apply();
+      if (done.length) {
+        const waits: Array<() => void> = [];
+        done.forEach((i) => { this.side[i] = this.F[i].tq === 1 ? 'L' : 'R'; waits.push(...this.F[i].wait); delete this.F[i]; });
+        this.sync();
+        waits.forEach((w) => w());
+      }
+      if (Object.keys(this.F).length) this.raf = requestAnimationFrame(step); else this.raf = 0;
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  /** Spustí nebo přesměruje list i k cíli (1 = doleva, 0 = doprava). */
+  private flip(i: number, to: number, opts?: { spring?: boolean; cover?: boolean; v?: number; dur?: number; ease?: (p: number) => number }): Promise<void> {
+    let f = this.F[i];
+    const isNew = !f;
+    if (!f) f = this.F[i] = { q: this.side[i] === 'L' ? 1 : 0, v: 0, tq: 0, k: 110, c: 22, bs: 1, ls: 1, tw: null, wait: [] };
+    f.tq = to; f.bs = to === 1 ? 1 : -1; f.drag = false;
+    if (opts?.spring) {
+      f.tw = null; f.k = opts.cover ? 70 : 110; f.c = opts.cover ? 14 : 2 * Math.sqrt(110) * 1.05; f.v = opts.v ?? 0;
+    } else {
+      const dist = Math.abs(to - f.q), fresh = Math.abs(f.v) < 0.05 && (f.q === 0 || f.q === 1);
+      f.tw = {
+        t0: performance.now(), dur: opts?.dur ?? (i === 0 ? 1150 : 900) * Math.max(0.35, dist), from: f.q, to,
+        ease: opts?.ease ?? (i === 0 && to === 1 && fresh ? easeBack : fresh ? smooth : outCubic),
+      };
+    }
+    const p = new Promise<void>((res) => f.wait.push(res));
+    if (isNew) this.sync(); else this.ui();
+    this.run();
+    return p;
+  }
+
+  turn(dir: 1 | -1) {
+    if (this.pop || this.g || this.busy) return;
+    const t = this.logicalT();
+    if (dir === 1 && t < this.NL) this.flip(t, 1);
+    if (dir === -1 && t > 0) this.flip(t - 1, 0);
+  }
+
+  goTo(target: number) {
+    if (this.busy) return Promise.resolve();
+    return this.goToRaw(clamp(target, 0, this.NL));
+  }
+
+  private goToRaw(target: number, dur?: number, stagger = 70) {
+    const t = this.logicalT(), ps: Promise<void>[] = [];
+    // listy se rozjedou kousek po sobě, jako když se palcem přelistuje blok stran
+    if (target > t) for (let k = t; k < target; k++) ps.push(this.delayFlip(k, 1, (k - t) * stagger, dur));
+    if (target < t) for (let k = t - 1; k >= target; k--) ps.push(this.delayFlip(k, 0, (t - 1 - k) * stagger, dur));
+    return Promise.all(ps).then(() => undefined);
+  }
+
+  private delayFlip(i: number, to: number, delay: number, dur?: number) {
+    if (!delay) return this.flip(i, to, dur ? { dur } : undefined);
+    return sleep(delay).then(() => (this.dead ? undefined : this.flip(i, to, dur ? { dur } : undefined)));
+  }
+
+  /** Otevře album na dvoustraně s kartou a zvýrazní její kapsu. */
+  async showCard(index: number, select = true) {
+    this.sel = select ? index : null;
+    const t = this.spreadOf(index);
+    if (t !== this.logicalT()) await this.goTo(t); else this.sync(true);
+  }
+
+  select(index: number | null) { this.sel = index; this.sync(true); }
+
+  /** Nové údaje (po uložení nebo obnovení stránky). */
+  setCards(cards: EngineCard[]) {
+    this.cards = cards.slice();
+    this.layout();
+    this.sync(true);
+  }
+
+  rename(name: string) {
+    const out = this.cov.querySelector('.cf.out');
+    if (!out) return;
+    out.querySelector('.acv')?.remove();
+    out.insertAdjacentHTML('afterbegin', coverHTML(this.o.design, name));
+    this.o.name = name;
+    fitCoverNames(this.cov);
+  }
+
+  // ---------- tažení stránek a karty ----------
+  private pick(side: 'l' | 'r') {
+    if (side === 'r') { for (let i = 0; i < this.NL; i++) { const f = this.F[i]; if (f ? f.tq === 0 : this.side[i] === 'R') return i; } return -1; }
+    for (let i = this.NL - 1; i >= 0; i--) { const f = this.F[i]; if (f ? f.tq === 1 : this.side[i] === 'L') return i; }
+    return -1;
+  }
+
+  private down(side: 'l' | 'r', e: PointerEvent) {
+    if (this.pop || this.busy || e.button > 0) return;
+    e.stopPropagation();
+    try { this.stage.setPointerCapture(e.pointerId); } catch { /* starší prohlížeč */ }
+    const tg = e.target as HTMLElement;
+    const ce = tg.closest<HTMLElement>('[data-c]'), ee = tg.closest<HTMLElement>('[data-e]');
+    const pr = (e.currentTarget as HTMLElement).getBoundingClientRect(), bk = this.book.getBoundingClientRect();
+    const free = !this.moving().length;
+    this.g = {
+      side, x: e.clientX, y: e.clientY, moved: false, sc: this.stage.getBoundingClientRect().width / STAGE_W, spine: bk.left,
+      top: e.clientY - pr.top < pr.height / 2,
+      card: ce && free ? { i: Number(ce.dataset.c), rect: ce.getBoundingClientRect() } : null,
+      empty: ee && free ? Number(ee.dataset.e) : null, on: false,
+    };
+  }
+
+  private hover(e: PointerEvent) {
+    if (this.g || this.pop || this.moving().length || this.busy || e.pointerType === 'touch') { this.unhover(); return; }
+    const k = (e.target as HTMLElement).closest?.<HTMLElement>('.bl .kc, .br .kc') ?? null;
+    if (k !== this.hk) { this.unhover(); this.hk = k; if (k) k.classList.add('hv'); }
+    if (!k) return;
+    const r = k.getBoundingClientRect(), mx = (e.clientX - r.left) / r.width, my = (e.clientY - r.top) / r.height;
+    k.style.transform = `perspective(700px) rotateY(${((mx - 0.5) * 17).toFixed(2)}deg) rotateX(${((0.5 - my) * 17).toFixed(2)}deg) scale(1.045)`;
+    k.style.setProperty('--mx', `${(mx * 100).toFixed(1)}%`);
+  }
+
+  private unhover() { const k = this.hk; this.hk = null; if (k) { k.classList.remove('hv'); k.style.transform = ''; } }
+
+  private move(e: PointerEvent) {
+    const g = this.g;
+    if (!g) { this.hover(e); return; }
+    if (!g.on) {
+      if (Math.abs(e.clientX - g.x) < 5 && Math.abs(e.clientY - g.y) < 5) return;
+      g.moved = true;
+      const i = this.pick(g.side);
+      if (i < 0) return;
+      this.unhover(); g.on = true; g.i = i;
+      let f = this.F[i];
+      const isNew = !f;
+      if (!f) f = this.F[i] = { q: this.side[i] === 'L' ? 1 : 0, v: 0, tq: this.side[i] === 'L' ? 1 : 0, k: 110, c: 22, bs: 1, ls: 1, tw: null, wait: [] };
+      f.tw = null; f.drag = true; f.ls = g.top ? 1 : -1; f.bs = g.side === 'r' ? 1 : -1;
+      g.a0 = Math.acos(clamp((e.clientX - g.spine) / (W * g.sc), -1, 1)); g.q0 = f.q; g.hist = [[performance.now(), f.q]];
+      if (isNew) this.sync();
+      this.run();
+    }
+    const f = this.F[g.i!];
+    if (!f) return;
+    const xr = clamp((e.clientX - g.spine) / (W * g.sc), -1, 1);
+    const nq = clamp(g.q0! + (Math.acos(xr) - g.a0!) / Math.PI, 0, 1), now = performance.now();
+    g.hist!.push([now, nq]); if (g.hist!.length > 6) g.hist!.shift(); g.nq = nq;
+    if (!this.dragLoop) {
+      const loop = () => {
+        if (!this.g || !this.g.on || this.dead) { this.dragLoop = 0; return; }
+        const gg = this.g, ff = this.F[gg.i!];
+        if (ff) { ff.v = (gg.nq! - ff.q) * 0.3 * 60; ff.q += (gg.nq! - ff.q) * 0.3; this.apply(); }
+        this.dragLoop = requestAnimationFrame(loop);
+      };
+      this.dragLoop = requestAnimationFrame(loop);
+    }
+  }
+
+  private up() {
+    if (this.r) { this.rUp(); return; }
+    const g = this.g; this.g = null;
+    if (!g) return;
+    if (!g.on) {
+      if (g.moved) return;
+      if (g.card) this.openCard(g.card.i, g.card.rect);
+      else if (g.empty !== null) { this.sel = g.empty; this.sync(true); this.o.onEmpty?.(this.cards[g.empty], g.empty); }
+      else if (g.side === 'r' && this.side[0] === 'R' && !this.F[0]) this.turn(1);
+      return;
+    }
+    const f = this.F[g.i!];
+    if (!f) return;
+    const h = g.hist!, vq = h.length > 1 ? (h[h.length - 1][1] - h[0][1]) / Math.max(1, h[h.length - 1][0] - h[0][0]) * 1000 : 0;
+    const moved = f.q - g.q0!;
+    let to = f.q > 0.5 ? 1 : 0;
+    if (vq > 1.1 || (moved > 0.15 && vq > 0.35)) to = 1;
+    if (vq < -1.1 || (moved < -0.15 && vq < -0.35)) to = 0;
+    this.flip(g.i!, to, { spring: true, cover: g.i === 0, v: clamp(vq, -6, 6) });
+  }
+
+  // ---------- vyjetí karty (klik na kartu v albu) ----------
+  private local(rect: DOMRect) {
+    const sr = this.stage.getBoundingClientRect(), k = sr.width / STAGE_W;
+    return { x: (rect.left - sr.left) / k, y: (rect.top - sr.top) / k, w: rect.width / k, h: rect.height / k };
+  }
+
+  private openCard(i: number, rect: DOMRect) {
+    this.unhover();
+    const c = this.cards[i];
+    if (!c) return;
+    const from = this.local(rect);
+    const big = { x: 480 - 135, y: 34, w: 270, h: 377 };
+    const img = c.image ?? '';
+    const wrap = document.createElement('div');
+    wrap.innerHTML =
+      `<div class="ov"></div><div class="pc" style="left:${from.x}px;top:${from.y}px;width:${from.w}px;height:${from.h}px;transition:none">` +
+      `<div class="rot"><div class="fc">${img ? `<img src="${esc(img)}" alt="${esc(c.name)}" draggable="false">` : ''}<span class="glare"></span></div><div class="fc bk"><div class="cback"></div></div></div></div>` +
+      `<div class="info"><b>${esc(c.name)}</b><span>#${esc(c.number)}${c.setName ? ' · ' + esc(c.setName) : ''}${c.owned > 1 ? ` · ${c.owned} kusy` : ''} · táhni kartou a otáčej s ní</span>` +
+      `<div class="btns"><button type="button" class="bt pri" data-a="flip">Otočit kartu</button><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
+    wrap.className = 'popw';
+    this.stage.appendChild(wrap);
+    this.pop = { i, el: wrap };
+    const kc = this.root.querySelector<HTMLElement>(`.kc[data-c="${i}"]`);
+    if (kc) kc.style.opacity = '0';
+    this.ry = 0; this.rx = 0; this.w = 0; this.vx = 0; this.mode = 'snap'; this.tgt = 0;
+    const pc = wrap.querySelector<HTMLElement>('.pc')!, ov = wrap.querySelector<HTMLElement>('.ov')!, info = wrap.querySelector<HTMLElement>('.info')!;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      pc.style.transition = '';
+      Object.assign(pc.style, { left: `${big.x}px`, top: `${big.y}px`, width: `${big.w}px`, height: `${big.h}px` });
+      ov.style.opacity = '1'; info.style.opacity = '1';
+    }));
+    ov.addEventListener('click', () => this.closeCard());
+    wrap.querySelector('[data-a="close"]')!.addEventListener('click', () => this.closeCard());
+    wrap.querySelector('[data-a="flip"]')!.addEventListener('click', () => this.flipCard());
+    wrap.querySelector('[data-a="rm"]')?.addEventListener('click', () => { this.closeCard(); this.o.onRemove?.(c, i); });
+    const rot = wrap.querySelector<HTMLElement>('.rot')!;
+    rot.addEventListener('pointerdown', (e) => this.rDown(e));
+    rot.addEventListener('pointermove', (e) => this.rMove(e));
+    rot.addEventListener('pointerup', () => this.rUp());
+    rot.addEventListener('pointercancel', () => this.rUp());
+  }
+
+  closeCard() {
+    const p = this.pop;
+    if (!p || p.closing) return;
+    p.closing = true;
+    cancelAnimationFrame(this.sraf); this.sraf = 0; this.r = null;
+    const rot = p.el.querySelector<HTMLElement>('.rot')!, pc = p.el.querySelector<HTMLElement>('.pc')!;
+    rot.style.transition = `transform .55s ${SPRING}`;
+    rot.style.transform = `rotateX(0deg) rotateY(${Math.round(this.ry / 360) * 360}deg)`;
+    const kc = this.root.querySelector<HTMLElement>(`.kc[data-c="${p.i}"]`);
+    if (kc) {
+      const to = this.local(kc.getBoundingClientRect());
+      Object.assign(pc.style, { left: `${to.x}px`, top: `${to.y}px`, width: `${to.w}px`, height: `${to.h}px` });
+    }
+    p.el.querySelector<HTMLElement>('.ov')!.style.opacity = '0';
+    p.el.querySelector<HTMLElement>('.info')!.style.opacity = '0';
+    setTimeout(() => { p.el.remove(); if (kc) kc.style.opacity = ''; this.pop = null; this.ry = 0; this.rx = 0; this.w = 0; }, 560);
+  }
+
+  // otáčení vyjeté karty: setrvačnost, na konci pružinou dosedne na líc nebo rub
+  private rot() {
+    const el = this.pop?.el.querySelector<HTMLElement>('.rot');
+    if (!el) return;
+    el.style.transition = 'none';
+    el.style.transform = `rotateX(${this.rx.toFixed(2)}deg) rotateY(${this.ry.toFixed(2)}deg)`;
+    const g = this.pop?.el.querySelector<HTMLElement>('.glare');
+    if (g) g.style.backgroundPosition = `${(50 + Math.sin(this.ry * Math.PI / 180) * 70 + this.rx).toFixed(1)}% 0`;
+  }
+
+  private spin() {
+    if (this.sraf) return;
+    let last = performance.now();
+    const step = (now: number) => {
+      if (this.dead || !this.pop) { this.sraf = 0; return; }
+      const dt = Math.min(0.032, (now - last) / 1000); last = now;
+      if (!this.r) {
+        if (this.mode === 'free') {
+          this.ry += this.w * dt; this.w *= Math.exp(-1.15 * dt);
+          if (Math.abs(this.w) < 260) { this.mode = 'snap'; this.tgt = (this.w >= 0 ? Math.ceil(this.ry / 180) : Math.floor(this.ry / 180)) * 180; }
+        } else {
+          const k = 55, c = 2 * Math.sqrt(k) * 0.62, a = k * (this.tgt - this.ry) - c * this.w; this.w += a * dt; this.ry += this.w * dt;
+        }
+        const kx = 90, cx = 2 * Math.sqrt(kx) * 0.8; this.vx += (kx * (0 - this.rx) - cx * this.vx) * dt; this.rx += this.vx * dt;
+      }
+      this.rot();
+      if (!this.r && this.mode === 'snap' && Math.abs(this.tgt - this.ry) < 0.05 && Math.abs(this.w) < 0.5 && Math.abs(this.rx) < 0.05 && Math.abs(this.vx) < 0.5) {
+        this.ry = this.tgt; this.rx = 0; this.w = 0; this.vx = 0; this.rot(); this.sraf = 0; return;
+      }
+      this.sraf = requestAnimationFrame(step);
+    };
+    this.sraf = requestAnimationFrame(step);
+  }
+
+  private rDown(e: PointerEvent) {
+    if (!this.pop || this.pop.closing) return;
+    e.stopPropagation();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* nic */ }
+    this.r = { x: e.clientX, y: e.clientY, ry: this.ry, rx: this.rx, h: [[performance.now(), this.ry]] }; this.w = 0; this.vx = 0; this.spin();
+  }
+
+  private rMove(e: PointerEvent) {
+    const r = this.r;
+    if (!r) return;
+    e.stopPropagation();
+    this.ry = r.ry + (e.clientX - r.x) * 0.6; this.rx = clamp(r.rx - (e.clientY - r.y) * 0.3, -28, 28);
+    const now = performance.now(); r.h.push([now, this.ry]); while (r.h.length > 2 && now - r.h[0][0] > 90) r.h.shift();
+  }
+
+  private rUp() {
+    const r = this.r;
+    if (!r) return;
+    this.r = null;
+    const a = r.h[0], b = r.h[r.h.length - 1], dt = (b[0] - a[0]) / 1000, fresh = performance.now() - b[0] < 60;
+    this.w = dt > 0.008 && fresh ? clamp((b[1] - a[1]) / dt, -2600, 2600) : 0;
+    if (Math.abs(this.w) > 260) this.mode = 'free'; else { this.mode = 'snap'; this.tgt = Math.round(this.ry / 180) * 180; }
+    this.spin();
+  }
+
+  private flipCard() {
+    if (!this.pop || this.pop.closing) return;
+    this.mode = 'snap'; this.tgt = Math.round(this.ry / 180) * 180 + 180; this.spin();
+  }
+
+  // ---------- plnění z balíčku (1B, 2B, 2C, 3B) ----------
+  private tween(dur: number, fn: (t: number) => void) {
+    return new Promise<void>((res) => {
+      const t0 = performance.now();
+      const st = (now: number) => { if (this.dead) return res(); const t = Math.min(1, (now - t0) / dur); fn(t); if (t < 1) requestAnimationFrame(st); else res(); };
+      requestAnimationFrame(st);
+    });
+  }
+
+  /**
+   * Vloží karty na místa `indices` (karty už musí mít owned > 0).
+   * Každá karta se u balíčku roztočí, nasadí se jí obal a v oblouku kolem alba vletí do kapsy (desky 1B, 2B, 2C).
+   * Album listuje a zrychluje jako ve 3A/3B; founding = album se teprve otevírá. Po více kartách přijde přehled 2A.
+   */
+  async play(indices: number[], opts: { founding?: boolean; title?: string } = {}) {
+    if (this.busy || !indices.length) return;
+    this.closeCard();
+    this.busy = true;
+    this.unhover();
+    const list = [...new Set(indices)].filter((i) => this.cards[i]).sort((a, b) => a - b);
+    list.forEach((i) => this.hidden.add(i));
+    this.sel = null;
+    this.glow.clear();
+    const alive = () => !this.dead;
+    const n = list.length, single = n === 1;
+    const haveBefore = this.cards.filter((c, i) => c.owned > 0 && !this.hidden.has(i)).length;
+    let have = haveBefore;
+    // balíček
+    const deck = this.root.querySelector<HTMLElement>('.deck')!;
+    const deckCards = list.slice(0, 8).reverse();
+    deck.innerHTML = deckCards.map((ci, j) => {
+      const i = deckCards.length - 1 - j;
+      const r = Math.sin(i * 12.9898 + n) * 43758.5453, f = r - Math.floor(r), g = (Math.sin(i * 78.233 + n) * 12345.678) % 1;
+      // nedokonalý balíček: každá karta trochu pootočená a posunutá jako ručně složená hromádka
+      return `<div class="dc" data-i="${i}" style="transform:translate(${(i * 1.6 + (g * 3 - 1.5)).toFixed(1)}px,${(-i * 1.6 + (f * 3 - 1.5)).toFixed(1)}px) rotate(${i ? ((f - 0.5) * 9).toFixed(1) : '-1.5'}deg)">${sleeveHTML(this.o.sleeve, this.cards[ci].image)}</div>`;
+    }).join('') + `<div class="cnt"><span class="cv">${n}</span><small>${n === 1 ? 'karta k vložení' : `${cardsWord(n)} k vložení`}</small></div>`;
+    const cv = deck.querySelector<HTMLElement>('.cv')!;
+    const dcs = [...deck.querySelectorAll<HTMLElement>('.dc')];
+    let left = n;
+    const dec = () => { left = Math.max(0, left - 1); cv.textContent = String(left); dcs.forEach((d) => { d.style.opacity = left > Number(d.dataset.i) ? '1' : '0'; }); };
+    this.sync(true);
+    this.counter(have, false);
+    this.root.querySelector('.ind')?.classList.add('live');
+    if (!single) { await sleep(120); deck.classList.add('on'); await sleep(opts.founding ? 650 : 420); }
+    if (!alive()) return;
+
+    // otevření desky (když je album zavřené)
+    if (this.side[0] === 'R' && !this.F[0]) {
+      if (opts.founding) {
+        // hloubka listů vyjíždí postupně zpod otevírané desky
+        this.edgeK = 0;
+        await Promise.all([
+          this.flip(0, 1, { dur: 1000, ease: easeBack }),
+          this.tween(1000, (t) => { this.edgeK = clamp((t - 0.35) / 0.65, 0, 1); this.apply(); }),
+        ]);
+        this.edgeK = 1; this.apply();
+      } else await this.flip(0, 1, { dur: 900, ease: easeBack });
+    }
+    if (!alive()) return;
+
+    const spreads = [...new Set(list.map((i) => this.spreadOf(i)))].sort((a, b) => a - b);
+    // rychlost: při založení plynulé zrychlení přes prvních 5 dvoustran (3B); při přidávání prvních ~12 karet
+    // v plném tempu desek 2B/2C, pak zrychlení až k okamžitému vkládání. k = 1 plná animace, 0 okamžitě.
+    const cos = (u: number) => 0.5 * (1 + Math.cos(Math.PI * clamp(u, 0, 1)));
+    let seen = 0;
+    const kOf = (s: number, j: number, len: number) => opts.founding ? cos((s + j / Math.max(1, len)) / 5) : cos((seen + j - 12) / 28);
+    // tempo: 2B (pár karet) pomaleji, 2C rychleji; při založení se karty překrývají víc, ať první dvoustrana netrvá dlouho (3B)
+    const cadBase = single ? 0 : opts.founding ? 300 : n <= 6 ? 1500 : 820;
+    const rel = (el: Element) => this.local(el.getBoundingClientRect());
+    const D = (() => { const r = rel(deck); return { x: r.x, y: r.y }; })();
+
+    for (let s = 0; s < spreads.length; s++) {
+      if (!alive()) return;
+      const tgt = spreads[s];
+      const mine = list.filter((i) => this.spreadOf(i) === tgt);
+      const k0 = kOf(s, 0, mine.length);
+      const cur = this.logicalT();
+      // listování na cílovou dvoustranu běží, zatímco se u balíčku připravuje karta (1B)
+      const riffle = tgt !== cur
+        ? sleep(single ? 650 : 30 + 200 * k0).then(() => this.goToRaw(tgt, Math.max(170, 340 * Math.max(0.5, k0)), Math.max(30, Math.min(135, 700 / Math.abs(tgt - cur)))))
+        : Promise.resolve();
+      let lastFly = 0;
+      const lands: Promise<void>[] = [];
+      for (let j = 0; j < mine.length; j++) {
+        const ci = mine[j], k = kOf(s, j, mine.length);
+        const t0 = performance.now();
+        const card = this.cards[ci];
+        dec();
+        if (k < 0.12) {
+          // okamžité vkládání (konec zrychlení, 3B)
+          await riffle;
+          const el = this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`);
+          this.hidden.delete(ci); this.glow.add(ci);
+          if (el) {
+            el.classList.remove('off'); el.parentElement?.classList.add('glow');
+            el.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1.08)', offset: 0.6 }, { opacity: 1, transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+          }
+          have++; this.counter(have, true);
+          await sleep(4 + 30 * k);
+          continue;
+        }
+        const P = single ? 1630 : (opts.founding ? 1000 : 1630) * Math.max(0.25, k);
+        const fly = this.prepCard(card, D, P, k > 0.35);
+        const ready = Promise.all([sleep(P), riffle]);
+        const go = ready.then(async () => {
+          const wait = lastFly + cadBase * k * 0.55 - performance.now();
+          if (wait > 0) await sleep(wait);
+          lastFly = performance.now();
+          if (!alive()) { fly.remove(); return; }
+          const el = this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`);
+          if (!el) { fly.remove(); this.hidden.delete(ci); return; }
+          await this.flyCard(fly, D, rel(el), k, single);
+          if (!alive()) return;
+          this.hidden.delete(ci); this.glow.add(ci);
+          const kc = this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`) ?? el;
+          this.landCard(kc, k, single);
+          have++; this.counter(have, true);
+        });
+        lands.push(go);
+        // další karta se začne připravovat podle tempa (2B pomaleji, 2C rychleji)
+        const gap = 6 + cadBase * k - (performance.now() - t0);
+        if (j < mine.length - 1 && gap > 0) await sleep(gap);
+      }
+      await riffle;
+      await Promise.all(lands);
+      seen += mine.length;
+      // list se otočí až po dosednutí poslední karty
+      await sleep(single ? 0 : 60 + 400 * k0);
+    }
+    if (!alive()) return;
+    deck.classList.remove('on');
+    await sleep(single ? 900 : 650);
+    this.root.querySelector('.ind')?.classList.remove('live');
+    this.busy = false;
+    const fresh = new Set(list);
+    if (!single) {
+      // album se oddálí do přehledu dvoustran, kam karty přibyly (2A)
+      this.book.animate([{ opacity: 1, scale: '1' }, { opacity: 0, scale: '.9' }], { duration: 450, easing: 'ease-in', fill: 'forwards' });
+      await sleep(380);
+      const total = this.cards.length;
+      this.sumData = {
+        title: opts.title ?? (opts.founding ? 'Album založeno' : `Přidáno ${n} ${cardsWord(n)}`),
+        sub: `${this.o.name} · ${haveBefore} → ${have}${this.o.counterTotal ? ` / ${total}` : ''} · ${spreads.length} ${spreadsWord(spreads.length)}`,
+        spreads,
+        fresh,
+      };
+      this.sumPage = 0;
+      this.showSum(true);
+    } else {
+      setTimeout(() => { if (!this.dead) { this.glow.clear(); this.root.querySelectorAll('.pk.glow').forEach((e) => e.classList.remove('glow')); } }, 3200);
+    }
+  }
+
+  /** Počítadlo karet pod albem; při přidání se číslo protočí nahoru. */
+  private counter(have: number, roll: boolean) {
+    const el = this.root.querySelector<HTMLElement>('.ind .cnt');
+    if (!el) return;
+    const total = this.o.counterTotal ? ` / ${this.cards.length}` : '';
+    const prev = el.querySelector<HTMLElement>('b');
+    if (!roll || !prev) { el.innerHTML = `<b><i>${have}</i></b>${total}`; return; }
+    // při rychlém vkládání se číslo jen přepíše, protáčení by se překrývalo
+    const now = performance.now();
+    if (now - this.lastRoll < 220) { this.lastRoll = now; prev.innerHTML = `<i>${have}</i>`; return; }
+    this.lastRoll = now;
+    while (prev.childElementCount > 1) prev.firstElementChild!.remove();
+    const ni = document.createElement('i');
+    ni.textContent = String(have);
+    const old = prev.firstElementChild as HTMLElement | null;
+    prev.appendChild(ni);
+    if (old) {
+      old.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-100%)', opacity: 0 }], { duration: 260, easing: 'cubic-bezier(.3,1.6,.5,1)', fill: 'forwards' }).onfinish = () => old.remove();
+    }
+    ni.animate([{ transform: 'translateY(100%)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.3,1.6,.5,1)' });
+  }
+
+  /**
+   * Příprava karty u balíčku (1B, 2C): karta se roztočí, shora se na ni nasune obal, cvakne, zajiskří.
+   * full = s jiskrami a kruhem; vrátí prvek, který pak letí.
+   */
+  private prepCard(card: EngineCard, D: { x: number; y: number }, P: number, full: boolean) {
+    const f = document.createElement('div');
+    f.className = 'fly';
+    f.style.transform = `translate(${D.x}px,${D.y}px)`;
+    const src = card.image ? thumbUrl(card.image) ?? card.image : '';
+    const sp = full ? Array.from({ length: 7 }, (_, i) => {
+      const a = (i / 7) * Math.PI * 2 + 0.4;
+      return `<i class="spk" style="--dx:${(Math.cos(a) * 95).toFixed(0)}px;--dy:${(Math.sin(a) * 120).toFixed(0)}px">✦</i>`;
+    }).join('') : '';
+    f.innerHTML = `<div class="fz" style="transform:scale(${S_PREP})"><div class="fsq"><div class="fsp">` +
+      `<div class="asl f-${this.o.sleeve.film}"><svg class="sv" aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg>` +
+      `<div class="img">${src ? `<img src="${esc(src)}" alt="" draggable="false">` : ''}</div><span class="fm"></span></div>` +
+      `<span class="sring"></span>${sp}</div></div></div>`;
+    this.stage.appendChild(f);
+    const q = (c: string) => f.querySelector<HTMLElement>(c)!;
+    const T = (ms: number) => ms * P / 1630;
+    // roztočení karty (aSpin)
+    q('.fsp').animate([
+      { opacity: 0, transform: 'rotateY(-540deg) scale(.4)' },
+      { opacity: 1, transform: 'rotateY(-500deg) scale(.45)', offset: 0.12 },
+      { opacity: 1, transform: 'rotateY(0) scale(1)' },
+    ], { duration: T(790), easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
+    // obal se nasune shora (aSlvIn) a karta cvakne (aClick)
+    const slv = [
+      { opacity: 0, transform: 'translateY(-78%) scale(1.22,.62)', offset: 0 },
+      { opacity: 1, offset: 0.25 },
+      { opacity: 1, transform: 'translateY(3%) scale(.97,1.03)', offset: 0.52 },
+      { opacity: 1, transform: 'translateY(-1%) scale(1.01,.99)', offset: 0.76 },
+      { opacity: 1, transform: 'translateY(0) scale(1,1)' },
+    ];
+    for (const c of ['.sv', '.fm']) q(c).animate(slv, { duration: T(1150), delay: T(430), easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' });
+    q('.asl').animate([
+      { transform: 'none', offset: 0 },
+      { transform: 'scale(.93) rotateX(12deg)', offset: 0.18 },
+      { transform: 'scale(1.03) rotateX(-5deg) rotateY(4deg)', offset: 0.5 },
+      { transform: 'scale(.995) rotateX(1.5deg) rotateY(-1.5deg)', offset: 0.8 },
+      { transform: 'none' },
+    ], { duration: T(620), delay: T(980), easing: 'ease-out' });
+    if (full) {
+      q('.sring').animate([{ opacity: 0, transform: 'scale(1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.1 }, { opacity: 0, transform: 'scale(1.14)' }], { duration: T(560), delay: T(1000), fill: 'both' });
+      f.querySelectorAll<HTMLElement>('.spk').forEach((e, i) => e.animate([
+        { opacity: 0, transform: 'translate(0,0) scale(0) rotate(0)' },
+        { opacity: 1, transform: 'translate(calc(var(--dx)*.35),calc(var(--dy)*.35)) scale(1.5) rotate(60deg)', offset: 0.12 },
+        { opacity: 1, transform: 'translate(calc(var(--dx)*.8),calc(var(--dy)*.8)) scale(1) rotate(170deg)', offset: 0.7 },
+        { opacity: 0, transform: 'translate(var(--dx),var(--dy)) scale(.4) rotate(220deg)' },
+      ], { duration: T(620), delay: T(1030 + i * 12), easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'both' }));
+    }
+    return f;
+  }
+
+  /** Let karty z balíčku do kapsy: oblouk kolem alba z desky 1B (k ≥ 0.5), při zrychlení krátký oblouk (3B). */
+  private flyCard(f: HTMLElement, D: { x: number; y: number }, T: { x: number; y: number }, k: number, single: boolean) {
+    const fz = f.querySelector<HTMLElement>('.fz')!;
+    const dx = T.x - D.x, dy = T.y - D.y;
+    let dur: number;
+    let frames: Keyframe[];
+    if (k >= 0.5) {
+      dur = (single ? 1430 : 1350) * (0.55 + 0.45 * k);
+      frames = FLIGHT.map(([u, ox, oy, r, sx, sy]) => ({
+        offset: u,
+        transform: `translate(${(D.x + dx * u + ox).toFixed(1)}px,${(D.y + dy * u + oy).toFixed(1)}px) rotate(${r}deg) scale(${sx},${sy})`,
+      }));
+    } else {
+      dur = 260 + 520 * k;
+      const lift = -60 - Math.abs(dx) * 0.08, rot = (T.x > 480 ? 1 : -1) * 14;
+      frames = [
+        { transform: `translate(${D.x}px,${D.y}px) rotate(-6deg)` },
+        { transform: `translate(${D.x + dx * 0.55}px,${D.y + dy * 0.55 + lift}px) rotate(${rot}deg)`, offset: 0.55 },
+        { transform: `translate(${T.x}px,${T.y}px) rotate(0deg)` },
+      ];
+    }
+    // karta se po zvednutí zvětší a do kapsy se zmenší (aRot)
+    fz.animate([
+      { transform: `scale(${S_PREP})` },
+      { transform: `scale(${S_LIFT})`, offset: 0.18, easing: 'cubic-bezier(.45,0,.45,1)' },
+      { transform: 'scale(1)' },
+    ], { duration: dur, easing: 'cubic-bezier(.3,0,.5,1)', fill: 'forwards' });
+    // rozmazaná stopa za kartou (aGhost)
+    let ghost: HTMLElement | null = null;
+    if (k >= 0.5) {
+      ghost = document.createElement('div');
+      ghost.className = 'fly ghost';
+      ghost.innerHTML = '<div class="fz"><div class="gfill"></div></div>';
+      this.stage.insertBefore(ghost, f);
+      const gz = ghost.firstElementChild as HTMLElement;
+      gz.animate([{ transform: `scale(${S_PREP})` }, { transform: `scale(${S_LIFT})`, offset: 0.18 }, { transform: 'scale(1)' }], { duration: dur, delay: 70, fill: 'both' });
+      ghost.animate(frames, { duration: dur, delay: 70, easing: 'linear', fill: 'both' });
+      ghost.animate([{ opacity: 0 }, { opacity: 0.3, offset: 0.08 }, { opacity: 0.25, offset: 0.7 }, { opacity: 0 }], { duration: dur, delay: 70, fill: 'both', composite: 'replace' });
+    }
+    const an = f.animate(frames, { duration: dur, easing: k >= 0.5 ? 'linear' : 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' });
+    return new Promise<void>((res) => {
+      an.onfinish = () => { f.remove(); ghost?.remove(); res(); };
+      an.oncancel = () => { f.remove(); ghost?.remove(); res(); };
+    });
+  }
+
+  /** Dopad do kapsy (1B): odskok, zmáčknutí, záře kapsy, kruhy, lesk; u jedné karty i přiblížení a razítko NOVÉ. */
+  private landCard(kc: HTMLElement, k: number, single: boolean) {
+    kc.classList.remove('off');
+    const pk = kc.parentElement as HTMLElement | null;
+    kc.animate([
+      { transform: 'translateY(0) scale(1.12,.84)', offset: 0 },
+      { transform: 'translateY(11px) scale(1.04,.96)', offset: 0.2 },
+      { transform: 'translateY(-4px) scale(.99,1.01)', offset: 0.55 },
+      { transform: 'translateY(1.5px) scale(1,1)', offset: 0.8 },
+      { transform: 'translateY(0) scale(1,1)' },
+    ], { duration: 300 + 500 * k, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+    if (!pk) return;
+    pk.classList.add('glow');
+    if (k < 0.35) return;
+    pk.animate([
+      { boxShadow: 'inset 0 0 0 1px var(--pocket),0 0 0 0 rgba(124,242,200,0)' },
+      { boxShadow: 'inset 0 0 0 1px var(--pocket),0 0 0 4px #7cf2c8,0 0 100px rgba(124,242,200,1),inset 0 0 40px rgba(124,242,200,.6)', offset: 0.07 },
+      { boxShadow: 'inset 0 0 0 1px var(--pocket),0 0 0 2px rgba(124,242,200,.45),0 0 16px rgba(124,242,200,.25)', offset: 0.55 },
+      { boxShadow: 'inset 0 0 0 1px var(--pocket),0 0 0 2px rgba(124,242,200,.75),0 0 18px rgba(124,242,200,.45)' },
+    ], { duration: 3000 * Math.max(0.4, k), easing: 'ease-out' });
+    const fx = document.createElement('span');
+    fx.className = 'lfx';
+    fx.innerHTML = '<i class="lr"></i><i class="lr r2"></i><i class="sw"></i>' + (single ? '<b class="stamp">NOVÉ</b>' : '');
+    pk.appendChild(fx);
+    const [r1, r2, sw] = [...fx.querySelectorAll<HTMLElement>('i')];
+    r1.animate([{ opacity: 1, transform: 'scale(.85)' }, { opacity: 0, transform: 'scale(2.7)' }], { duration: 1150, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'forwards' });
+    r2.animate([{ opacity: 0.7, transform: 'scale(.85)' }, { opacity: 0, transform: 'scale(1.6)' }], { duration: 1230, delay: 170, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
+    sw.animate([{ opacity: 0, backgroundPosition: '160% 0' }, { opacity: 1, offset: 0.1 }, { opacity: 0, backgroundPosition: '-60% 0' }], { duration: 1200, delay: 100, easing: 'cubic-bezier(.3,0,.3,1)', fill: 'both' });
+    if (single) {
+      fx.querySelector<HTMLElement>('.stamp')!.animate([
+        { opacity: 0, transform: 'rotate(35deg) scale(2.4)' },
+        { opacity: 1, transform: 'rotate(12deg) scale(1)' },
+      ], { duration: 430, delay: 180, easing: 'cubic-bezier(.3,1.7,.5,1)', fill: 'both' });
+      // krátké přiblížení alba při dopadu (aCam)
+      this.book.animate([{ scale: '1' }, { scale: '1.065', offset: 0.2 }, { scale: '1' }], { duration: 950, easing: 'cubic-bezier(.2,.8,.3,1)' });
+    }
+    setTimeout(() => fx.remove(), single ? 6000 : 1600);
+  }
+
+  // ---------- přehled dvoustran (2A) ----------
+  private showSum(anim: boolean) {
+    const sd = this.sumData;
+    if (!sd) return;
+    const sum = this.root.querySelector<HTMLElement>('.sum')!;
+    const per = 6, P = Math.ceil(sd.spreads.length / per);
+    const list = sd.spreads.slice(this.sumPage * per, (this.sumPage + 1) * per);
+    const m = list.length;
+    // rozložení: 1 velká, 2 vedle sebe, 3 = 2+1, 4 = 2×2, 5 = 3+2, 6 = 3×2
+    const rows = m <= 2 ? [m] : m === 3 ? [2, 1] : m === 4 ? [2, 2] : m === 5 ? [3, 2] : [3, 3];
+    const AW = 840, AH = 380, gapX = 34, gapY = 22, lab = 22;
+    const cols = Math.max(...rows), R = rows.length;
+    const sw = Math.min((AW - (cols - 1) * gapX) / cols, ((AH - (R - 1) * gapY) / R - lab) * 1.5, 520);
+    const sh = sw / 1.5;
+    const totalH = R * (sh + lab) + (R - 1) * gapY;
+    const pw = sw / 2, pad = pw * 0.06, gap = pw * 0.03;
+    const mini = (p: number) => {
+      if (p < 1 || p > 2 * (this.NL - 1)) return `<div class="mpg ins" style="width:${pw}px;height:${sh}px"></div>`;
+      let h = `<div class="mpg" style="width:${pw}px;height:${sh}px;padding:${pad}px;gap:${gap}px">`;
+      for (let k = 0; k < 9; k++) {
+        const idx = (p - 1) * 9 + k, c = p <= this.NP ? this.cards[idx] : undefined;
+        if (c && c.owned > 0) {
+          const src = c.image ? thumbUrl(c.image) ?? c.image : '';
+          h += `<span class="mk ${sd.fresh.has(idx) ? 'n' : 'f'}">${src ? `<img src="${esc(src)}" alt="" loading="lazy">` : ''}</span>`;
+        } else h += '<span class="mk"></span>';
+      }
+      return h + '</div>';
+    };
+    let g = '', k = 0;
+    rows.forEach((cnt, r) => {
+      const rowW = cnt * sw + (cnt - 1) * gapX, x0 = (AW - rowW) / 2, y = (AH - totalH) / 2 + r * (sh + lab + gapY);
+      for (let j = 0; j < cnt && k < m; j++, k++) {
+        const t = list[k], a = 2 * t - 2, b = 2 * t - 1;
+        const label = a < 1 ? 'Strana 1' : b > this.NP ? `Strana ${a}` : `Strany ${a}–${b}`;
+        g += `<div class="ms" data-t="${t}" style="left:${x0 + j * (sw + gapX)}px;top:${y}px;width:${sw}px;animation-delay:${anim ? 120 + k * 90 : 0}ms">` +
+          `<div class="msp">${mini(a)}${mini(b)}</div><b>${label}</b></div>`;
+      }
+    });
+    const nav = P > 1
+      ? `<div class="spg"><button type="button" class="pv" aria-label="Předchozí"${this.sumPage === 0 ? ' disabled' : ''}>‹</button><span>${Array.from({ length: P }, (_, i) => `<i class="${i === this.sumPage ? 'on' : ''}"></i>`).join('')}</span><button type="button" class="nx" aria-label="Další"${this.sumPage === P - 1 ? ' disabled' : ''}>›</button></div>`
+      : '';
+    sum.innerHTML = `<h2>${esc(sd.title)}</h2><div class="sub">${esc(sd.sub)}</div><div class="sgr">${g}</div>${nav}<button type="button" class="bt pri done">Prohlédnout album</button>`;
+    sum.classList.add('on');
+    sum.querySelector<HTMLElement>('.spg .pv')?.addEventListener('click', () => { this.sumPage--; this.showSum(true); });
+    sum.querySelector<HTMLElement>('.spg .nx')?.addEventListener('click', () => { this.sumPage++; this.showSum(true); });
+    sum.querySelectorAll<HTMLElement>('.ms').forEach((el) => el.addEventListener('click', () => this.closeSum(Number(el.dataset.t))));
+    sum.querySelector<HTMLElement>('.done')!.addEventListener('click', () => this.closeSum(null));
+  }
+
+  private closeSum(t: number | null) {
+    const sum = this.root.querySelector<HTMLElement>('.sum')!;
+    sum.classList.remove('on');
+    this.sumData = null;
+    this.glow.clear();
+    this.book.getAnimations().forEach((a) => a.cancel());
+    this.book.animate([{ opacity: 0, transform: `${this.book.style.transform} scale(.96)` }, { opacity: 1, transform: this.book.style.transform }], { duration: 380, easing: 'ease-out' });
+    if (t !== null && t !== this.logicalT()) {
+      // otevři vybranou dvoustranu bez listování přes celé album
+      this.F = {};
+      for (let i = 0; i < this.NL; i++) this.side[i] = i < t ? 'L' : 'R';
+      this.sync(true);
+    } else this.sync(true);
+  }
+}

@@ -2,10 +2,11 @@ import Link from 'next/link';
 
 const ICONS = {
   chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />,
+  album: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3v18M12.5 8h3M12.5 11.5h3" /></>,
   bag: <><path d="M5 8h14l-1 12H6z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></>,
 };
 
-/** Ikona v hlavičce (Zprávy, Košík) s odznakem počtu, podle DS Messages (varianta B). */
+/** Ikona v hlavičce (Kolekce, Zprávy, Košík) s odznakem počtu, podle DS Messages (varianta B). */
 export function HeaderIcon({ href, icon, label, count, countLabel, current }: {
   href: string;
   icon: keyof typeof ICONS;

@@ -6,6 +6,7 @@ import { ButtonLink } from '@/components/trezor';
 import { AccountMenu } from '@/components/account/AccountNav';
 import { MessagesLink } from '@/components/messages/MessagesLink';
 import { CartLink } from '@/components/cart/CartLink';
+import { HeaderIcon } from './HeaderIcon';
 import { createClient } from '@/lib/supabase/browser';
 import type { AccountSummary } from '@/lib/account';
 import { loadAccountSummary } from './header-actions';
@@ -56,6 +57,7 @@ export function HeaderUser() {
 
   return (
     <>
+      {state.kind === 'in' ? <HeaderIcon href="/kolekce" icon="album" label="Moje kolekce" count={0} current={pathname.startsWith('/kolekce')} /> : null}
       {state.kind === 'in' ? <MessagesLink initial={0} /> : null}
       <CartLink />
       {state.kind === 'in' ? (

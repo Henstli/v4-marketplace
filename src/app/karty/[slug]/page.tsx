@@ -6,6 +6,7 @@ import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Status, Trend } fr
 import { PriceChart } from '@/components/PriceChart';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { WatchButton } from '@/components/WatchButton';
+import { HaveIt } from '@/components/album/HaveIt';
 import { ProposePrice } from '@/components/offers/ProposePrice';
 import { ReportContent } from '@/components/reports/ReportContent';
 import { getCardBySlug, getOffers, getReservedOffers, type Offer, type ReservedOffer } from '@/lib/catalog';
@@ -96,6 +97,7 @@ export default async function CardDetailPage({ params }: Props) {
                 <WatchButton cardId={card.id} />
               )}
               <ButtonLink href={`/prodat?karta=${card.slug}`} size="lg" variant="secondary">Prodat tuto kartu</ButtonLink>
+              <HaveIt cardId={card.id} />
             </div>
           </div>
         </div>
