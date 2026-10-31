@@ -225,3 +225,6 @@
 .alb .skp .go:hover{filter:brightness(1.1)}
 .alb .skp .go:focus-visible{outline:2px solid #e8ecf1;outline-offset:2px}
 .alb .skp .go svg{width:14px;height:14px}
+/* popisek prázdné kapsy pod kartou, která do ní teprve letí */
+.alb .em.under{position:absolute;inset:0;pointer-events:none;cursor:default}
+.alb .pk:has(.kc:not(.off)) .em.under{visibility:hidden}
