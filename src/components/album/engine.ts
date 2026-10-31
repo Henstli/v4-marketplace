@@ -854,6 +854,8 @@ export class AlbumEngine {
       // karta v kapse se ukáže hned celá (je pod vracející se kartou) a prolíná se jen horní karta; kdyby mizely
       // obě naráz, prosvítala by na chvíli světlá strana a karta by problikla
       if (kc) kc.style.opacity = '';
+      // stín má už karta v kapse; kdyby ho měla i horní karta, během prolnutí by se sečetly a stín by ztmavl
+      pc.querySelectorAll<HTMLElement>('.rot .fc').forEach((f) => { f.style.transition = 'none'; f.style.boxShadow = 'none'; });
       pc.style.transition = 'opacity .2s'; pc.style.opacity = '0';
     }, 590);
     setTimeout(() => { p.el.remove(); this.pop = null; this.ry = 0; this.rx = 0; this.w = 0; }, 820);
