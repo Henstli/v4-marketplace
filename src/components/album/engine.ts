@@ -216,6 +216,7 @@ export class AlbumEngine {
     this.root.style.setProperty('--pocket', d.pocket);
     this.root.style.setProperty('--empty', d.empty);
     this.root.style.setProperty('--edge', 'rgba(0,0,0,.55)');
+    if (d.glow) { this.root.classList.add('gw'); this.root.style.setProperty('--glow', d.glow); }
     const arrow = (dir: string) => `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir}"></path></svg>`;
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
@@ -235,7 +236,7 @@ export class AlbumEngine {
     this.leafbox = this.root.querySelector('.leafbox')!;
     this.root.style.setProperty('--gut-r', `url("${gutterImage('r').toDataURL()}")`);
     this.root.style.setProperty('--gut-l', `url("${gutterImage('l').toDataURL()}")`);
-    this.lc = new LeafCanvas(this.leafbox, { page: d.page, pocket: d.pocket, empty: d.empty, square: !!d.square, film: this.o.sleeve.film }, () => { if (this.moving().length) this.apply(); });
+    this.lc = new LeafCanvas(this.leafbox, { page: d.page, pocket: d.pocket, empty: d.empty, square: !!d.square, film: this.o.sleeve.film, glow: d.glow ?? undefined }, () => { if (this.moving().length) this.apply(); });
     fitCoverNames(this.cov);
     if (typeof document !== 'undefined' && document.fonts) document.fonts.ready.then(() => { if (!this.dead) fitCoverNames(this.cov); });
 
@@ -346,7 +347,7 @@ export class AlbumEngine {
     const T = Math.round(48 * (1 - Math.exp(-Math.max(0, nLeaves) / 3))) / 4, C = Math.ceil(T / 2 - 0.01), L: string[] = [];
     for (let k = 1; k <= C; k++) {
       const x = T * k / C;
-      L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 #0e1218`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 #4a5466`);
+      L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 30%,#000)`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 72%,#000)`);
     }
     L.push('0 40px 70px -28px #000');
     return L.join(',');
