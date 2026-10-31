@@ -102,14 +102,8 @@
 .alb .ce.c1{left:368.7px;top:-0.5px;transform:rotateZ(45deg) rotateX(90deg)}
 .alb .ce.c2{left:368.7px;top:497.5px;transform:rotateZ(-45deg) rotateX(90deg)}
 .alb .csh{position:absolute;inset:0;border-radius:inherit;background:#000;opacity:0;pointer-events:none;z-index:6}
-/* otáčený list: svislé proužky, každý se promítá zvlášť (engine.bendLeaf); odvrácenou stranu skrývá kód */
-.alb .leaf{position:absolute;left:0;top:0;width:360px;height:480px;z-index:5;pointer-events:none}
-.alb .sg{position:absolute;left:0;top:0;height:480px;transform-origin:0 0}
-.alb .sf{position:absolute;inset:0;overflow:hidden}
-.alb .sf.bk{transform:scaleX(-1);visibility:hidden}
-.alb .sf>.pg{top:0}
-.alb .sg.s0>.fr{border-radius:6px 0 0 6px}.alb .sg.sn>.fr{border-radius:0 14px 14px 0}
-.alb .sg.s0>.bk{border-radius:0 6px 6px 0}.alb .sg.sn>.bk{border-radius:14px 0 0 14px}
+/* otáčené listy kreslí plátno (leafCanvas.ts) */
+.alb .lcv{position:absolute;pointer-events:none}
 /* šipky a ukazatel stran */
 .alb .arr{position:absolute;top:270px;width:48px;height:48px;display:grid;place-items:center;border:1px solid #2a313c;border-radius:50%;background:rgba(18,23,30,.85);color:#e8ecf1;cursor:pointer;transition:background .15s,transform .15s,opacity .2s;z-index:30}
 .alb .arr:hover{background:#1d2530;transform:scale(1.06)}

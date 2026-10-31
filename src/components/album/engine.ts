@@ -2,6 +2,7 @@
 // Kreslí se přímo do DOM: pohyb listů běží ve smyčce requestAnimationFrame, React by ho zbytečně brzdil.
 import { coverDeco, type AlbumDesign, type SleeveDesign } from '@/lib/album/designs';
 import { thumbUrl } from '@/lib/images';
+import { LeafCanvas, type PageSpec } from './leafCanvas';
 
 export interface EngineCard {
   id: string;
@@ -35,8 +36,6 @@ export interface EngineOptions {
 }
 
 const W = 360;
-// otáčený list = NS svislých proužků po SW px; každý se promítá sám (bez sdíleného 3D prostoru) a o SOV px přesahuje do dalšího
-const NS = 12, SW = W / NS, SOV = 2, PERSP = 1800;
 const SPRING = 'cubic-bezier(.22,1.2,.36,1)';
 const STAGE_W = 960;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -109,6 +108,7 @@ export class AlbumEngine {
   private bl!: HTMLElement;
   private br!: HTMLElement;
   private leafbox!: HTMLElement;
+  private lc!: LeafCanvas;
   private NP = 1;
   private NL = 2;
   private side: Array<'L' | 'R'> = [];
@@ -182,12 +182,7 @@ export class AlbumEngine {
     const st = left ? ` style="left:${left}"` : '';
     if (p < 1) return `<div class="pg ins ${side}"${st}><span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>`;
     let h = `<div class="pg ${side}${p > this.NP ? ' blank' : ''}" data-p="${p}"${st}>`;
-    // proužek listu ukazuje jen kousek strany: karty mimo něj se nevykreslují (méně práce při listování)
-    const lo = left ? -parseFloat(left) : -1e9, hi = left ? lo + SW + SOV + 1 : 1e9;
-    for (let k = 0; k < 9; k++) {
-      const x0 = 18 + (k % 3) * 111.33, vis = x0 + 101.33 > lo && x0 < hi;
-      h += p > this.NP || !vis ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
-    }
+    for (let k = 0; k < 9; k++) h += p > this.NP ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
     return h + '<span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>';
   }
 
@@ -199,20 +194,15 @@ export class AlbumEngine {
     return this.pageHTML(back ? 2 * i : 2 * i - 1, side, left);
   }
 
-  /**
-   * Otáčený list z desky 3A: svislé proužky, které se ohýbají jako papír. Každý proužek má vlastní promítnutí
-   * a přesahuje do souseda, takže mezi nimi nevznikají spáry. Odvrácenou stranu skrývá kód podle natočení,
-   * protože backface-visibility některé prohlížeče u karet s obrázky nedodrží.
-   */
-  private leafHTML(i: number): string {
-    let h = '';
-    for (let j = 0; j < NS; j++) {
-      const ww = j < NS - 1 ? SW + SOV : SW;
-      h += `<div class="sg${j === 0 ? ' s0' : j === NS - 1 ? ' sn' : ''}" style="width:${ww}px">` +
-        `<div class="sf fr">${this.face(i, false, 'r', `${-j * SW}px`)}</div>` +
-        `<div class="sf bk">${this.face(i, true, 'l', `${-(W - j * SW - ww)}px`)}</div></div>`;
+  /** Strana otáčeného listu pro plátno (stejný obsah jako pageHTML). */
+  private pageSpec(i: number, back: boolean): PageSpec | null {
+    if (i < 1 || i >= this.NL) return null;
+    const p = back ? 2 * i : 2 * i - 1, blank = p > this.NP, pockets: PageSpec['pockets'] = [];
+    for (let k = 0; k < 9; k++) {
+      const idx = (p - 1) * 9 + k, c = blank ? undefined : this.cards[idx];
+      pockets.push(c ? { img: c.image ? thumbUrl(c.image) ?? c.image : null, number: c.number, name: c.name, owned: c.owned, hidden: this.hidden.has(idx) } : null);
     }
-    return h;
+    return { side: back ? 'l' : 'r', blank, pockets };
   }
 
   // ---------- kostra ----------
@@ -243,6 +233,7 @@ export class AlbumEngine {
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
     this.leafbox = this.root.querySelector('.leafbox')!;
+    this.lc = new LeafCanvas(this.leafbox, { page: d.page, pocket: d.pocket, empty: d.empty, square: !!d.square, film: this.o.sleeve.film }, () => { if (this.moving().length) this.apply(); });
     fitCoverNames(this.cov);
     if (typeof document !== 'undefined' && document.fonts) document.fonts.ready.then(() => { if (!this.dead) fitCoverNames(this.cov); });
 
@@ -259,6 +250,7 @@ export class AlbumEngine {
     const fit = () => {
       const k = Math.min(1.25, this.root.clientWidth / STAGE_W);
       this.stage.style.transform = `scale(${k})`;
+      this.lc.setScale(k);
       this.root.style.height = `${600 * k}px`;
     };
     fit();
@@ -275,7 +267,7 @@ export class AlbumEngine {
     if (typeof document === 'undefined' || this.dead) return;
     const id = this.o.sleeve.id;
     const cached = rasterCache.get(id);
-    if (cached) { this.root.style.setProperty('--slv', `url("${cached}")`); this.root.classList.add('rast'); return; }
+    if (cached) { this.root.style.setProperty('--slv', `url("${cached}")`); this.root.classList.add('rast'); this.lc.setSleeve(cached); return; }
     const sym = document.getElementById(`s${id}`);
     if (!sym) { if (tries < 40) setTimeout(() => this.rasterSleeve(tries + 1), 150); return; }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="412" viewBox="0 0 150 206" preserveAspectRatio="none">${sym.innerHTML}</svg>`;
@@ -290,7 +282,7 @@ export class AlbumEngine {
         if (!b) return;
         const url = URL.createObjectURL(b);
         rasterCache.set(id, url);
-        if (!this.dead) { this.root.style.setProperty('--slv', `url("${url}")`); this.root.classList.add('rast'); }
+        if (!this.dead) { this.root.style.setProperty('--slv', `url("${url}")`); this.root.classList.add('rast'); this.lc.setSleeve(url); }
       });
     };
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -323,16 +315,8 @@ export class AlbumEngine {
       if (force || lb !== this.lastLR[0]) { this.bl.innerHTML = `<span class="edg l"></span>${this.face(lb, true, 'l')}`; this.lastEdge[0] = ''; }
       if (force || rb !== this.lastLR[1]) { this.br.innerHTML = `<span class="edg r"></span>${this.face(rb, false, 'r')}`; this.lastEdge[1] = ''; }
       this.lastLR = [lb, rb];
-      const want = new Set(m);
-      this.leafbox.querySelectorAll<HTMLElement>('.leaf').forEach((el) => { if (force || !want.has(Number(el.dataset.i))) el.remove(); });
-      for (const i of m) {
-        if (this.leafbox.querySelector(`.leaf[data-i="${i}"]`)) continue;
-        const el = document.createElement('div');
-        el.className = 'leaf';
-        el.dataset.i = String(i);
-        el.innerHTML = this.leafHTML(i);
-        this.leafbox.appendChild(el);
-      }
+      // strany listů, které se pravděpodobně otočí jako další, se připraví předem
+      if (!m.length) { const t = this.logicalT(); setTimeout(() => { if (this.dead) return; for (const i of [t, t - 1]) { this.lc.warm(this.pageSpec(i, false)); this.lc.warm(this.pageSpec(i, true)); } }, 60); }
     }
     this.ui();
     this.apply();
@@ -377,13 +361,9 @@ export class AlbumEngine {
     cs[1].style.opacity = (0.4 * (1 + c) / 2).toFixed(3);
     this.book.style.transform = `translateX(${(-180 * Math.max(0, 1 - Math.min(1.04, cq))).toFixed(1)}px)`;
     const m = this.moving().filter((i) => i > 0);
-    this.leafbox.querySelectorAll<HTMLElement>('.leaf').forEach((el) => {
-      const i = Number(el.dataset.i), f = this.F[i];
-      if (!f) return;
-      const q = f.q, th = -180 * q, b = Math.sin(Math.PI * clamp(q, 0, 1));
-      el.style.zIndex = String(q < 0.5 ? 50 - i : 50 + i);
-      this.bendLeaf(el, f, th, b);
-    });
+    const ls = m.map((i) => ({ i, f: this.F[i] })).filter((x) => x.f)
+      .sort((a, b) => (a.f.q < 0.5 ? 50 - a.i : 50 + a.i) - (b.f.q < 0.5 ? 50 - b.i : 50 + b.i));
+    this.lc.draw(ls.map(({ i, f }) => ({ front: this.pageSpec(i, false), back: this.pageSpec(i, true), q: f.q, v: f.v, bs: f.bs, ls: f.ls })));
     let lA = 0, rA = 0;
     for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
     const el = this.bl.querySelector<HTMLElement>('.edg'), er = this.br.querySelector<HTMLElement>('.edg');
@@ -396,31 +376,6 @@ export class AlbumEngine {
     // stín, který list vrhá na stranu pod sebou: nejsilnější v půli otáčení a k nule klesne, než list dosedne
     if (sl) sl.style.opacity = qMinL === null ? '0' : (0.5 * qMinL * Math.sin(Math.PI * clamp(qMinL, 0, 1))).toFixed(3);
     if (sr) sr.style.opacity = qMaxR === null ? '0' : (0.5 * (1 - qMaxR) * Math.sin(Math.PI * clamp(qMaxR, 0, 1))).toFixed(3);
-  }
-
-  /** Rozloží list na proužky podél ohnuté křivky (volný okraj se opožďuje a mírně klesá) a každý promítne. */
-  private bendLeaf(el: HTMLElement, f: Leaf, th: number, b: number) {
-    const dyn = clamp(f.v * 0.35, -1, 1), bend = b * (13 + 9 * Math.abs(dyn)) * f.bs, sag = b * 22 * f.ls * f.bs;
-    const ox = W / 2, oy = 240;
-    const A: number[] = [];
-    for (let k = 0; k <= NS; k++) { const s = k / NS; A.push(clamp(th + bend * (3.1 * s + 1.9 * s * s), -180, 0)); }
-    // stín podle natočení: líc tmavne, jak se odvrací od světla, rub naopak
-    const shF = (a: number) => 0.46 * (1 - Math.cos(a * Math.PI / 180)) / 2;
-    const shB = (a: number) => 0.46 * (1 + Math.cos(a * Math.PI / 180)) / 2;
-    const sg = el.children;
-    let x = 0, z = 0;
-    for (let j = 0; j < sg.length; j++) {
-      const s = sg[j] as HTMLElement, a = (A[j] + A[j + 1]) / 2, r = a * Math.PI / 180, ca = Math.cos(r), sa = Math.sin(r);
-      const d0 = -sag * (j / NS) ** 2, d1 = -sag * ((j + 1) / NS) ** 2, k = Math.atan2(d1 - d0, SW) * 180 / Math.PI;
-      s.style.transform = `translate(${ox}px,${oy}px) perspective(${PERSP}px) translate3d(${(x - ox).toFixed(2)}px,${d0.toFixed(2)}px,${z.toFixed(2)}px) rotateY(${a.toFixed(2)}deg) skewY(${k.toFixed(2)}deg) translateY(${-oy}px)`;
-      const mx = x + SW / 2 * ca, mz = z - SW / 2 * sa, front = (ox - mx) * sa + (PERSP - mz) * ca >= 0;
-      s.style.zIndex = String(Math.round(500 + mz));
-      const fr = s.firstElementChild as HTMLElement, bk = s.lastElementChild as HTMLElement;
-      if (s.dataset.f !== (front ? '1' : '0')) { s.dataset.f = front ? '1' : '0'; fr.style.visibility = front ? '' : 'hidden'; bk.style.visibility = front ? 'hidden' : 'visible'; }
-      // stín jako jas celé plochy proužku: samostatná stínová vrstva by na stycích proužků nechávala světlé linky
-      (front ? fr : bk).style.filter = `brightness(${(1 - (front ? shF(a) : shB(a))).toFixed(3)})`;
-      x += SW * ca; z -= SW * sa;
-    }
   }
 
   // jedna smyčka pohne všemi listy; dokončené listy se uloží na svou stranu
