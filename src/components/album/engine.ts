@@ -159,6 +159,9 @@ export class AlbumEngine {
   private F: Record<number, Leaf> = {};
   /** Kolikrát větší se deska vykresluje (viz fit). */
   private ss = 1;
+  // osa otáčení desky a zmenšení hloubky, změřené v prohlížeči (calib)
+  private hx = 2;
+  private dz = 1;
   private raf = 0;
   private dragLoop = 0;
   private g: Grab | null = null;
@@ -309,7 +312,7 @@ export class AlbumEngine {
       const dpr = window.devicePixelRatio || 1, zs = typeof CSS !== 'undefined' && CSS.supports('zoom', '2');
       this.ss = zs ? Math.min(3, Math.max(2, Math.ceil(k * dpr - 0.05))) : 1;
       this.root.style.setProperty('--ss', String(this.ss));
-      if (!this.dead) this.apply();
+      if (!this.dead) { this.calib(); this.apply(); }
       this.root.style.height = `${600 * k}px`;
     };
     fit();
@@ -425,6 +428,33 @@ export class AlbumEngine {
     return (la ? 50 + ia : 50 - ia) - (lb ? 50 + ib : 50 - ib);
   }
 
+  // Prohlížeče se liší v tom, jak zoom desky násobí posuny uvnitř 3D transformace. Proto se změří:
+  // otevřená deska ve 3D (otočená o 180°) musí přesně lícovat se stejnou deskou nakreslenou naplocho.
+  private calib() {
+    const cov = this.cov, inn = cov.querySelector<HTMLElement>('.cf.in'), ss = this.ss, iv = (1 / ss).toFixed(6);
+    this.hx = 2 / ss; this.dz = 1 / ss;
+    if (!inn || ss === 1) { this.hx = 2; this.dz = 1; return; }
+    const cl = cov.className, tr = cov.style.transform, h0 = this.hx, d0 = this.dz;
+    const at = (hx: number, dz: number) => {
+      cov.style.transform = `translateX(${hx}px) rotateY(-180deg) translateX(${-hx}px) scale3d(${iv},${iv},${dz})`;
+      return inn.getBoundingClientRect();
+    };
+    try {
+      cov.classList.add('flat'); cov.classList.remove('shut'); cov.style.transform = `scale(${iv})`;
+      const f = inn.getBoundingClientRect();
+      cov.classList.remove('flat');
+      const px = f.width / (376 * 1.001948);
+      if (!(px > 0)) return;
+      // hloubka: perspektiva zvětší desku P/(P−z), z má vyjít 3,5 px jako naplocho
+      const s3 = (at(this.hx, this.dz).width / f.width) * 1.001948, z = 1800 * (1 - 1 / s3);
+      if (z > 0.3 && z < 60) this.dz *= 3.5 / z;
+      // osa: posun hrany je lineární v hx
+      const e1 = (at(this.hx, this.dz).right - f.right) / px, e2 = (at(this.hx + 1, this.dz).right - f.right) / px;
+      if (Math.abs(e2 - e1) > 1e-3) this.hx -= e1 / (e2 - e1);
+      if (!(Math.abs(this.hx) < 12 && this.dz > 0 && this.dz < 2)) { this.hx = h0; this.dz = d0; }
+    } finally { cov.className = cl; cov.style.transform = tr; }
+  }
+
   private apply() {
     const f0 = this.F[0];
     const cq = f0 ? f0.q : (this.side[0] === 'L' ? 1 : 0);
@@ -436,10 +466,9 @@ export class AlbumEngine {
     this.cov.classList.toggle('shut', shut);
     const ss = this.ss, iv = (1 / ss).toFixed(6);
     // zmenšit i hloubku (scale3d), jinak by se posun translateZ uvnitř zvětšené desky násobil a deska by po dokončení otáčení poskočila
-    const inv = `scale3d(${iv},${iv},${iv})`;
+    const inv = `scale3d(${iv},${iv},${this.dz.toFixed(6)})`;
     this.book.classList.toggle('open', flat);
-    // posuny uvnitř transformace se násobí zoomem desky, proto /ss
-    this.cov.style.transform = flat || shut ? inv : `translateX(${2 / ss}px) rotateY(${ca.toFixed(2)}deg) translateX(${-2 / ss}px) ${inv}`;
+    this.cov.style.transform = flat || shut ? `scale(${iv})` : `translateX(${this.hx.toFixed(4)}px) rotateY(${ca.toFixed(2)}deg) translateX(${(-this.hx).toFixed(4)}px) ${inv}`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
     // hřbet je vidět až zevnitř otevřeného alba (při otevírání se z vnějšku neukazuje)
     if (this.spn) this.spn.style.opacity = clamp((cq - 0.5) * 4, 0, 1).toFixed(3);
