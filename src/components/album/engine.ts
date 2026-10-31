@@ -831,6 +831,8 @@ export class AlbumEngine {
     const p = this.pop;
     if (!p || p.closing) return;
     p.closing = true;
+    p.el.classList.add('cl');
+    p.el.querySelector('.pc')?.classList.remove('hv');
     cancelAnimationFrame(this.sraf); this.sraf = 0; this.r = null;
     const rot = p.el.querySelector<HTMLElement>('.rot')!, pc = p.el.querySelector<HTMLElement>('.pc')!;
     rot.style.transition = `transform .55s ${SPRING}`;
@@ -842,7 +844,8 @@ export class AlbumEngine {
     }
     p.el.querySelector<HTMLElement>('.ov')!.style.opacity = '0';
     p.el.querySelector<HTMLElement>('.info')!.style.opacity = '0';
-    setTimeout(() => { p.el.remove(); if (kc) kc.style.opacity = ''; this.pop = null; this.ry = 0; this.rx = 0; this.w = 0; }, 560);
+    // přesun .pc trvá 0,58 s (s mírným přejetím); karta v kapse se ukáže až po jeho úplném doběhnutí
+    setTimeout(() => { p.el.remove(); if (kc) kc.style.opacity = ''; this.pop = null; this.ry = 0; this.rx = 0; this.w = 0; }, 620);
   }
 
   // otáčení vyjeté karty: setrvačnost, na konci pružinou dosedne na líc nebo rub
