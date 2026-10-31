@@ -85,16 +85,16 @@
 .alb .pg.ins .gl{opacity:.55}
 .alb .pg.blank .pk{opacity:.6}
 /* pevná vazba s tloušťkou */
-.alb .brd{position:absolute;left:-2px;top:-12px;width:376px;height:504px;border-radius:9px 27px 27px 9px/10px 29px 29px 10px;z-index:0;background:var(--lining);transform:scale(1.001948);transform-origin:182px 252px;
+.alb .brd{position:absolute;left:7px;top:-12px;width:367px;height:504px;border-radius:0 27px 27px 0/0 29px 29px 0;z-index:0;background:var(--lining);background-size:376px 504px;background-position:-9px 0;transform:scale(1.001948);transform-origin:173px 252px;
  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),inset 0 1px 0 rgba(255,255,255,.12),0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 40px 60px -24px #000}
-.alb .brd::after{content:"";position:absolute;left:14px;top:5px;right:6px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-left:none;border-radius:0 22px 22px 0/0 24px 24px 0}
+.alb .brd::after{content:"";position:absolute;left:5px;top:5px;right:6px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-left:none;border-radius:0 22px 22px 0/0 24px 24px 0}
 /* hřbet zevnitř (je vidět jen v zářezu mezi zaoblenými rohy desek u hřbetu): potah stejný jako vnitřek desek */
-.alb .spn{position:absolute;left:-14px;top:-12px;width:28px;height:504px;border-radius:6px;z-index:0;background:var(--lining);background-size:376px 504px;background-position:12px 0;box-shadow:0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 40px 60px -24px #000}
+.alb .spn{position:absolute;left:-14px;top:-12px;width:28px;height:504px;border-radius:6px;z-index:0;transform:scale(1.001948);transform-origin:194px 252px;background:var(--lining);background-size:376px 504px;background-position:12px 0;box-shadow:0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 40px 60px -24px #000}
 .alb .cov{position:absolute;left:calc(-2px / var(--ss,1));top:calc(-12px / var(--ss,1));width:376px;height:504px;zoom:var(--ss,1);transform-origin:0 0;transform-style:preserve-3d;z-index:20;cursor:grab}
 .alb .cf{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:9px 27px 27px 9px/10px 29px 29px 10px}
 .alb .cf.out{transform:translateZ(3.5px);overflow:hidden;box-shadow:0 30px 50px -20px rgba(0,0,0,.8)}
 .alb .cf.out .acv{transform:scale(2.2381,2.4);transform-origin:0 0;border-radius:4px 12px 12px 4px}
-.alb .cf.in{transform:rotateY(180deg) translateZ(3.5px);border-radius:27px 9px 9px 27px/29px 10px 10px 29px;background:var(--lining);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),-2px 3px 0 var(--edge),-4px 6px 0 rgba(0,0,0,.5),0 30px 50px -20px rgba(0,0,0,.8)}
+.alb .cf.in{transform:rotateY(180deg) translateZ(3.5px);border-radius:27px 0 0 27px/29px 0 0 29px;background:var(--lining);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 30px 50px -20px rgba(0,0,0,.8)}
 .alb .cf.in::before{content:"";position:absolute;left:15px;top:13px;right:3px;bottom:13px;border-radius:14px 6px 6px 14px;background:linear-gradient(rgba(0,0,0,.13),rgba(0,0,0,.13)),var(--lining);box-shadow:inset 0 2px 5px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.1)}
 .alb .cf.in::after{content:"";position:absolute;left:6px;top:5px;right:-2px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-right:none;border-radius:22px 0 0 22px/24px 0 0 24px}
 .alb .cov.flat{transform-style:flat}.alb .cov.flat .cf.out,.alb .cov.flat .ce{display:none}
