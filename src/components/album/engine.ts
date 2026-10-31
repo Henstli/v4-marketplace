@@ -432,7 +432,6 @@ export class AlbumEngine {
     const flat = !f0 && cq >= 1, shut = !f0 && cq <= 0;
     this.cov.classList.toggle('flat', flat);
     this.cov.classList.toggle('shut', shut);
-    this.book.classList.toggle('opn', flat);
     const ss = this.ss, inv = `scale(${(1 / ss).toFixed(6)})`;
     // posuny uvnitř transformace se násobí zoomem desky, proto /ss
     this.cov.style.transform = flat || shut ? inv : `translateX(${2 / ss}px) rotateY(${ca.toFixed(2)}deg) translateX(${-2 / ss}px) ${inv}`;

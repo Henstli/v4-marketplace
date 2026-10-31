@@ -88,8 +88,8 @@
 .alb .brd{position:absolute;left:-2px;top:-12px;width:376px;height:504px;border-radius:9px 27px 27px 9px/10px 29px 29px 10px;z-index:0;background:var(--lining);transform:scale(1.001948);transform-origin:182px 252px;
  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),inset 0 1px 0 rgba(255,255,255,.12),0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 40px 60px -24px #000}
 .alb .brd::after{content:"";position:absolute;left:14px;top:5px;right:6px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-left:none;border-radius:0 22px 22px 0/0 24px 24px 0}
-.alb .spn{position:absolute;left:-14px;top:-12px;width:28px;height:504px;border-radius:6px;z-index:0;background:var(--mat);box-shadow:0 3px 0 var(--edge),0 6px 0 rgba(0,0,0,.6),0 40px 60px -24px #000}
-.alb .spn::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(255,255,255,.12) 30%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.12) 70%,rgba(0,0,0,.6))}
+/* hřbet zevnitř (je vidět jen v zářezu mezi zaoblenými rohy desek u hřbetu): potah stejný jako vnitřek desek */
+.alb .spn{position:absolute;left:-14px;top:-12px;width:28px;height:504px;border-radius:6px;z-index:0;background:var(--lining);background-size:376px 504px;background-position:12px 0;box-shadow:0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 40px 60px -24px #000}
 .alb .cov{position:absolute;left:calc(-2px / var(--ss,1));top:calc(-12px / var(--ss,1));width:376px;height:504px;zoom:var(--ss,1);transform-origin:0 0;transform-style:preserve-3d;z-index:20;cursor:grab}
 .alb .cf{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:9px 27px 27px 9px/10px 29px 29px 10px}
 .alb .cf.out{transform:translateZ(3.5px);overflow:hidden;box-shadow:0 30px 50px -20px rgba(0,0,0,.8)}
@@ -100,8 +100,6 @@
 .alb .cov.flat{transform-style:flat}.alb .cov.flat .cf.out,.alb .cov.flat .ce{display:none}
 /* naplocho se stejnou velikostí jako ve 3D (deska leží 3,5 px blíž k divákovi, perspektiva 1800 px → zvětšení 1800/1796,5) */
 .alb .cov.flat .cf.in{transform-origin:554px 252px;transform:translateX(-372px) scale(1.001948)}
-/* otevřené album: vnitřek obou desek na sebe u hřbetu navazuje bez zaoblení, jinak mezi nimi zůstal zářez, kterým prosvítal hřbet */
-.alb .book.opn .brd{border-top-left-radius:0;border-bottom-left-radius:0}.alb .cov.flat .cf.in{border-radius:27px 0 0 27px/29px 0 0 29px}
 .alb .cov.shut{transform-style:flat}.alb .cov.shut .cf.in,.alb .cov.shut .ce{display:none}.alb .cov.shut .cf.out{transform-origin:182px 252px;transform:scale(1.001948)}
 .alb .ce{position:absolute;pointer-events:none;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)),var(--mat)}
 .alb .ce.er{left:371.5px;top:29px;width:8px;height:446px;transform:rotateY(90deg)}
