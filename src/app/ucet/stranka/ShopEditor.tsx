@@ -813,7 +813,7 @@ function BlockGallery({ locked, onPick, onClose }: { locked: boolean; onPick: (t
     <div className={styles.stack}>
       <div className={styles.inline}>
         <strong style={{ flex: 1 }}>Přidat blok</strong>
-        <button type="button" className={styles.linkButton} onClick={onClose}>Zrušit</button>
+        <Button variant="secondary" onClick={onClose}>Zrušit</Button>
       </div>
       <div className={styles.chips}>
         {GROUPS.map((g) => <Chip key={g.id} selected={group === g.id} onClick={() => setGroup(g.id)}>{g.name}</Chip>)}

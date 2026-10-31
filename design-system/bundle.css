@@ -4,8 +4,8 @@
 .tz-btn-lg{height:52px;padding:0 var(--space-6);font-size:16px;border-radius:var(--radius-lg)}
 .tz-btn-primary{background:var(--accent);color:var(--on-accent)}
 .tz-btn-secondary{background:transparent;color:var(--ink);border-color:var(--line-strong)}
-.tz-btn-ghost{background:transparent;color:var(--ink)}
-.tz-btn-danger{background:transparent;color:var(--danger)}
+.tz-btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+.tz-btn-danger{background:transparent;color:var(--danger);border-color:color-mix(in srgb,var(--danger) 55%,transparent)}
 .tz-btn-ghost:hover,.tz-btn-secondary:hover{background:var(--surface-sunken)}
 .tz-btn-danger:hover{background:var(--danger-tint)}
 .tz-btn:disabled{opacity:.45;cursor:not-allowed}
