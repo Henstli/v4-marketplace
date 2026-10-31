@@ -5,8 +5,11 @@
 .ab3{position:relative;width:168px;height:210px;flex:none}
 .ab3::after{content:"";position:absolute;left:6%;right:-3%;bottom:-12px;height:20px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.7),transparent);filter:blur(4px);z-index:0;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .45s}
 .ab3 .bk{position:absolute;inset:0;z-index:1;border-radius:4px 12px 12px 4px;box-shadow:0 2px 3px rgba(0,0,0,.35),0 18px 30px -14px rgba(0,0,0,.9),8px 14px 26px -16px rgba(0,0,0,.8);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
-.ab3.lift:hover .bk,a:hover>.ab3.lift .bk,a:hover .ab3.lift .bk,.ab3.hov .bk{transform:translateY(-6px)}
-.ab3.lift:hover::after,a:hover .ab3.lift::after,.ab3.hov::after{transform:scale(.92);opacity:.75}
+/* zvedací alba mají vlastní vrstvu stále: prohlížeč ji jinak vytváří až na začátku pohybu a ruší po něm,
+   deska se pokaždé překreslí jinak (změna ostrosti) a první snímek pohybu se zasekne */
+.ab3.lift .bk,.ab3.lift::after{will-change:transform;backface-visibility:hidden;transform:translate3d(0,0,0)}
+.ab3.lift:hover .bk,a:hover>.ab3.lift .bk,a:hover .ab3.lift .bk,.ab3.hov .bk{transform:translate3d(0,-8px,0)}
+.ab3.lift:hover::after,a:hover .ab3.lift::after,.ab3.hov::after{transform:translate3d(0,0,0) scale(.92);opacity:.75}
 .ab-mini{position:relative;flex:none}
 .ab-mini>.ab3{position:absolute;left:0;top:0;transform-origin:0 0}
 
