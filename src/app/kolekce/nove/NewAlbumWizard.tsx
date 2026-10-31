@@ -9,6 +9,7 @@ import { Button, Chip, SearchField, Steps } from '@/components/trezor';
 import { GAMES, type GameId } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { createAlbum, findSets, searchForAlbum, setCards, type PickCard, type SetOption } from '../actions';
+import { SleeveSprite } from '@/components/album/SleeveSprite';
 import { LookFields, type Look } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
 import s from '../kolekce.module.css';
@@ -194,10 +195,11 @@ export function NewAlbumWizard() {
         </div>
 
         <aside className={s.prev}>
+          {step !== 0 ? <SleeveSprite /> : null}
           <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
           <div className={s.prevSl}>
             <Sleeve sleeve={look.sleeve} image={tray[0]?.image ?? cards?.find((c) => picked.has(c.id))?.image ?? null} scale={0.55} />
-            <Sleeve sleeve={look.sleeve} image={tray[1]?.image ?? null} scale={0.45} />
+            <Sleeve sleeve={look.sleeve} image={null} scale={0.55} back />
           </div>
           <h3>{look.name || 'Moje album'}</h3>
           <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
