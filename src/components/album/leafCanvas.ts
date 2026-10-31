@@ -39,6 +39,9 @@ export interface LeafLook {
 
 type G = CanvasRenderingContext2D;
 
+/** Skeny One Piece (optcgapi.com) mají bílé rohy a někdy bílý proužek na okraji, kreslí se oříznuté. */
+function isScanWithBorder(url: string) { return url.includes('optcgapi.com'); }
+
 function rr(g: G, x: number, y: number, w: number, h: number, r: number | [number, number, number, number]) {
   const [a, b, c, d] = typeof r === 'number' ? [r, r, r, r] : r;
   g.beginPath();
@@ -268,8 +271,16 @@ export class LeafCanvas {
       // jako DOM: obrázek se zaoblenými rohy podle svého skutečného poměru, okénko kolem bez tmavé výplně
       const s = Math.min(iw / im.naturalWidth, ih / im.naturalHeight), w = im.naturalWidth * s, h = im.naturalHeight * s;
       const dx = ix + (iw - w) / 2, dy = iy + (ih - h) / 2;
-      rr(g, dx, dy, w, h, 6 * sx); g.clip();
-      g.drawImage(im, dx, dy, w, h);
+      if (c.img && isScanWithBorder(c.img)) {
+        // jako CSS u .asl .img img[src*="optcgapi.com"]: ořez 1,5 % okraje skenu, rohy jako karta
+        const cx = im.naturalWidth * 0.015, cy = im.naturalHeight * 0.015;
+        rr(g, dx, dy, w, h, w * 0.055); g.clip();
+        g.drawImage(im, cx, cy, im.naturalWidth - 2 * cx, im.naturalHeight - 2 * cy, dx, dy, w, h);
+      } else {
+        // rohy jako skutečná karta 4,8 % šířky (= 3,45 % výšky), stejně jako .asl .img img
+        rr(g, dx, dy, w, h, w * 0.048); g.clip();
+        g.drawImage(im, dx, dy, w, h);
+      }
     } else {
       rr(g, ix, iy, iw, ih, 6 * sx); g.fillStyle = '#151a22'; g.fill();
     }

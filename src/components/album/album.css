@@ -37,7 +37,10 @@
 .asl .img{position:absolute;left:7px;right:7px;top:8px;bottom:8px;border-radius:6px;z-index:2;display:flex;align-items:center;justify-content:center}
 /* tmavé okénko jen bez obrázku; obrázek má zaoblené rohy sám, takže při jiném poměru stran (Pokémon) nevzniknou tmavé pruhy */
 .asl .img:not(:has(img)){background:var(--surface-sunken,#151a22)}
-.asl .img img{max-width:100%;max-height:100%;display:block;border-radius:inherit}
+/* rohy jako skutečná karta (DS Trezor: 4,8 % / 3,45 %), relativně k obrázku, aby se schovaly světlé rohy Scryfallu */
+.asl .img img{max-width:100%;max-height:100%;display:block;border-radius:4.8%/3.45%}
+/* skeny One Piece (optcgapi.com) mají bílé rohy a někdy bílý proužek na okraji: 1,5 % okraje se ořízne a rohy zaoblí jako karta (stejně kreslí leafCanvas.ts) */
+.asl .img img[src*="optcgapi.com"]{border-radius:0;transform:scale(1.03);clip-path:inset(1.5% round 5.5% / 4%)}
 
 /* ---------- otevřené album: jeviště 960 × 600, škáluje se na šířku ---------- */
 .alb{position:relative;width:100%;user-select:none;-webkit-user-select:none}
@@ -69,13 +72,13 @@
 .alb .kc .asl{position:absolute;left:0;top:0;transform:scale(.6134,.6117);transform-origin:0 0}
 .alb .kc.off{opacity:0}
 .alb .kc.hv{will-change:transform;transition:transform .25s ease-out,box-shadow .25s;box-shadow:0 14px 22px -10px rgba(0,0,0,.85);z-index:3}
-.alb .kc .gs,.alb .pc .gs{position:absolute;left:4.29px;right:4.29px;top:4.89px;bottom:4.89px;border-radius:3.68px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:4;
+.alb .kc .gs,.alb .pc .gs{position:absolute;left:4.29px;right:4.29px;top:4.89px;bottom:4.89px;border-radius:4.8%/3.45%;pointer-events:none;opacity:0;transition:opacity .25s;z-index:4;
  /* holo jako v obchodu: jen proužek za kurzorem, uvnitř duha (posouvá se s kurzorem) a světlý střed */
  mix-blend-mode:color-dodge;background:linear-gradient(105deg,transparent calc(var(--mx,50%) - 12%),rgba(255,255,255,.45) var(--mx,50%),transparent calc(var(--mx,50%) + 12%)),linear-gradient(115deg,#ff3c9a 0.0%,#ffc83c 6.25%,#3cffa8 12.5%,#3c9cff 18.75%,#b450ff 25.0%,#ff3c9a 31.25%,#ffc83c 37.5%,#3cffa8 43.75%,#3c9cff 50.0%,#b450ff 56.25%,#ff3c9a 62.5%,#ffc83c 68.75%,#3cffa8 75.0%,#3c9cff 81.25%,#b450ff 87.5%,#ff3c9a 93.75%,#ffc83c 100.0%) var(--mx,50%) 50%/130% 130%;
  -webkit-mask-image:linear-gradient(105deg,transparent calc(var(--mx,50%) - 24%),#000 var(--mx,50%),transparent calc(var(--mx,50%) + 24%));mask-image:linear-gradient(105deg,transparent calc(var(--mx,50%) - 24%),#000 var(--mx,50%),transparent calc(var(--mx,50%) + 24%))}
 .alb .kc.hv .gs,.alb .pc.hv .gs{opacity:.7}
 /* detail karty: stejný holo proužek přes okénko obalu */
-.alb .pc .gs{left:4.7%;right:4.7%;top:3.883%;bottom:3.883%;border-radius:3.2%/2.3%}
+.alb .pc .gs{left:4.7%;right:4.7%;top:3.883%;bottom:3.883%;border-radius:4.8%/3.45%}
 .alb .kc .qty{position:absolute;left:4px;bottom:4px;z-index:5;padding:0 5px;border-radius:5px;background:rgba(11,14,19,.85);font:700 10px/16px Inter;color:#e8ecf1}
 .alb .gl{position:absolute;inset:0;pointer-events:none;z-index:2}
 .alb .pg.r .gl{background:var(--gut-r,linear-gradient(90deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%));background-size:100% 100%}
