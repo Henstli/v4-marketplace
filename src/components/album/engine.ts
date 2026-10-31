@@ -422,9 +422,10 @@ export class AlbumEngine {
     if (er && sr0 !== this.lastEdge[1]) { er.style.boxShadow = sr0; this.lastEdge[1] = sr0; }
     const sl = this.bl.querySelector<HTMLElement>('.shade'), sr = this.br.querySelector<HTMLElement>('.shade');
     const qMinL = m.length ? this.F[m[0]].q : null, qMaxR = m.length ? this.F[m[m.length - 1]].q : null;
-    // stín, který list vrhá na stranu pod sebou: nejsilnější v půli otáčení a k nule klesne, než list dosedne
-    if (sl) sl.style.opacity = qMinL === null ? '0' : (0.5 * qMinL * Math.sin(Math.PI * clamp(qMinL, 0, 1))).toFixed(3);
-    if (sr) sr.style.opacity = qMaxR === null ? '0' : (0.5 * (1 - qMaxR) * Math.sin(Math.PI * clamp(qMaxR, 0, 1))).toFixed(3);
+    // stín, který list vrhá na stranu pod sebou: čím blíž list je, tím tmavší (plynule až do zakrytí, bez zesvětlení na konci)
+    const sh = (x: number) => (0.45 * clamp(x, 0, 1) ** 2).toFixed(3);
+    if (sl) sl.style.opacity = qMinL === null ? '0' : sh(qMinL);
+    if (sr) sr.style.opacity = qMaxR === null ? '0' : sh(1 - qMaxR);
   }
 
   // jedna smyčka pohne všemi listy; dokončené listy se uloží na svou stranu
