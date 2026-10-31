@@ -176,7 +176,7 @@
 .alb .mk{border-radius:6%/4.5%;box-shadow:inset 0 0 0 1px var(--pocket);overflow:hidden}
 .alb .mk.f{opacity:.42}
 .alb .mk img{width:100%;height:100%;object-fit:contain;display:block}
-.alb .mk.n{opacity:1;box-shadow:0 0 0 1.5px #7cf2c8,0 0 8px #7cf2c8}
+.alb .mk.n{position:relative;z-index:1;opacity:1;box-shadow:0 0 0 1.5px rgba(124,242,200,.85),0 0 10px rgba(124,242,200,.45);transform:translateY(-2px) scale(1.03)}
 .alb .ms b{font:500 11px "JetBrains Mono",monospace;color:#a3adbb}
 .alb .spg{position:absolute;bottom:70px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:14px}
 .alb .spg button{width:36px;height:36px;border-radius:50%;border:1px solid #2a313c;background:#12171e;color:#e8ecf1;font:600 16px Inter;cursor:pointer}
