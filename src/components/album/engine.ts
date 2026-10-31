@@ -45,9 +45,10 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const smooth = (p: number) => p * p * (3 - 2 * p);
 const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
 const easeBack = (p: number) => { const c = 1.15; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
-// velikost letící karty proti kartě v kapse: u balíčku, po zvednutí (podle desky 1B: .62, .78 a .404)
-const S_PREP = 1.535;
-const S_LIFT = 1.93;
+// velikost karty na hromádce a po zvednutí proti kartě v kapse (poměr podle desky 1B: .62, .78 a .404;
+// hromádka je o kus menší, aby se vešla vedle alba)
+const S_PILE = 1.25;
+const S_LIFT = 1.57;
 // dráha letu z desky 1B: [průběh, odchylka x, odchylka y od přímky balíček→kapsa, otočení, natažení x, y]
 const FLIGHT: Array<[number, number, number, number, number, number]> = [[0,0,0,1.1,0.998,1.004],[0.019,-6.2,-1,2.1,0.998,1.004],[0.038,-12.5,-2.2,1.9,0.998,1.004],[0.056,-18.7,-3.6,1.6,0.998,1.005],[0.075,-25.1,-5.6,1.3,0.997,1.006],[0.094,-31.3,-8.7,1.1,0.996,1.008],[0.113,-37.5,-13.3,1,0.994,1.011],[0.131,-43.7,-20.3,1.3,0.992,1.015],[0.15,-49.6,-30.1,2.1,0.99,1.021],[0.169,-55,-43.6,4.1,0.986,1.027],[0.188,-58.2,-61.3,10.2,0.982,1.035],[0.206,-55.1,-82.5,23,0.978,1.044],[0.225,-40.9,-102.8,49,0.973,1.054],[0.244,-16.1,-85.6,113.3,0.968,1.065],[0.263,-7.1,-43.8,155.6,0.962,1.077],[0.281,-9.3,8.9,170.7,0.956,1.089],[0.3,-13.8,69.2,170.4,0.949,1.102],[0.319,27,117.8,136.8,0.943,1.115],[0.338,91.5,144.4,111.2,0.936,1.128],[0.356,168.4,154.5,97.8,0.929,1.141],[0.375,253.7,154.3,89,0.923,1.153],[0.394,345,139.5,80.7,0.918,1.165],[0.413,437.1,103.1,67,0.912,1.175],[0.431,510.2,26.9,44.7,0.908,1.184],[0.45,522,-83.7,7.1,0.904,1.191],[0.469,458.3,-186.6,-29.3,0.902,1.196],[0.488,340.5,-235.5,-62.8,0.9,1.199],[0.506,211.4,-252.7,-80.1,0.9,1.2],[0.525,82,-244.2,-93.2,0.902,1.196],[0.544,-37.9,-205,-109.6,0.905,1.189],[0.563,-132,-131.1,-132.3,0.91,1.179],[0.582,-155.4,-27.1,-175.5,0.917,1.167],[0.6,-97.3,48.2,-218.1,0.924,1.152],[0.619,-20.4,81,-248.2,0.932,1.136],[0.638,50,72.4,-281.5,0.941,1.119],[0.657,89.2,23.5,-316.4,0.949,1.101],[0.675,99.5,-29.8,-341.9,0.958,1.084],[0.694,98.3,-75.2,-352.3,0.966,1.067],[0.713,95.5,-110.5,-354.9,0.974,1.052],[0.732,90.4,-136.7,-358,0.981,1.038],[0.75,84.3,-154.9,-359.9,0.987,1.026],[0.769,77.9,-166.8,-360.6,0.991,1.017],[0.788,71.6,-174.2,-360.5,0.994,1.012],[0.807,65.4,-178.4,-360,0.996,1.008],[0.825,59,-172,-359.8,0.996,1.008],[0.844,52.7,-164.8,-359.8,0.995,1.01],[0.863,46.3,-156.4,-359.8,0.994,1.013],[0.882,40,-145.7,-359.9,0.992,1.017],[0.9,33.7,-132.3,-359.9,0.989,1.022],[0.919,27.3,-115.5,-359.9,0.986,1.028],[0.938,21,-94.7,-360,0.982,1.035],[0.957,14.6,-68.9,-360,0.978,1.043],[0.975,8.3,-37.8,-360,0.974,1.053],[1,0,0,-360,1,1]];
 
@@ -85,8 +86,8 @@ export function fitCoverNames(root: ParentNode) {
 }
 
 /** HTML obalu s kartou (150 × 206, v albu zmenšené). */
-export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '') {
-  const src = image ? thumbUrl(image) ?? image : null;
+export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '', full = false) {
+  const src = image ? (full ? image : thumbUrl(image) ?? image) : null;
   return `<div class="asl f-${s.film}"><svg aria-hidden="true"><use href="#s${s.id}"></use></svg>` +
     `<div class="img">${src ? `<img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" draggable="false">` : ''}</div><span class="fm"></span></div>`;
 }
@@ -95,6 +96,8 @@ export function sleeveHTML(s: SleeveDesign, image: string | null, alt = '') {
 export function coverHTML(d: AlbumDesign, name: string) {
   return `<div class="acv" style="background:${d.mat}">${coverDeco(d, name)}<span class="gl"></span></div>`;
 }
+
+const rasterCache = new Map<number, string>();
 
 export class AlbumEngine {
   private o: EngineOptions;
@@ -130,6 +133,7 @@ export class AlbumEngine {
   private lastT = -1;
   private edgeK = 1;
   private lastRoll = 0;
+  private lastEdge = ['', ''];
 
   constructor(root: HTMLElement, o: EngineOptions) {
     this.root = root;
@@ -177,7 +181,12 @@ export class AlbumEngine {
     const st = left ? ` style="left:${left}"` : '';
     if (p < 1) return `<div class="pg ins ${side}"${st}><span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>`;
     let h = `<div class="pg ${side}${p > this.NP ? ' blank' : ''}" data-p="${p}"${st}>`;
-    for (let k = 0; k < 9; k++) h += p > this.NP ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
+    // proužek listu ukazuje jen ~62 px strany: karty mimo něj se nevykreslují (méně práce při listování)
+    const lo = left ? -parseFloat(left) : -1e9, hi = left ? lo + SW + 2 : 1e9;
+    for (let k = 0; k < 9; k++) {
+      const x0 = 18 + (k % 3) * 111.33, vis = x0 + 101.33 > lo && x0 < hi;
+      h += p > this.NP || !vis ? '<div class="pk"></div>' : this.pocket((p - 1) * 9 + k);
+    }
     return h + '<span class="cbl"></span><span class="gl"></span><span class="shade"></span></div>';
   }
 
@@ -244,6 +253,36 @@ export class AlbumEngine {
     fit();
     if (typeof ResizeObserver !== 'undefined') { this.ro = new ResizeObserver(fit); this.ro.observe(this.root); }
     this.sync(true);
+    this.rasterSleeve();
+  }
+
+  /**
+   * Vzor obalu se jednou převede na obrázek. Stovky obalů jako živé SVG se vzory by se při listování
+   * překreslovaly snímek po snímku; obrázek prohlížeč jen přenese.
+   */
+  private rasterSleeve(tries = 0) {
+    if (typeof document === 'undefined' || this.dead) return;
+    const id = this.o.sleeve.id;
+    const cached = rasterCache.get(id);
+    if (cached) { this.root.style.setProperty('--slv', `url("${cached}")`); this.root.classList.add('rast'); return; }
+    const sym = document.getElementById(`s${id}`);
+    if (!sym) { if (tries < 40) setTimeout(() => this.rasterSleeve(tries + 1), 150); return; }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="412" viewBox="0 0 150 206" preserveAspectRatio="none">${sym.innerHTML}</svg>`;
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = 300; cv.height = 412;
+      const cx = cv.getContext('2d');
+      if (!cx) return;
+      cx.drawImage(img, 0, 0, 300, 412);
+      cv.toBlob((b) => {
+        if (!b) return;
+        const url = URL.createObjectURL(b);
+        rasterCache.set(id, url);
+        if (!this.dead) { this.root.style.setProperty('--slv', `url("${url}")`); this.root.classList.add('rast'); }
+      });
+    };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
   // ---------- stav listů ----------
@@ -268,8 +307,10 @@ export class AlbumEngine {
     const key = `${lb}|${rb}|${m.join(',')}`;
     if (force || key !== this.lastBases) {
       this.lastBases = key;
-      this.bl.innerHTML = this.face(lb, true, 'l');
-      this.br.innerHTML = this.face(rb, false, 'r');
+      // tloušťka bloku stran je stín na vlastní prázdné vrstvě: mění se každý snímek a překreslovat celou stranu s kartami by listování sekalo
+      this.bl.innerHTML = `<span class="edg l"></span>${this.face(lb, true, 'l')}`;
+      this.br.innerHTML = `<span class="edg r"></span>${this.face(rb, false, 'r')}`;
+      this.lastEdge = ['', ''];
       const want = new Set(m);
       this.leafbox.querySelectorAll<HTMLElement>('.leaf').forEach((el) => { if (force || !want.has(Number(el.dataset.i))) el.remove(); });
       for (const i of m) {
@@ -304,7 +345,7 @@ export class AlbumEngine {
 
   private edgeShadow(nLeaves: number, sx: number) {
     // tloušťka roste s počtem listů jen do ~12 px, aby blok stran nevylezl z desek
-    const T = 12 * (1 - Math.exp(-Math.max(0, nLeaves) / 3)), C = Math.ceil(T / 2 - 0.01), L: string[] = [];
+    const T = Math.round(48 * (1 - Math.exp(-Math.max(0, nLeaves) / 3))) / 4, C = Math.ceil(T / 2 - 0.01), L: string[] = [];
     for (let k = 1; k <= C; k++) {
       const x = T * k / C;
       L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 #0e1218`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 #4a5466`);
@@ -339,9 +380,11 @@ export class AlbumEngine {
     });
     let lA = 0, rA = 0;
     for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
-    const pl = this.bl.firstElementChild as HTMLElement | null, pr = this.br.firstElementChild as HTMLElement | null;
-    if (pl && !pl.classList.contains('none')) pl.style.boxShadow = this.edgeShadow((lA - 1) * this.edgeK, -1);
-    if (pr && !pr.classList.contains('none')) pr.style.boxShadow = this.edgeShadow((rA - 1) * this.edgeK, 1);
+    const el = this.bl.querySelector<HTMLElement>('.edg'), er = this.br.querySelector<HTMLElement>('.edg');
+    const hl = !this.bl.querySelector('.pg:not(.none)'), hr = !this.br.querySelector('.pg:not(.none)');
+    const sl0 = hl ? 'none' : this.edgeShadow((lA - 1) * this.edgeK, -1), sr0 = hr ? 'none' : this.edgeShadow((rA - 1) * this.edgeK, 1);
+    if (el && sl0 !== this.lastEdge[0]) { el.style.boxShadow = sl0; this.lastEdge[0] = sl0; }
+    if (er && sr0 !== this.lastEdge[1]) { er.style.boxShadow = sr0; this.lastEdge[1] = sr0; }
     const sl = this.bl.querySelector<HTMLElement>('.shade'), sr = this.br.querySelector<HTMLElement>('.shade');
     const qMinL = m.length ? this.F[m[0]].q : null, qMaxR = m.length ? this.F[m[m.length - 1]].q : null;
     if (sl) sl.style.opacity = qMinL === null ? '0' : (0.4 * qMinL * qMinL).toFixed(3);
@@ -556,7 +599,7 @@ export class AlbumEngine {
     const wrap = document.createElement('div');
     wrap.innerHTML =
       `<div class="ov"></div><div class="pc" style="left:${from.x}px;top:${from.y}px;width:${from.w}px;height:${from.h}px;transition:none">` +
-      `<div class="rot"><div class="fc">${img ? `<img src="${esc(img)}" alt="${esc(c.name)}" draggable="false">` : ''}<span class="glare"></span></div><div class="fc bk"><div class="cback"></div></div></div></div>` +
+      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="glare"></span></div><div class="fc bk"><div class="cback"></div></div></div></div>` +
       `<div class="info"><b>${esc(c.name)}</b><span>#${esc(c.number)}${c.setName ? ' · ' + esc(c.setName) : ''}${c.owned > 1 ? ` · ${c.owned} kusy` : ''} · táhni kartou a otáčej s ní</span>` +
       `<div class="btns"><button type="button" class="bt pri" data-a="flip">Otočit kartu</button><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
     wrap.className = 'popw';
@@ -664,7 +707,7 @@ export class AlbumEngine {
     this.mode = 'snap'; this.tgt = Math.round(this.ry / 180) * 180 + 180; this.spin();
   }
 
-  // ---------- plnění z balíčku (1B, 2B, 2C, 3B) ----------
+  // ---------- plnění z hromádky (1B, 2B, 2C, 3B) ----------
   private tween(dur: number, fn: (t: number) => void) {
     return new Promise<void>((res) => {
       const t0 = performance.now();
@@ -675,8 +718,10 @@ export class AlbumEngine {
 
   /**
    * Vloží karty na místa `indices` (karty už musí mít owned > 0).
-   * Každá karta se u balíčku roztočí, nasadí se jí obal a v oblouku kolem alba vletí do kapsy (desky 1B, 2B, 2C).
-   * Album listuje a zrychluje jako ve 3A/3B; founding = album se teprve otevírá. Po více kartách přijde přehled 2A.
+   * Přidávání (1B, 2B, 2C): celé hromádce se naráz nasadí obaly, pak karty jedna po druhé odlétají
+   * a v oblouku kolem alba se ohýbají do kapes. Album listuje a zrychluje jako ve 3A.
+   * Založení (founding) je deska 3B: rychlý proud karet z hromádky, list se otočí po zaplnění dvoustrany.
+   * Po více kartách přijde přehled 2A.
    */
   async play(indices: number[], opts: { founding?: boolean; title?: string } = {}) {
     if (this.busy || !indices.length) return;
@@ -688,113 +733,121 @@ export class AlbumEngine {
     this.sel = null;
     this.glow.clear();
     const alive = () => !this.dead;
-    const n = list.length, single = n === 1;
+    const n = list.length, single = n === 1, founding = !!opts.founding;
     const haveBefore = this.cards.filter((c, i) => c.owned > 0 && !this.hidden.has(i)).length;
     let have = haveBefore;
-    // balíček
-    const deck = this.root.querySelector<HTMLElement>('.deck')!;
-    const deckCards = list.slice(0, 8).reverse();
-    deck.innerHTML = deckCards.map((ci, j) => {
-      const i = deckCards.length - 1 - j;
-      const r = Math.sin(i * 12.9898 + n) * 43758.5453, f = r - Math.floor(r), g = (Math.sin(i * 78.233 + n) * 12345.678) % 1;
-      // nedokonalý balíček: každá karta trochu pootočená a posunutá jako ručně složená hromádka
-      return `<div class="dc" data-i="${i}" style="transform:translate(${(i * 1.6 + (g * 3 - 1.5)).toFixed(1)}px,${(-i * 1.6 + (f * 3 - 1.5)).toFixed(1)}px) rotate(${i ? ((f - 0.5) * 9).toFixed(1) : '-1.5'}deg)">${sleeveHTML(this.o.sleeve, this.cards[ci].image)}</div>`;
-    }).join('') + `<div class="cnt"><span class="cv">${n}</span><small>${n === 1 ? 'karta k vložení' : `${cardsWord(n)} k vložení`}</small></div>`;
-    const cv = deck.querySelector<HTMLElement>('.cv')!;
-    const dcs = [...deck.querySelectorAll<HTMLElement>('.dc')];
-    let left = n;
-    const dec = () => { left = Math.max(0, left - 1); cv.textContent = String(left); dcs.forEach((d) => { d.style.opacity = left > Number(d.dataset.i) ? '1' : '0'; }); };
     this.sync(true);
     this.counter(have, false);
     this.root.querySelector('.ind')?.classList.add('live');
-    if (!single) { await sleep(120); deck.classList.add('on'); await sleep(opts.founding ? 650 : 420); }
-    if (!alive()) return;
 
-    // otevření desky (když je album zavřené)
+    // hromádka (2B): obaly se nasadí všem kartám naráz, zatímco se otevírá deska
+    const pile = this.makePile(list);
+    const intro = pile.intro();
+    const D = pile.origin();
+    if (founding) { await sleep(500); if (!alive()) return; }
+
     if (this.side[0] === 'R' && !this.F[0]) {
-      if (opts.founding) {
-        // hloubka listů vyjíždí postupně zpod otevírané desky
+      if (founding) {
+        // hloubka listů vyjíždí postupně zpod otevírané desky (3B)
         this.edgeK = 0;
         await Promise.all([
           this.flip(0, 1, { dur: 1000, ease: easeBack }),
           this.tween(1000, (t) => { this.edgeK = clamp((t - 0.35) / 0.65, 0, 1); this.apply(); }),
         ]);
         this.edgeK = 1; this.apply();
-      } else await this.flip(0, 1, { dur: 900, ease: easeBack });
+      } else await Promise.all([this.flip(0, 1, { dur: 900, ease: easeBack }), sleep(single ? 0 : 200)]);
     }
     if (!alive()) return;
 
     const spreads = [...new Set(list.map((i) => this.spreadOf(i)))].sort((a, b) => a - b);
-    // rychlost: při založení plynulé zrychlení přes prvních 5 dvoustran (3B); při přidávání prvních ~12 karet
-    // v plném tempu desek 2B/2C, pak zrychlení až k okamžitému vkládání. k = 1 plná animace, 0 okamžitě.
     const cos = (u: number) => 0.5 * (1 + Math.cos(Math.PI * clamp(u, 0, 1)));
-    let seen = 0;
-    const kOf = (s: number, j: number, len: number) => opts.founding ? cos((s + j / Math.max(1, len)) / 5) : cos((seen + j - 12) / 28);
-    // tempo: 2B (pár karet) pomaleji, 2C rychleji; při založení se karty překrývají víc, ať první dvoustrana netrvá dlouho (3B)
-    const cadBase = single ? 0 : opts.founding ? 300 : n <= 6 ? 1500 : 820;
     const rel = (el: Element) => this.local(el.getBoundingClientRect());
-    const D = (() => { const r = rel(deck); return { x: r.x, y: r.y }; })();
-
-    for (let s = 0; s < spreads.length; s++) {
-      if (!alive()) return;
-      const tgt = spreads[s];
-      const mine = list.filter((i) => this.spreadOf(i) === tgt);
-      const k0 = kOf(s, 0, mine.length);
-      const cur = this.logicalT();
-      // listování na cílovou dvoustranu běží, zatímco se u balíčku připravuje karta (1B)
-      const riffle = tgt !== cur
-        ? sleep(single ? 650 : 30 + 200 * k0).then(() => this.goToRaw(tgt, Math.max(170, 340 * Math.max(0.5, k0)), Math.max(30, Math.min(135, 700 / Math.abs(tgt - cur)))))
-        : Promise.resolve();
-      let lastFly = 0;
-      const lands: Promise<void>[] = [];
-      for (let j = 0; j < mine.length; j++) {
-        const ci = mine[j], k = kOf(s, j, mine.length);
-        const t0 = performance.now();
-        const card = this.cards[ci];
-        dec();
-        if (k < 0.12) {
-          // okamžité vkládání (konec zrychlení, 3B)
-          await riffle;
-          const el = this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`);
-          this.hidden.delete(ci); this.glow.add(ci);
-          if (el) {
-            el.classList.remove('off'); el.parentElement?.classList.add('glow');
-            el.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1.08)', offset: 0.6 }, { opacity: 1, transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
-          }
-          have++; this.counter(have, true);
-          await sleep(4 + 30 * k);
-          continue;
-        }
-        const P = single ? 1630 : (opts.founding ? 1000 : 1630) * Math.max(0.25, k);
-        const fly = this.prepCard(card, D, P, k > 0.35);
-        const ready = Promise.all([sleep(P), riffle]);
-        const go = ready.then(async () => {
-          const wait = lastFly + cadBase * k * 0.55 - performance.now();
-          if (wait > 0) await sleep(wait);
-          lastFly = performance.now();
-          if (!alive()) { fly.remove(); return; }
-          const el = this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`);
-          if (!el) { fly.remove(); this.hidden.delete(ci); return; }
-          await this.flyCard(fly, D, rel(el), k, single);
-          if (!alive()) return;
-          this.hidden.delete(ci); this.glow.add(ci);
-          const kc = this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`) ?? el;
-          this.landCard(kc, k, single);
-          have++; this.counter(have, true);
-        });
-        lands.push(go);
-        // další karta se začne připravovat podle tempa (2B pomaleji, 2C rychleji)
-        const gap = 6 + cadBase * k - (performance.now() - t0);
-        if (j < mine.length - 1 && gap > 0) await sleep(gap);
+    const kc = (ci: number) => this.root.querySelector<HTMLElement>(`.kc[data-c="${ci}"]`);
+    const land = (ci: number, k: number) => {
+      this.hidden.delete(ci); this.glow.add(ci);
+      const el = kc(ci);
+      if (el) this.landCard(el, k, single);
+      have++; this.counter(have, true);
+    };
+    const pop = (ci: number) => {
+      this.hidden.delete(ci); this.glow.add(ci);
+      const el = kc(ci);
+      if (el) {
+        el.classList.remove('off'); el.parentElement?.classList.add('glow');
+        el.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1.08)', offset: 0.6 }, { opacity: 1, transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
       }
-      await riffle;
-      await Promise.all(lands);
-      seen += mine.length;
-      // list se otočí až po dosednutí poslední karty
-      await sleep(single ? 0 : 60 + 400 * k0);
+      have++; this.counter(have, true);
+    };
+
+    if (founding) {
+      // 3B: plynulé zrychlení přes prvních 5 dvoustran (kosinová křivka), pak se dvoustrany plní okamžitě
+      await intro;
+      if (!alive()) return;
+      for (let s = 0; s < spreads.length; s++) {
+        if (!alive()) return;
+        const tgt = spreads[s];
+        if (tgt !== this.logicalT()) await this.goToRaw(tgt, 220 + 480 * cos(s / 5), 70);
+        if (!alive()) return;
+        const mine = list.filter((i) => this.spreadOf(i) === tgt);
+        const lands: Promise<void>[] = [];
+        let t = 0;
+        mine.forEach((ci, idx) => {
+          const k = cos((s + idx / Math.max(1, mine.length)) / 5), t0 = t;
+          t += 6 + 52 * k;
+          lands.push(sleep(t0).then(async () => {
+            if (!alive()) return;
+            pile.take();
+            const el = kc(ci);
+            if (k > 0.18 && el) {
+              await this.flyArc(ci, D, rel(el), k, idx);
+              if (!alive()) return;
+              this.hidden.delete(ci); this.glow.add(ci);
+              const e2 = kc(ci);
+              if (e2) {
+                e2.classList.remove('off'); e2.parentElement?.classList.add('glow');
+                e2.animate([{ transform: 'scale(.9)' }, { transform: 'scale(1.06)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
+              }
+              have++; this.counter(have, true);
+            } else { pop(ci); await sleep(60 + 140 * k); }
+          }));
+        });
+        await Promise.all(lands);
+        await sleep(30 + 200 * cos((s + 1) / 5));
+      }
+    } else {
+      // 2B / 2C: karty odlétají z hromádky po 420 ms; po ~12 kartách se tempo zrychluje až k okamžitému vkládání
+      const kOf = (x: number) => cos((x - 12) / 28);
+      let seen = 0, first = true;
+      for (let s = 0; s < spreads.length; s++) {
+        if (!alive()) return;
+        const tgt = spreads[s];
+        const mine = list.filter((i) => this.spreadOf(i) === tgt);
+        const k0 = kOf(seen);
+        const cur = this.logicalT();
+        const riffle = tgt !== cur
+          ? this.goToRaw(tgt, Math.max(170, 340 * Math.max(0.5, k0)), Math.max(30, Math.min(135, 700 / Math.abs(tgt - cur))))
+          : Promise.resolve();
+        await Promise.all([riffle, first ? intro : null]);
+        first = false;
+        if (!alive()) return;
+        const lands: Promise<void>[] = [];
+        for (let j = 0; j < mine.length; j++) {
+          const ci = mine[j], k = kOf(seen + j);
+          if (k < 0.12) { pile.take(); pop(ci); await sleep(4 + 30 * k); continue; }
+          const el = kc(ci);
+          if (!el) { pile.take(); this.hidden.delete(ci); continue; }
+          const T = rel(el);
+          lands.push(pile.lift().then(() => this.flyBend(ci, D, T, k, single)).then(() => { if (alive()) land(ci, k); }));
+          if (j < mine.length - 1) await sleep(420 * Math.max(0.25, k));
+        }
+        await Promise.all(lands);
+        seen += mine.length;
+        // list se otočí až po dosednutí poslední karty
+        await sleep(single ? 0 : 120 + 600 * k0);
+      }
     }
     if (!alive()) return;
-    deck.classList.remove('on');
+    pile.end();
     await sleep(single ? 900 : 650);
     this.root.querySelector('.ind')?.classList.remove('live');
     this.busy = false;
@@ -805,7 +858,7 @@ export class AlbumEngine {
       await sleep(380);
       const total = this.cards.length;
       this.sumData = {
-        title: opts.title ?? (opts.founding ? 'Album založeno' : `Přidáno ${n} ${cardsWord(n)}`),
+        title: opts.title ?? (founding ? 'Album založeno' : `Přidáno ${n} ${cardsWord(n)}`),
         sub: `${this.o.name} · ${haveBefore} → ${have}${this.o.counterTotal ? ` / ${total}` : ''} · ${spreads.length} ${spreadsWord(spreads.length)}`,
         spreads,
         fresh,
@@ -839,104 +892,219 @@ export class AlbumEngine {
     ni.animate([{ transform: 'translateY(100%)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.3,1.6,.5,1)' });
   }
 
-  /**
-   * Příprava karty u balíčku (1B, 2C): karta se roztočí, shora se na ni nasune obal, cvakne, zajiskří.
-   * full = s jiskrami a kruhem; vrátí prvek, který pak letí.
-   */
-  private prepCard(card: EngineCard, D: { x: number; y: number }, P: number, full: boolean) {
-    const f = document.createElement('div');
-    f.className = 'fly';
-    f.style.transform = `translate(${D.x}px,${D.y}px)`;
+  /** Karta v obalu pro hromádku a let (obal je samostatná vrstva, aby se dal nasunout). */
+  private cardHTML(card: EngineCard) {
     const src = card.image ? thumbUrl(card.image) ?? card.image : '';
-    const sp = full ? Array.from({ length: 7 }, (_, i) => {
-      const a = (i / 7) * Math.PI * 2 + 0.4;
-      return `<i class="spk" style="--dx:${(Math.cos(a) * 95).toFixed(0)}px;--dy:${(Math.sin(a) * 120).toFixed(0)}px">✦</i>`;
-    }).join('') : '';
-    f.innerHTML = `<div class="fz" style="transform:scale(${S_PREP})"><div class="fsq"><div class="fsp">` +
-      `<div class="asl f-${this.o.sleeve.film}"><svg class="sv" aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg>` +
-      `<div class="img">${src ? `<img src="${esc(src)}" alt="" draggable="false">` : ''}</div><span class="fm"></span></div>` +
-      `<span class="sring"></span>${sp}</div></div></div>`;
-    this.stage.appendChild(f);
-    const q = (c: string) => f.querySelector<HTMLElement>(c)!;
-    const T = (ms: number) => ms * P / 1630;
-    // roztočení karty (aSpin)
-    q('.fsp').animate([
-      { opacity: 0, transform: 'rotateY(-540deg) scale(.4)' },
-      { opacity: 1, transform: 'rotateY(-500deg) scale(.45)', offset: 0.12 },
-      { opacity: 1, transform: 'rotateY(0) scale(1)' },
-    ], { duration: T(790), easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
-    // obal se nasune shora (aSlvIn) a karta cvakne (aClick)
-    const slv = [
-      { opacity: 0, transform: 'translateY(-78%) scale(1.22,.62)', offset: 0 },
-      { opacity: 1, offset: 0.25 },
-      { opacity: 1, transform: 'translateY(3%) scale(.97,1.03)', offset: 0.52 },
-      { opacity: 1, transform: 'translateY(-1%) scale(1.01,.99)', offset: 0.76 },
-      { opacity: 1, transform: 'translateY(0) scale(1,1)' },
-    ];
-    for (const c of ['.sv', '.fm']) q(c).animate(slv, { duration: T(1150), delay: T(430), easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' });
-    q('.asl').animate([
-      { transform: 'none', offset: 0 },
-      { transform: 'scale(.93) rotateX(12deg)', offset: 0.18 },
-      { transform: 'scale(1.03) rotateX(-5deg) rotateY(4deg)', offset: 0.5 },
-      { transform: 'scale(.995) rotateX(1.5deg) rotateY(-1.5deg)', offset: 0.8 },
-      { transform: 'none' },
-    ], { duration: T(620), delay: T(980), easing: 'ease-out' });
-    if (full) {
-      q('.sring').animate([{ opacity: 0, transform: 'scale(1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.1 }, { opacity: 0, transform: 'scale(1.14)' }], { duration: T(560), delay: T(1000), fill: 'both' });
-      f.querySelectorAll<HTMLElement>('.spk').forEach((e, i) => e.animate([
-        { opacity: 0, transform: 'translate(0,0) scale(0) rotate(0)' },
-        { opacity: 1, transform: 'translate(calc(var(--dx)*.35),calc(var(--dy)*.35)) scale(1.5) rotate(60deg)', offset: 0.12 },
-        { opacity: 1, transform: 'translate(calc(var(--dx)*.8),calc(var(--dy)*.8)) scale(1) rotate(170deg)', offset: 0.7 },
-        { opacity: 0, transform: 'translate(var(--dx),var(--dy)) scale(.4) rotate(220deg)' },
-      ], { duration: T(620), delay: T(1030 + i * 12), easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'both' }));
-    }
-    return f;
+    return `<div class="asl own f-${this.o.sleeve.film}"><svg class="sv" aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="sb"></span>` +
+      `<div class="img">${src ? `<img src="${esc(src)}" alt="" draggable="false">` : ''}</div><span class="fm"></span></div>`;
   }
 
-  /** Let karty z balíčku do kapsy: oblouk kolem alba z desky 1B (k ≥ 0.5), při zrychlení krátký oblouk (3B). */
-  private flyCard(f: HTMLElement, D: { x: number; y: number }, T: { x: number; y: number }, k: number, single: boolean) {
-    const fz = f.querySelector<HTMLElement>('.fz')!;
+  /**
+   * Hromádka karet vlevo od alba (2B, 2C). Ukazuje nejvýš 6 karet, každá trochu pootočená a posunutá,
+   * hlubší karty vykukují nahoru. Vrchní karta se před odletem srovná.
+   */
+  private makePile(list: number[]) {
+    const host = this.root.querySelector<HTMLElement>('.deck')!;
+    const n = list.length, PV = 6;
+    host.innerHTML = `<div class="cnt"><span class="cv">${n}</span><small>${n === 1 ? 'karta k vložení' : `${cardsWord(n)} k vložení`}</small></div>`;
+    const cv = host.querySelector<HTMLElement>('.cv')!, sm = host.querySelector<HTMLElement>('.cnt small')!;
+    const rnd = (i: number, s: number) => { const r = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return r - Math.floor(r); };
+    const pose = (i: number, d: number) => d === 0 && i === 0
+      ? 'translate(0px,0px) rotate(-1.5deg)'
+      : `translate(${(rnd(i, 1) * 7 - 3.5 - d * 0.5).toFixed(1)}px,${(rnd(i, 2) * 6 - 3 - d * 1.3).toFixed(1)}px) rotate(${((rnd(i, 3) - 0.5) * 7).toFixed(1)}deg)`;
+    const els: Array<{ el: HTMLElement; i: number }> = [];
+    let next = 0, left = n;
+    const add = (anim: boolean) => {
+      if (next >= n) return;
+      const i = next++, el = document.createElement('div');
+      el.className = 'fly pl';
+      el.innerHTML = `<div class="fz" style="transform:scale(${S_PILE})"><div class="fsq"><div class="fsp">${this.cardHTML(this.cards[list[i]])}<span class="sring"></span></div></div></div>`;
+      host.insertBefore(el, host.firstChild);
+      els.push({ el, i });
+      el.style.transform = pose(i, els.length - 1);
+      if (anim) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, fill: 'backwards' });
+    };
+    for (let j = 0; j < Math.min(PV, n); j++) add(false);
+    const restack = () => els.forEach((e, d) => { e.el.style.zIndex = String(10 - d); e.el.style.transition = 'transform .32s cubic-bezier(.3,0,.2,1)'; e.el.style.transform = pose(e.i, d); });
+    restack();
+    const dec = () => { left = Math.max(0, left - 1); cv.textContent = String(left); sm.textContent = left === 1 ? 'karta k vložení' : `${cardsWord(left)} k vložení`; };
+    const shift = () => { const e = els.shift(); if (e) e.el.remove(); add(true); restack(); };
+    return {
+      origin: () => { const r = this.local(host.getBoundingClientRect()); return { x: r.x, y: r.y }; },
+      /** Obaly se nasunou celé hromádce naráz: karty se roztočí, shora se nasune obal, cvakne a zajiskří (2B). */
+      intro: async () => {
+        host.classList.add('on');
+        els.forEach((e, d) => {
+          const q = (c: string) => [...e.el.querySelectorAll<HTMLElement>(c)];
+          const dl = d * 60;
+          q('.fsp').forEach((x) => x.animate([
+            { opacity: 0, transform: 'rotateY(-540deg) scale(.4)' },
+            { opacity: 1, transform: 'rotateY(-500deg) scale(.45)', offset: 0.12 },
+            { opacity: 1, transform: 'rotateY(0) scale(1)' },
+          ], { duration: 790, delay: dl, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }));
+          const slv = [
+            { opacity: 0, transform: 'translateY(-78%) scale(1.22,.62)', offset: 0 },
+            { opacity: 1, offset: 0.25 },
+            { opacity: 1, transform: 'translateY(3%) scale(.97,1.03)', offset: 0.52 },
+            { opacity: 1, transform: 'translateY(-1%) scale(1.01,.99)', offset: 0.76 },
+            { opacity: 1, transform: 'translateY(0) scale(1,1)' },
+          ];
+          q('.sv,.sb,.fm').forEach((x) => x.animate(slv, { duration: 1150, delay: 430 + dl * 1.3, easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' }));
+          q('.asl').forEach((x) => x.animate([
+            { transform: 'none', offset: 0 },
+            { transform: 'scale(.93) rotateX(12deg)', offset: 0.18 },
+            { transform: 'scale(1.03) rotateX(-5deg) rotateY(4deg)', offset: 0.5 },
+            { transform: 'scale(.995) rotateX(1.5deg) rotateY(-1.5deg)', offset: 0.8 },
+            { transform: 'none' },
+          ], { duration: 620, delay: 980 + dl * 1.3, easing: 'ease-out' }));
+        });
+        const top = els[0]?.el;
+        if (top) {
+          top.querySelector<HTMLElement>('.sring')!.animate([{ opacity: 0, transform: 'scale(1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.1 }, { opacity: 0, transform: 'scale(1.14)' }], { duration: 640, delay: 1000, fill: 'both' });
+          const fsp = top.querySelector<HTMLElement>('.fsp')!;
+          for (let i = 0; i < 9; i++) {
+            const a = (i / 9) * Math.PI * 2 + 0.4, s = document.createElement('i');
+            s.className = 'spk'; s.textContent = '✦';
+            s.style.setProperty('--dx', `${(Math.cos(a) * 95).toFixed(0)}px`); s.style.setProperty('--dy', `${(Math.sin(a) * 120).toFixed(0)}px`);
+            fsp.appendChild(s);
+            s.animate([
+              { opacity: 0, transform: 'translate(0,0) scale(0) rotate(0)' },
+              { opacity: 1, transform: 'translate(calc(var(--dx)*.35),calc(var(--dy)*.35)) scale(1.5) rotate(60deg)', offset: 0.12 },
+              { opacity: 1, transform: 'translate(calc(var(--dx)*.8),calc(var(--dy)*.8)) scale(1) rotate(170deg)', offset: 0.7 },
+              { opacity: 0, transform: 'translate(var(--dx),var(--dy)) scale(.2) rotate(260deg)' },
+            ], { duration: 680, delay: 1030 + i * 12, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'both' }).onfinish = () => s.remove();
+          }
+        }
+        await sleep(1650);
+      },
+      /** Vrchní karta se srovná a odletí (aStk). */
+      lift: async () => {
+        const e = els[0];
+        dec();
+        if (!e) return;
+        e.el.style.transition = 'transform .3s cubic-bezier(.3,0,.2,1)';
+        e.el.style.transform = 'translate(0px,0px) rotate(0deg)';
+        await sleep(300);
+        shift();
+      },
+      /** Karta odejde bez zvednutí (rychlé vkládání). */
+      take: () => { dec(); shift(); },
+      end: () => { host.classList.remove('on'); setTimeout(() => { if (!host.classList.contains('on')) host.innerHTML = ''; }, 500); },
+    };
+  }
+
+  /**
+   * Let z hromádky do kapsy (1B, 2B): smyčka kolem alba a karta se v letu ohýbá jako pružný karton.
+   * Karta je rozřezaná na vodorovné proužky; každý je pootočený o kousek víc než předchozí podle toho,
+   * jak rychle se karta otáčí. Při zrychleném vkládání (k < 0.5) krátký oblouk bez ohybu.
+   */
+  private flyBend(ci: number, D: { x: number; y: number }, T: { x: number; y: number }, k: number, single: boolean) {
+    const N = 26, CW = 92, CH = 126, h = CH / N;
     const dx = T.x - D.x, dy = T.y - D.y;
-    let dur: number;
-    let frames: Keyframe[];
-    if (k >= 0.5) {
-      dur = (single ? 1430 : 1350) * (0.55 + 0.45 * k);
-      frames = FLIGHT.map(([u, ox, oy, r, sx, sy]) => ({
-        offset: u,
-        transform: `translate(${(D.x + dx * u + ox).toFixed(1)}px,${(D.y + dy * u + oy).toFixed(1)}px) rotate(${r}deg) scale(${sx},${sy})`,
-      }));
-    } else {
-      dur = 260 + 520 * k;
-      const lift = -60 - Math.abs(dx) * 0.08, rot = (T.x > 480 ? 1 : -1) * 14;
-      frames = [
-        { transform: `translate(${D.x}px,${D.y}px) rotate(-6deg)` },
-        { transform: `translate(${D.x + dx * 0.55}px,${D.y + dy * 0.55 + lift}px) rotate(${rot}deg)`, offset: 0.55 },
-        { transform: `translate(${T.x}px,${T.y}px) rotate(0deg)` },
-      ];
+    const loop = k >= 0.5;
+    const dur = loop ? (single ? 1430 : 1330) * (0.55 + 0.45 * k) : 300 + 520 * k;
+    const f = document.createElement('div');
+    f.className = 'flyb';
+    const html = this.cardHTML(this.cards[ci]);
+    let h2 = '';
+    for (let j = 0; j < N; j++) {
+      // proužky se kousek překrývají, aby na vnější straně ohybu nevznikaly mezery
+      const top = Math.max(0, j * h - 0.4), bot = Math.max(0, CH - (j + 1) * h - h * 0.8);
+      h2 += `<div class="st" style="clip-path:inset(${top.toFixed(2)}px -2px ${bot.toFixed(2)}px -2px)">${html}</div>`;
     }
-    // karta se po zvednutí zvětší a do kapsy se zmenší (aRot)
-    fz.animate([
-      { transform: `scale(${S_PREP})` },
-      { transform: `scale(${S_LIFT})`, offset: 0.18, easing: 'cubic-bezier(.45,0,.45,1)' },
-      { transform: 'scale(1)' },
-    ], { duration: dur, easing: 'cubic-bezier(.3,0,.5,1)', fill: 'forwards' });
+    f.innerHTML = h2;
+    this.stage.appendChild(f);
+    const st = [...f.querySelectorAll<HTMLElement>('.st')];
+    // dráha: smyčka z desky 1B, nebo krátký oblouk
+    const lift = -60 - Math.abs(dx) * 0.08, rotEnd = (T.x > 480 ? 1 : -1) * 14;
+    const path = (u: number): [number, number, number, number, number] => {
+      if (!loop) {
+        const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+        const ar = Math.sin(Math.PI * e);
+        return [D.x + dx * e, D.y + dy * e + lift * ar, -6 * (1 - e) + rotEnd * ar, 1, 1];
+      }
+      let a = 0;
+      while (a < FLIGHT.length - 2 && FLIGHT[a + 1][0] < u) a++;
+      const A = FLIGHT[a], B = FLIGHT[a + 1], v = clamp((u - A[0]) / (B[0] - A[0]), 0, 1);
+      const L = (i: number) => A[i] + (B[i] - A[i]) * v;
+      return [D.x + dx * u + L(1), D.y + dy * u + L(2), L(3), L(4), L(5)];
+    };
+    // velikost: z hromádky se zvedne, do kapsy se zmenší (aRot)
+    const scaleAt = (u: number) => u < 0.18 ? S_PILE + (S_LIFT - S_PILE) * smooth(u / 0.18) : S_LIFT + (1 - S_LIFT) * outCubic((u - 0.18) / 0.82);
+    const BMAX = 80 / (N - 1);
+    let beta = 0, lastR = path(0)[2], lastT = performance.now();
+    const t0 = lastT;
+    const draw = (now: number) => {
+      const u = clamp((now - t0) / dur, 0, 1);
+      const [x0, y, r, sx, sy] = path(u);
+      // na začátku smyčky karta nesmí vyletět za levý okraj jeviště (hromádka je těsně u něj)
+      const x = Math.max(x0, CW * (scaleAt(u) - 1) / 2 - 14);
+      const dt = Math.max(1, now - lastT);
+      const w = (r - lastR) / dt * 1000;
+      lastR = r; lastT = now;
+      const want = loop && u < 0.8 ? -clamp(w / 260, -1, 1) * BMAX : 0;
+      beta += (want - beta) * Math.min(1, dt / 70);
+      const sc = scaleAt(u);
+      const base = `translate(${(x + CW / 2).toFixed(2)}px,${(y + CH / 2).toFixed(2)}px) rotate(${r.toFixed(2)}deg) scale(${(sc * sx).toFixed(4)},${(sc * sy).toFixed(4)})`;
+      // řetěz proužků od středu karty nahoru a dolů
+      const pos: Array<[number, number, number]> = new Array(N);
+      const mid = N / 2;
+      let px = 0, py = 0;
+      for (let j = mid; j < N; j++) {
+        const ph = (j - (N - 1) / 2) * beta * Math.PI / 180, s = Math.sin(ph), c = Math.cos(ph);
+        pos[j] = [px - s * h / 2, py + c * h / 2, ph];
+        px -= s * h; py += c * h;
+      }
+      px = 0; py = 0;
+      for (let j = mid - 1; j >= 0; j--) {
+        const ph = (j - (N - 1) / 2) * beta * Math.PI / 180, s = Math.sin(ph), c = Math.cos(ph);
+        pos[j] = [px + s * h / 2, py - c * h / 2, ph];
+        px += s * h; py -= c * h;
+      }
+      for (let j = 0; j < N; j++) {
+        const [cx, cy, ph] = pos[j];
+        st[j].style.transform = `${base} translate(${cx.toFixed(2)}px,${cy.toFixed(2)}px) rotate(${(ph * 180 / Math.PI).toFixed(2)}deg) translate(${-CW / 2}px,${(-(j + 0.5) * h).toFixed(2)}px)`;
+      }
+      return u;
+    };
+    draw(t0);
     // rozmazaná stopa za kartou (aGhost)
     let ghost: HTMLElement | null = null;
-    if (k >= 0.5) {
+    if (loop) {
       ghost = document.createElement('div');
       ghost.className = 'fly ghost';
       ghost.innerHTML = '<div class="fz"><div class="gfill"></div></div>';
       this.stage.insertBefore(ghost, f);
+      const frames = FLIGHT.map(([u, ox, oy, r, sx, sy]) => ({ offset: u, transform: `translate(${(D.x + dx * u + ox).toFixed(1)}px,${(D.y + dy * u + oy).toFixed(1)}px) rotate(${r}deg) scale(${sx},${sy})` }));
       const gz = ghost.firstElementChild as HTMLElement;
-      gz.animate([{ transform: `scale(${S_PREP})` }, { transform: `scale(${S_LIFT})`, offset: 0.18 }, { transform: 'scale(1)' }], { duration: dur, delay: 70, fill: 'both' });
+      gz.animate([{ transform: `scale(${S_PILE})` }, { transform: `scale(${S_LIFT})`, offset: 0.18 }, { transform: 'scale(1)' }], { duration: dur, delay: 70, fill: 'both' });
       ghost.animate(frames, { duration: dur, delay: 70, easing: 'linear', fill: 'both' });
       ghost.animate([{ opacity: 0 }, { opacity: 0.3, offset: 0.08 }, { opacity: 0.25, offset: 0.7 }, { opacity: 0 }], { duration: dur, delay: 70, fill: 'both', composite: 'replace' });
     }
-    const an = f.animate(frames, { duration: dur, easing: k >= 0.5 ? 'linear' : 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' });
     return new Promise<void>((res) => {
-      an.onfinish = () => { f.remove(); ghost?.remove(); res(); };
-      an.oncancel = () => { f.remove(); ghost?.remove(); res(); };
+      const step = (now: number) => {
+        if (this.dead) { f.remove(); ghost?.remove(); return res(); }
+        if (draw(now) >= 1) { f.remove(); ghost?.remove(); return res(); }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
     });
+  }
+
+  /** Let při založení (3B): krátký oblouk z hromádky, karty jdou rychle za sebou. */
+  private flyArc(ci: number, D: { x: number; y: number }, T: { x: number; y: number }, k: number, idx: number) {
+    const f = document.createElement('div');
+    f.className = 'fly arc';
+    f.innerHTML = `<div class="fz"><div class="fsq"><div class="fsp">${this.cardHTML(this.cards[ci])}</div></div></div>`;
+    this.stage.appendChild(f);
+    const dur = 220 + 420 * k;
+    const dx = T.x - D.x, dy = T.y - D.y, lift = -60 - Math.abs(dx) * 0.08, rot = (idx % 2 ? 1 : -1) * (8 + (idx % 5) * 3);
+    const an = f.animate([
+      { transform: `translate(${D.x}px,${D.y}px) rotate(-6deg) scale(${S_PILE})` },
+      { transform: `translate(${D.x + dx * 0.55}px,${D.y + dy * 0.55 + lift}px) rotate(${rot}deg) scale(${(S_PILE + 1) / 2})`, offset: 0.55 },
+      { transform: `translate(${T.x}px,${T.y}px) rotate(0deg) scale(1)` },
+    ], { duration: dur, easing: 'cubic-bezier(.45,.05,.3,1)', fill: 'forwards' });
+    return new Promise<void>((res) => { an.onfinish = () => { f.remove(); res(); }; an.oncancel = () => { f.remove(); res(); }; });
   }
 
   /** Dopad do kapsy (1B): odskok, zmáčknutí, záře kapsy, kruhy, lesk; u jedné karty i přiblížení a razítko NOVÉ. */

@@ -32,6 +32,8 @@
 /* obal karty (150 × 206) */
 .asl{position:relative;width:150px;height:206px;border-radius:9px;overflow:hidden;flex:none}
 .asl svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.alb.rast .asl>svg{display:none}
+.alb.rast .asl{background:var(--slv) 0 0/100% 100%}
 .asl .fm{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3}
 .f-gloss .fm{background:linear-gradient(125deg,rgba(255,255,255,.22) 0,rgba(255,255,255,.06) 24%,transparent 40%,transparent 66%,rgba(255,255,255,.08) 78%,transparent 90%)}
 .f-matte .fm{background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02))}
@@ -49,7 +51,9 @@
 .alb .pg.l{border-radius:14px 6px 6px 14px}
 .alb .bl,.alb .br,.alb .leafbox{position:absolute;left:0;top:0;width:360px;height:480px}
 .alb .bl,.alb .br{z-index:2}.alb .leafbox{z-index:5;pointer-events:none}
-.alb .bl>.pg,.alb .br>.pg{cursor:grab;box-shadow:0 40px 70px -28px #000}
+.alb .bl>.pg,.alb .br>.pg{cursor:grab}
+.alb .edg{position:absolute;top:0;width:360px;height:480px;will-change:transform;pointer-events:none}
+.alb .edg.l{left:-360px;border-radius:14px 6px 6px 14px}.alb .edg.r{left:0;border-radius:6px 14px 14px 6px}
 .alb .bl>.pg{left:-360px}
 .alb .pg.none{visibility:hidden}
 .alb .pk{position:relative;display:grid;place-items:center;border-radius:5px;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px var(--pocket)}
@@ -59,10 +63,10 @@
 .alb .em small{font:500 9.5px/12px Inter,sans-serif;opacity:.85;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .alb .em:hover{background:rgba(124,242,200,.06);color:#a8f7dc}
 .alb .pk.sel .em{outline:2px solid #7cf2c8;outline-offset:-4px;color:#7cf2c8;background:rgba(124,242,200,.08)}
-.alb .kc{position:relative;width:92px;height:126px;border-radius:7px;cursor:pointer;transition:transform .6s cubic-bezier(.22,1,.36,1),box-shadow .5s;will-change:transform;box-shadow:0 2px 4px rgba(0,0,0,.55)}
+.alb .kc{position:relative;width:92px;height:126px;border-radius:7px;cursor:pointer;transition:transform .6s cubic-bezier(.22,1,.36,1),box-shadow .5s;box-shadow:0 2px 4px rgba(0,0,0,.55)}
 .alb .kc .asl{position:absolute;left:0;top:0;transform:scale(.6134,.6117);transform-origin:0 0}
 .alb .kc.off{opacity:0}
-.alb .kc.hv{transition:transform .45s ease-out,box-shadow .3s;box-shadow:0 14px 22px -10px rgba(0,0,0,.85);z-index:3}
+.alb .kc.hv{will-change:transform;transition:transform .45s ease-out,box-shadow .3s;box-shadow:0 14px 22px -10px rgba(0,0,0,.85);z-index:3}
 .alb .kc .gs{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .35s;mix-blend-mode:color-dodge;z-index:4;
  background:linear-gradient(105deg,transparent calc(var(--mx,50%) - 25%),rgba(255,255,255,.55) var(--mx,50%),transparent calc(var(--mx,50%) + 25%)),linear-gradient(115deg,rgba(124,242,200,.4),rgba(180,140,255,.4))}
 .alb .kc.hv .gs{opacity:.7}
@@ -70,7 +74,7 @@
 .alb .gl{position:absolute;inset:0;pointer-events:none;z-index:2}
 .alb .pg.r .gl{background:linear-gradient(90deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%)}
 .alb .pg.l .gl{background:linear-gradient(270deg,rgba(255,255,255,.14),rgba(0,0,0,.6) 1.2%,rgba(0,0,0,.26) 5%,rgba(0,0,0,.08) 9.5%,rgba(255,255,255,.07) 13%,transparent 20%)}
-.alb .shade{position:absolute;inset:0;pointer-events:none;z-index:4;background:#000;opacity:0;border-radius:inherit}
+.alb .shade{position:absolute;inset:0;pointer-events:none;z-index:4;background:#000;opacity:0;border-radius:inherit;will-change:opacity}
 .alb .cbl{display:none}
 .alb .pg.ins{background:var(--lining)}
 .alb .pg.ins::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.6) 75%,rgba(0,0,0,.35))}
@@ -106,7 +110,7 @@
 .alb .sf>.pg{top:0}
 .alb .sg5>.sf.fr{border-radius:0 14px 14px 0}.alb .sg5>.sf.bk{border-radius:14px 0 0 14px}
 .alb .sg0>.sf.fr{border-radius:6px 0 0 6px}.alb .sg0>.sf.bk{border-radius:0 6px 6px 0}
-.alb .ssh{position:absolute;inset:0;pointer-events:none;background:#000;opacity:0;z-index:5}
+.alb .ssh{position:absolute;inset:0;pointer-events:none;background:#000;opacity:0;z-index:5;will-change:opacity}
 /* šipky a ukazatel stran */
 .alb .arr{position:absolute;top:270px;width:48px;height:48px;display:grid;place-items:center;border:1px solid #2a313c;border-radius:50%;background:rgba(18,23,30,.85);color:#e8ecf1;cursor:pointer;transition:background .15s,transform .15s,opacity .2s;z-index:30}
 .alb .arr:hover{background:#1d2530;transform:scale(1.06)}
@@ -117,11 +121,9 @@
 .alb .ind .dot{width:7px;height:7px;border-radius:50%;background:#3a4350;cursor:pointer;transition:background .2s,transform .2s}
 .alb .ind .dot.on{background:#7cf2c8;transform:scale(1.25);box-shadow:0 0 6px #7cf2c8}
 /* balíček a let karty */
-.alb .deck{position:absolute;left:44px;top:250px;width:92px;height:126px;z-index:40;transition:opacity .4s,transform .5s cubic-bezier(.22,1,.36,1);opacity:0;transform:translateX(-30px);pointer-events:none}
+.alb .deck{position:absolute;left:18px;top:250px;width:92px;height:126px;z-index:40;transition:opacity .4s,transform .5s cubic-bezier(.22,1,.36,1);opacity:0;transform:translateX(-30px);pointer-events:none}
 .alb .deck.on{opacity:1;transform:none}
-.alb .deck .dc{position:absolute;inset:0;border-radius:7px;overflow:hidden;background:#1b2230;box-shadow:0 1px 2px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.25);transition:opacity .2s}
-.alb .deck .dc .asl{transform:scale(.6134,.6117);transform-origin:0 0}
-.alb .deck .cnt{position:absolute;left:50%;top:136px;transform:translateX(-50%);font:600 13px "JetBrains Mono",monospace;white-space:nowrap;text-align:center}
+.alb .deck .cnt{position:absolute;left:50%;top:152px;transform:translateX(-50%);font:600 13px "JetBrains Mono",monospace;white-space:nowrap;text-align:center}
 .alb .deck .cnt small{display:block;font:500 11px Inter,sans-serif;color:#7d8794;margin-top:2px}
 /* vyjetá karta */
 .alb .ov{position:absolute;inset:0;z-index:50;background:rgba(5,7,10,.78);backdrop-filter:blur(3px);transition:opacity .35s ease;opacity:0}
@@ -129,6 +131,9 @@
 .alb .rot{position:absolute;inset:0;transform-style:preserve-3d;cursor:grab}
 .alb .rot .fc{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:4.5%/3.3%;overflow:hidden;background:#151a22;box-shadow:0 30px 60px -20px rgba(0,0,0,.9),inset 0 0 0 1.5px rgba(255,255,255,.25)}
 .alb .rot .fc img{width:100%;height:100%;object-fit:contain;display:block}
+.alb .rot .fc.slv{background:none}
+.alb .rot .fc.slv .asl{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit}
+.alb .rot .fc.slv .asl .img{left:4.7%;right:4.7%;top:3.4%;bottom:3.4%;border-radius:3.2%/2.3%}
 .alb .rot .fc.bk{transform:rotateY(180deg)}
 .alb .glare{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.35) 45%,rgba(255,255,255,0) 60%) 0 0/250% 100%}
 .alb .cback{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.05) 0 1px,transparent 1px 9px),repeating-linear-gradient(-45deg,rgba(255,255,255,.05) 0 1px,transparent 1px 9px),linear-gradient(160deg,#2c3a5a,#151c30)}
@@ -178,6 +183,13 @@
 .alb .fly .sring{position:absolute;inset:-5px;border-radius:10px;border:2px solid #fff;box-shadow:0 0 18px rgba(255,255,255,.8),inset 0 0 14px rgba(255,255,255,.5);opacity:0;pointer-events:none}
 .alb .fly .spk{position:absolute;left:50%;top:50%;margin:-9px;font:700 18px/1 sans-serif;font-style:normal;color:#fff2c2;text-shadow:0 0 10px #fff2c2,0 0 18px #ff8bd1;opacity:0}
 .alb .fly.ghost{z-index:44}
+.alb .deck .fly.pl{z-index:auto}
+.alb .flyb{position:absolute;left:0;top:0;width:0;height:0;z-index:46;pointer-events:none}
+.alb .flyb .st{position:absolute;left:0;top:0;width:92px;height:126px;transform-origin:0 0;will-change:transform}
+.alb .flyb .asl{position:absolute;left:0;top:0;transform-origin:0 0;scale:.6134 .6117}
+.alb .asl .sb{display:none;position:absolute;inset:0;z-index:0}
+.alb.rast .asl.own{background:none}
+.alb.rast .asl .sb{display:block;background:var(--slv) 0 0/100% 100%}
 .alb .fly .gfill{position:absolute;inset:14%;border-radius:12px;background:linear-gradient(120deg,#ff8bd1,#7cf2c8,#6ea8ff,#b48cff);filter:blur(16px)}
 .alb .lfx{position:absolute;inset:0;pointer-events:none;z-index:6}
 .alb .lfx .lr{position:absolute;inset:-6px;border-radius:10px;border:3px solid #7cf2c8;box-shadow:0 0 22px #7cf2c8;opacity:0}
