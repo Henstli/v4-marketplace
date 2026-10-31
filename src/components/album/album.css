@@ -102,16 +102,17 @@
 .alb .ce.c1{left:368.7px;top:-0.5px;transform:rotateZ(45deg) rotateX(90deg)}
 .alb .ce.c2{left:368.7px;top:497.5px;transform:rotateZ(-45deg) rotateX(90deg)}
 .alb .csh{position:absolute;inset:0;border-radius:inherit;background:#000;opacity:0;pointer-events:none;z-index:6}
-/* otáčený list: řetěz pruhů, každý se otáčí kolem pravého okraje předchozího */
+/* otáčený list: líc a rub jako dvě pevné plochy, ohyb naznačuje stínování (--cv) */
 .alb .leaf{position:absolute;left:0;top:0;width:360px;height:480px;z-index:5;pointer-events:none}
-.alb .sg{position:absolute;top:0;width:64px;height:480px;transform-origin:left center;transform-style:preserve-3d}
-.alb .sf{position:absolute;left:0;top:0;width:64px;height:480px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.alb .sf.bk{transform:rotateY(180deg);transform-origin:32px 50%}
-.alb .sg5,.alb .sg5>.sf{width:60px}.alb .sg5>.sf.bk{transform-origin:30px 50%}
+.alb .sg{position:absolute;left:0;top:0;width:360px;height:480px;transform-origin:left center;transform-style:preserve-3d}
+.alb .sf{position:absolute;left:0;top:0;width:360px;height:480px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;--sh:0;--cv:0}
+.alb .sf.fr{border-radius:6px 14px 14px 6px}
+.alb .sf.bk{transform:rotateY(180deg);border-radius:14px 6px 6px 14px}
 .alb .sf>.pg{top:0}
-.alb .sg5>.sf.fr{border-radius:0 14px 14px 0}.alb .sg5>.sf.bk{border-radius:14px 0 0 14px}
-.alb .sg0>.sf.fr{border-radius:6px 0 0 6px}.alb .sg0>.sf.bk{border-radius:0 6px 6px 0}
-.alb .ssh{position:absolute;inset:0;pointer-events:none;background:#000;opacity:0;z-index:5;will-change:opacity}
+.alb .ssh{position:absolute;inset:0;pointer-events:none;background:#000;opacity:var(--sh);z-index:5}
+.alb .crv{position:absolute;inset:0;pointer-events:none;z-index:5;opacity:var(--cv)}
+.alb .sf.fr .crv{background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(0,0,0,.05) 22%,rgba(255,255,255,.07) 58%,rgba(0,0,0,.12) 88%,rgba(0,0,0,.2))}
+.alb .sf.bk .crv{background:linear-gradient(270deg,rgba(0,0,0,.28),rgba(0,0,0,.05) 22%,rgba(255,255,255,.07) 58%,rgba(0,0,0,.12) 88%,rgba(0,0,0,.2))}
 /* šipky a ukazatel stran */
 .alb .arr{position:absolute;top:270px;width:48px;height:48px;display:grid;place-items:center;border:1px solid #2a313c;border-radius:50%;background:rgba(18,23,30,.85);color:#e8ecf1;cursor:pointer;transition:background .15s,transform .15s,opacity .2s;z-index:30}
 .alb .arr:hover{background:#1d2530;transform:scale(1.06)}
