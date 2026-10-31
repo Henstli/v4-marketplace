@@ -72,15 +72,41 @@ export function cardsWord(n: number) {
   return n === 1 ? 'karta' : n >= 2 && n <= 4 ? 'karty' : 'karet';
 }
 
-/** Zmenší název na desce, aby se vešel do štítku (data-w = šířka štítku). */
+/** Vejde název do štítku na desce stejně jako v návrzích alb: nejdřív ubírá rozpal písmen, pak velikost písma. */
 export function fitCoverNames(root: ParentNode) {
-  root.querySelectorAll<SVGTextElement>('text.nm[data-w]').forEach((t) => {
-    const w = Number(t.dataset.w), fs = Number(t.dataset.fs);
-    t.setAttribute('font-size', String(fs));
+  root.querySelectorAll<HTMLElement | SVGTextElement>('.nm').forEach((el) => {
     try {
-      const len = t.getComputedTextLength();
-      if (len > w) t.setAttribute('font-size', (fs * w / len).toFixed(2));
-    } catch { /* písmo ještě není */ }
+      if (el instanceof SVGTextElement) {
+        if (!el.dataset.w) return;
+        if (el.dataset.ls0 === undefined) el.dataset.ls0 = String(parseFloat(el.getAttribute('letter-spacing') || '0'));
+        let fs = Number(el.dataset.fs), ls = Number(el.dataset.ls0);
+        const w = Number(el.dataset.w), mid = el.getAttribute('text-anchor') === 'middle';
+        const set = () => {
+          el.setAttribute('font-size', String(fs));
+          if (el.hasAttribute('letter-spacing')) el.setAttribute('letter-spacing', String(ls));
+          if (mid) el.setAttribute('dx', String(ls / 2));
+        };
+        set();
+        el.removeAttribute('textLength'); el.removeAttribute('lengthAdjust');
+        let n = 0;
+        while (el.getComputedTextLength() > w && (fs > 6 || ls > 0) && n++ < 200) {
+          if (ls > 0.3 && ls > fs * 0.1) ls = Math.max(0, ls - 0.5); else if (fs > 6) fs -= 0.5; else ls = 0;
+          set();
+        }
+        if (el.getComputedTextLength() > w) { el.setAttribute('textLength', String(w)); el.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
+      } else {
+        const cs = getComputedStyle(el);
+        if (!el.dataset.fs0) { el.dataset.fs0 = String(parseFloat(cs.fontSize)); el.dataset.ls0 = String(parseFloat(cs.letterSpacing) || 0); }
+        let fs = Number(el.dataset.fs0), ls = Number(el.dataset.ls0), n = 0;
+        const set = () => { el.style.fontSize = fs + 'px'; el.style.letterSpacing = ls + 'px'; el.style.textIndent = ls + 'px'; };
+        set();
+        while (el.scrollWidth > el.clientWidth && (fs > 8 || ls > 0.5) && n++ < 200) {
+          if (ls > 0.5 && ls > fs * 0.08) ls = Math.max(0.5, ls - 0.5); else fs -= 0.5;
+          set();
+        }
+        while (fs > 6 && el.scrollWidth > el.clientWidth && n++ < 400) { fs -= 0.5; set(); }
+      }
+    } catch { /* písmo ještě není nebo prvek není vidět */ }
   });
 }
 
@@ -105,6 +131,7 @@ export class AlbumEngine {
   private stage!: HTMLElement;
   private book!: HTMLElement;
   private cov!: HTMLElement;
+  private spn: HTMLElement | null = null;
   private bl!: HTMLElement;
   private br!: HTMLElement;
   private leafbox!: HTMLElement;
@@ -231,6 +258,7 @@ export class AlbumEngine {
     this.stage = this.root.querySelector('.alb-stage')!;
     this.book = this.root.querySelector('.book')!;
     this.cov = this.root.querySelector('.cov')!;
+    this.spn = this.root.querySelector('.spn');
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
     this.leafbox = this.root.querySelector('.leafbox')!;
@@ -359,6 +387,8 @@ export class AlbumEngine {
     const ca = -180 * cq;
     this.cov.style.transform = `rotateY(${ca.toFixed(2)}deg)`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
+    // hřbet vystupuje jen u otevřeného alba; zavřené vypadá zepředu jako v návrhu
+    if (this.spn) this.spn.style.opacity = clamp(cq * 5, 0, 1).toFixed(3);
     const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
     cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
     cs[1].style.opacity = (0.4 * (1 + c) / 2).toFixed(3);
