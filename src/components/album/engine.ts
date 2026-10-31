@@ -192,7 +192,7 @@ export class AlbumEngine {
   private dead = false;
   private busy = false;
   private pop: { i: number; el: HTMLElement; closing?: boolean } | null = null;
-  private ry = 0; private rx = 0; private w = 0; private vx = 0; private mode: 'free' | 'snap' = 'snap'; private tgt = 0;
+  private ry = 0; private rx = 0; private tilt = { x: 0, y: 0 }; private w = 0; private vx = 0; private mode: 'free' | 'snap' = 'snap'; private tgt = 0;
   private r: { x: number; y: number; ry: number; rx: number; h: Array<[number, number]> } | null = null;
   private sraf = 0;
   private sumPage = 0;
@@ -798,7 +798,7 @@ export class AlbumEngine {
     const wrap = document.createElement('div');
     wrap.innerHTML =
       `<div class="ov"></div><div class="pc" style="left:${from.x}px;top:${from.y}px;width:${from.w}px;height:${from.h}px;transition:none">` +
-      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="glare"></span></div><div class="fc bk slv"><div class="asl rub f-${this.o.sleeve.film}"><svg aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="fm"></span></div></div></div></div>` +
+      `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="gs"></span><span class="glare"></span></div><div class="fc bk slv"><div class="asl rub f-${this.o.sleeve.film}"><svg aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="fm"></span></div></div></div></div>` +
       `<div class="info"><b>${esc(c.name)}</b><span>#${esc(c.number)}${c.setName ? ' · ' + esc(c.setName) : ''}${c.owned > 1 ? ` · ${c.owned} kusy` : ''} · táhni kartou a otáčej s ní</span>` +
       `<div class="btns"><button type="button" class="bt pri" data-a="flip">Otočit kartu</button><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
     wrap.className = 'popw';
@@ -806,7 +806,7 @@ export class AlbumEngine {
     this.pop = { i, el: wrap };
     const kc = this.root.querySelector<HTMLElement>(`.kc[data-c="${i}"]`);
     if (kc) kc.style.opacity = '0';
-    this.ry = 0; this.rx = 0; this.w = 0; this.vx = 0; this.mode = 'snap'; this.tgt = 0;
+    this.ry = 0; this.rx = 0; this.w = 0; this.vx = 0; this.mode = 'snap'; this.tgt = 0; this.tilt = { x: 0, y: 0 };
     const pc = wrap.querySelector<HTMLElement>('.pc')!, ov = wrap.querySelector<HTMLElement>('.ov')!, info = wrap.querySelector<HTMLElement>('.info')!;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       pc.style.transition = '';
@@ -822,6 +822,9 @@ export class AlbumEngine {
     rot.addEventListener('pointermove', (e) => this.rMove(e));
     rot.addEventListener('pointerup', () => this.rUp());
     rot.addEventListener('pointercancel', () => this.rUp());
+    // náklon za kurzorem a holo proužek jako u karet v albu (jen myš, ne při tažení)
+    rot.addEventListener('pointermove', (e) => this.rHover(e));
+    rot.addEventListener('pointerleave', () => this.rHover(null));
   }
 
   closeCard() {
@@ -843,11 +846,11 @@ export class AlbumEngine {
   }
 
   // otáčení vyjeté karty: setrvačnost, na konci pružinou dosedne na líc nebo rub
-  private rot() {
+  private rot(trans = 'none') {
     const el = this.pop?.el.querySelector<HTMLElement>('.rot');
     if (!el) return;
-    el.style.transition = 'none';
-    el.style.transform = `rotateX(${this.rx.toFixed(2)}deg) rotateY(${this.ry.toFixed(2)}deg)`;
+    el.style.transition = trans;
+    el.style.transform = `rotateX(${(this.rx + this.tilt.x).toFixed(2)}deg) rotateY(${(this.ry + this.tilt.y).toFixed(2)}deg)`;
     // líc a rub přepíná kód podle natočení: backface-visibility některé prohlížeče u obrázků nedodrží a ukážou zrcadlový líc
     const front = Math.cos(this.rx * Math.PI / 180) * Math.cos(this.ry * Math.PI / 180) >= 0, fc = el.children;
     (fc[0] as HTMLElement).style.visibility = front ? '' : 'hidden';
@@ -880,10 +883,29 @@ export class AlbumEngine {
     this.sraf = requestAnimationFrame(step);
   }
 
+  private rHover(e: PointerEvent | null) {
+    const p = this.pop;
+    if (!p || p.closing) return;
+    const pc = p.el.querySelector<HTMLElement>('.pc')!;
+    if (!e || this.r || e.pointerType === 'touch') {
+      if (this.tilt.x || this.tilt.y) { this.tilt = { x: 0, y: 0 }; if (!this.sraf) this.rot('transform .45s ease-out'); }
+      pc.classList.remove('hv');
+      return;
+    }
+    const b = pc.getBoundingClientRect(), mx = clamp((e.clientX - b.left) / b.width, 0, 1), my = clamp((e.clientY - b.top) / b.height, 0, 1);
+    // rub se naklání zrcadlově, aby karta pořád „uhýbala“ od kurzoru stejně
+    const back = Math.cos(this.ry * Math.PI / 180) < 0 ? -1 : 1;
+    this.tilt = { x: (0.5 - my) * 16, y: (mx - 0.5) * 16 * back };
+    pc.style.setProperty('--mx', `${(mx * 100).toFixed(1)}%`);
+    pc.classList.toggle('hv', back > 0);
+    if (!this.sraf) this.rot('transform .25s ease-out');
+  }
+
   private rDown(e: PointerEvent) {
     if (!this.pop || this.pop.closing) return;
     e.stopPropagation();
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* nic */ }
+    this.tilt = { x: 0, y: 0 }; this.pop.el.querySelector('.pc')?.classList.remove('hv');
     this.r = { x: e.clientX, y: e.clientY, ry: this.ry, rx: this.rx, h: [[performance.now(), this.ry]] }; this.w = 0; this.vx = 0; this.spin();
   }
 
