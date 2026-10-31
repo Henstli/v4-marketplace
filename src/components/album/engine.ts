@@ -1347,7 +1347,10 @@ export class AlbumEngine {
     const fx = document.createElement('span');
     fx.className = 'lfx';
     fx.innerHTML = '<i class="lr"></i><i class="lr r2"></i><i class="sw"></i>';
-    pk.appendChild(fx);
+    // kruhy leží nad oběma stránkami: v kapse u hřbetu by je jinak ořízla stránka a zakryla druhá strana dvoustrany
+    const r = this.local(pk.getBoundingClientRect());
+    Object.assign(fx.style, { inset: 'auto', left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px`, zIndex: '44' });
+    this.stage.appendChild(fx);
     const [r1, r2, sw] = [...fx.querySelectorAll<HTMLElement>('i')];
     r1.animate([{ opacity: 1, transform: 'scale(.85)' }, { opacity: 0, transform: 'scale(2.7)' }], { duration: 1150, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'forwards' });
     r2.animate([{ opacity: 0.7, transform: 'scale(.85)' }, { opacity: 0, transform: 'scale(1.6)' }], { duration: 1230, delay: 170, easing: 'cubic-bezier(.1,.7,.3,1)', fill: 'both' });
