@@ -800,7 +800,7 @@ export class AlbumEngine {
       `<div class="ov"></div><div class="pc" style="left:${from.x}px;top:${from.y}px;width:${from.w}px;height:${from.h}px;transition:none">` +
       `<div class="rot"><div class="fc slv">${sleeveHTML(this.o.sleeve, img || null, c.name, true)}<span class="gs"></span><span class="glare"></span></div><div class="fc bk slv"><div class="asl rub f-${this.o.sleeve.film}"><svg aria-hidden="true"><use href="#s${this.o.sleeve.id}"></use></svg><span class="fm"></span></div></div></div></div>` +
       `<div class="info"><b>${esc(c.name)}</b><span>#${esc(c.number)}${c.setName ? ' · ' + esc(c.setName) : ''}${c.owned > 1 ? ` · ${c.owned} kusy` : ''} · táhni kartou a otáčej s ní</span>` +
-      `<div class="btns"><button type="button" class="bt pri" data-a="flip">Otočit kartu</button><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
+      `<div class="btns"><a class="bt" href="/karty/${encodeURIComponent(c.slug)}">Detail a nabídky</a>${this.o.onRemove ? '<button type="button" class="bt" data-a="rm">Odebrat kus</button>' : ''}<button type="button" class="bt" data-a="close">Zpět do alba</button></div></div>`;
     wrap.className = 'popw';
     this.stage.appendChild(wrap);
     this.pop = { i, el: wrap };
@@ -815,7 +815,6 @@ export class AlbumEngine {
     }));
     ov.addEventListener('click', () => this.closeCard());
     wrap.querySelector('[data-a="close"]')!.addEventListener('click', () => this.closeCard());
-    wrap.querySelector('[data-a="flip"]')!.addEventListener('click', () => this.flipCard());
     wrap.querySelector('[data-a="rm"]')?.addEventListener('click', () => { this.closeCard(); this.o.onRemove?.(c, i); });
     const rot = wrap.querySelector<HTMLElement>('.rot')!;
     rot.addEventListener('pointerdown', (e) => this.rDown(e));
@@ -935,11 +934,6 @@ export class AlbumEngine {
     this.w = dt > 0.008 && fresh ? clamp((b[1] - a[1]) / dt, -2600, 2600) : 0;
     if (Math.abs(this.w) > 260) this.mode = 'free'; else { this.mode = 'snap'; this.tgt = Math.round(this.ry / 180) * 180; }
     this.spin();
-  }
-
-  private flipCard() {
-    if (!this.pop || this.pop.closing) return;
-    this.mode = 'snap'; this.tgt = Math.round(this.ry / 180) * 180 + 180; this.spin();
   }
 
   // ---------- plnění z hromádky (1B, 2B, 2C, 3B) ----------
