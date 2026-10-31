@@ -1,0 +1,55 @@
+-- Výkon: auth.uid() v pravidlech RLS se vyhodnocoval pro každý řádek zvlášť (Supabase lint auth_rls_initplan).
+-- (select auth.uid()) se spočítá jednou za dotaz. Kdo co vidí, se nemění: výrazy jsou jinak stejné.
+alter policy "omezení vidí správci a dotčený" on public.account_restrictions using ((is_admin() OR (user_id = (select auth.uid()))));
+alter policy "adresu maže majitel" on public.buyer_addresses using ((user_id = (select auth.uid())));
+alter policy "adresu mění majitel" on public.buyer_addresses using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+alter policy "adresu ukládá majitel" on public.buyer_addresses with check ((user_id = (select auth.uid())));
+alter policy "adresu vidí majitel" on public.buyer_addresses using ((user_id = (select auth.uid())));
+alter policy "nový návrh" on public.card_submissions with check (((submitted_by = (select auth.uid())) AND (status = 'pending'::submission_status) AND (card_id IS NULL) AND (reviewed_at IS NULL) AND (game_id = 'sport'::text) AND (image_path ~~ (((select auth.uid()))::text || '/%'::text))));
+alter policy "vlastní návrhy a správce" on public.card_submissions using (((submitted_by = (select auth.uid())) OR is_admin()));
+alter policy "vlastní hlídání" on public.card_watches using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+alter policy "do osy píšou správci" on public.case_events with check ((is_admin() AND mfa_ok() AND (author_id = (select auth.uid())) AND (kind = ANY (ARRAY['note'::text, 'email'::text, 'event'::text]))));
+alter policy "svoje přečtení" on public.case_reads using (((staff_id = (select auth.uid())) AND is_admin()));
+alter policy "svoje přečtení mění" on public.case_reads using ((staff_id = (select auth.uid()))) with check (((staff_id = (select auth.uid())) AND is_admin()));
+alter policy "svoje přečtení zapisuje" on public.case_reads with check (((staff_id = (select auth.uid())) AND is_admin()));
+alter policy "svůj čas upravuje správce" on public.case_time using ((is_admin() AND (staff_id = (select auth.uid())))) with check ((is_admin() AND (staff_id = (select auth.uid()))));
+alter policy "svůj čas zapisuje správce" on public.case_time with check ((is_admin() AND mfa_ok() AND (staff_id = (select auth.uid()))));
+alter policy "collection_album_cards own" on public.collection_album_cards using ((EXISTS ( SELECT 1 FROM collection_albums a WHERE ((a.id = collection_album_cards.album_id) AND (a.user_id = (select auth.uid())))))) with check ((EXISTS ( SELECT 1 FROM collection_albums a WHERE ((a.id = collection_album_cards.album_id) AND (a.user_id = (select auth.uid()))))));
+alter policy "collection_albums own" on public.collection_albums using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+alter policy "collection_cards own" on public.collection_cards using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+alter policy "nahlášení vidí autor nahlášení a tým" on public.content_reports using (((reporter_id = (select auth.uid())) OR is_admin()));
+alter policy "konverzace účastníků" on public.conversations using ((((select auth.uid()) = user_a) OR ((select auth.uid()) = user_b)));
+alter policy "vlastní nabídky" on public.listings using (((select auth.uid()) = seller_id)) with check (((select auth.uid()) = seller_id));
+alter policy "vystavit jen s dopravou a platbou" on public.listings with check (COALESCE(seller_ready((select auth.uid())), false));
+alter policy "zprávy účastníků" on public.messages using ((EXISTS ( SELECT 1 FROM conversations c WHERE ((c.id = messages.conversation_id) AND (((select auth.uid()) = c.user_a) OR ((select auth.uid()) = c.user_b))))));
+alter policy "doručení vidí kupující a prodejce po potvrzení" on public.order_delivery using ((EXISTS ( SELECT 1 FROM orders o WHERE ((o.id = order_delivery.order_id) AND ((o.buyer_id = (select auth.uid())) OR ((o.seller_id = (select auth.uid())) AND (o.status = ANY (ARRAY['confirmed'::order_status, 'pending_payment'::order_status, 'paid'::order_status, 'shipped'::order_status, 'delivered'::order_status]))))))));
+alter policy "položky účastníků" on public.order_items using ((EXISTS ( SELECT 1 FROM orders o WHERE ((o.id = order_items.order_id) AND (((select auth.uid()) = o.buyer_id) OR ((select auth.uid()) = o.seller_id))))));
+alter policy "objednávky účastníků" on public.orders using ((((select auth.uid()) = buyer_id) OR ((select auth.uid()) = seller_id)));
+alter policy "návrhy účastníků" on public.price_offers using ((((select auth.uid()) = buyer_id) OR ((select auth.uid()) = seller_id)));
+alter policy "vlastní profil" on public.profiles using (((select auth.uid()) = id));
+alter policy "hlášení vidí strany a správci" on public.reports using (((((select auth.uid()) = reporter_id) OR ((select auth.uid()) = against_id)) OR is_admin()));
+alter policy "hodnotí kupující" on public.reviews with check ((EXISTS ( SELECT 1 FROM orders o WHERE ((o.id = reviews.order_id) AND (o.buyer_id = (select auth.uid())) AND ((o.status = 'delivered'::order_status) OR ((o.status = 'cancelled'::order_status) AND (o.buyer_paid_at IS NOT NULL) AND (NOT o.cancel_agreed)))))));
+alter policy "vlastní účet" on public.seller_payment using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+alter policy "vlastní platební aplikace" on public.seller_payment_apps using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+alter policy "ceník maže prodejce" on public.seller_shipping_methods using ((seller_id = (select auth.uid())));
+alter policy "ceník mění prodejce" on public.seller_shipping_methods with check ((seller_id = (select auth.uid())));
+alter policy "ceník upravuje prodejce" on public.seller_shipping_methods using ((seller_id = (select auth.uid()))) with check ((seller_id = (select auth.uid())));
+alter policy "vlastní koncept zahození" on public.shop_page_drafts using (((select auth.uid()) = user_id));
+alter policy "vlastní koncept zápis" on public.shop_page_drafts with check (((select auth.uid()) = user_id));
+alter policy "vlastní koncept úprava" on public.shop_page_drafts using (((select auth.uid()) = user_id)) with check (((select auth.uid()) = user_id));
+alter policy "vlastní koncept čtení" on public.shop_page_drafts using (((select auth.uid()) = user_id));
+alter policy "vlastní stránka zápis" on public.shop_pages with check (((select auth.uid()) = user_id));
+alter policy "vlastní stránka úprava" on public.shop_pages using (((select auth.uid()) = user_id)) with check (((select auth.uid()) = user_id));
+alter policy "vlastní předplatné a správce" on public.subscriptions using (((user_id = (select auth.uid())) OR is_admin()));
+alter policy "chat týmu čte tým" on public.team_messages using ((is_admin() AND ((room = 'team'::text) OR (POSITION((((select auth.uid()))::text) IN (room)) > 0))));
+alter policy "do chatu týmu píše tým" on public.team_messages with check ((is_admin() AND mfa_ok() AND (sender_id = (select auth.uid())) AND ((room = 'team'::text) OR (POSITION((((select auth.uid()))::text) IN (room)) > 0))));
+alter policy "svoje přečtení chatu" on public.team_reads using (((staff_id = (select auth.uid())) AND is_admin()));
+alter policy "svoje přečtení chatu mění" on public.team_reads using ((staff_id = (select auth.uid()))) with check (((staff_id = (select auth.uid())) AND is_admin()));
+alter policy "svoje přečtení chatu zapisuje" on public.team_reads with check (((staff_id = (select auth.uid())) AND is_admin()));
+alter policy "vlastní zařízení" on public.trusted_devices using ((user_id = (select auth.uid())));
+alter policy "poznámky k uživatelům mění tým" on public.user_notes using (is_admin()) with check ((is_admin() AND mfa_ok() AND (updated_by = (select auth.uid()))));
+alter policy "poznámky k uživatelům píše tým" on public.user_notes with check ((is_admin() AND mfa_ok() AND (updated_by = (select auth.uid()))));
+alter policy "vlastní upozornění" on public.watch_alerts using ((user_id = (select auth.uid()))) with check ((user_id = (select auth.uid())));
+
+-- „Mám ji“ na detailu karty hledá vlastní alba podle karty
+create index if not exists collection_album_cards_card_idx on public.collection_album_cards (card_id);

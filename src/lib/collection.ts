@@ -240,15 +240,17 @@ export async function albumsForCard(cardId: string): Promise<{
     supabase.from('collection_album_cards').select('album_id').eq('card_id', cardId).returns<Array<{ album_id: string }>>(),
   ]);
   const inC = new Set((inCustom ?? []).map((r) => r.album_id));
+  // pozice karty v sadě je pro všechna alba té sady stejná: jeden dotaz, ne jeden za každé album
+  let setPos: number | null = null;
+  if ((albums ?? []).some((a) => a.kind === 'set' && a.set_id === card.set_id)) {
+    const { data: nums } = await supabase.from('cards').select('number').eq('set_id', card.set_id).eq('hidden', false).limit(1000)
+      .returns<Array<{ number: string }>>();
+    const sorted = (nums ?? []).map((n) => n.number).sort(compareCardNumbers);
+    setPos = sorted.indexOf(card.number) + 1 || null;
+  }
   const out = [];
   for (const a of albums ?? []) {
-    let position: number | null = null;
-    if (a.kind === 'set' && a.set_id === card.set_id) {
-      const { data: nums } = await supabase.from('cards').select('number').eq('set_id', a.set_id).eq('hidden', false).limit(1000)
-        .returns<Array<{ number: string }>>();
-      const sorted = (nums ?? []).map((n) => n.number).sort(compareCardNumbers);
-      position = sorted.indexOf(card.number) + 1 || null;
-    }
+    const position = a.kind === 'set' && a.set_id === card.set_id ? setPos : null;
     out.push({
       id: a.id, name: a.name, design: a.design, kind: a.kind,
       fits: a.kind === 'custom' || a.set_id === card.set_id,

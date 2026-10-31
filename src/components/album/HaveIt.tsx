@@ -5,8 +5,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { addCards, cardAlbums } from '@/app/kolekce/actions';
 import { Button, PlusIcon } from '@/components/trezor';
-import { AlbumBook } from './AlbumBook';
 import s from './HaveIt.module.css';
+import dynamic from 'next/dynamic';
+
+// vzhledy alb (~18 kB) se stáhnou až při otevření nabídky, ne se stránkou karty
+const AlbumBook = dynamic(() => import('./AlbumBook').then((m) => m.AlbumBook), { ssr: false });
 
 type Albums = NonNullable<Awaited<ReturnType<typeof cardAlbums>>>;
 
