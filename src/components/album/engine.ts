@@ -399,6 +399,22 @@ export class AlbumEngine {
     return L.join(',');
   }
 
+  /**
+   * Pořadí otáčených listů na plátně (záporné = a se kreslí pod b). Na stejné polovině leží výš list,
+   * který tam dopadl později. Když je každý list na jiné polovině, leží výš ten, který už je na své
+   * cílové straně. Polovinu určuje střed ohnutého listu, ne úhel u hřbetu: jinak se pořadí přehodilo
+   * ve chvíli, kdy se listy ještě překrývaly, a jeden z nich na chvíli zmizel.
+   */
+  private stackCmp(ia: number, fa: Leaf, ib: number, fb: Leaf) {
+    // na kterou polovinu list opravdu padá, určuje jeho střed: zahnutý okraj ho při letu táhne daleko za úhel u hřbetu
+    const mid = (f: Leaf) => f.q - Math.sin(Math.PI * clamp(f.q, 0, 1)) * (13 + 9 * Math.abs(clamp(f.v * 0.35, -1, 1))) * f.bs * 2.025 / 180;
+    const la = mid(fa) >= 0.5, lb = mid(fb) >= 0.5;
+    if (la === lb) return la ? ia - ib : ib - ia;
+    const ha = la === (fa.tq === 1), hb = lb === (fb.tq === 1);
+    if (ha !== hb) return ha ? 1 : -1;
+    return (la ? 50 + ia : 50 - ia) - (lb ? 50 + ib : 50 - ib);
+  }
+
   private apply() {
     const f0 = this.F[0];
     const cq = f0 ? f0.q : (this.side[0] === 'L' ? 1 : 0);
@@ -418,7 +434,7 @@ export class AlbumEngine {
     this.book.style.transform = `translateX(${(-180 * Math.max(0, 1 - Math.min(1.04, cq))).toFixed(1)}px)`;
     const m = this.moving().filter((i) => i > 0);
     const ls = m.map((i) => ({ i, f: this.F[i] })).filter((x) => x.f)
-      .sort((a, b) => (a.f.q < 0.5 ? 50 - a.i : 50 + a.i) - (b.f.q < 0.5 ? 50 - b.i : 50 + b.i));
+      .sort((a, b) => this.stackCmp(a.i, a.f, b.i, b.f));
     this.lc.draw(ls.map(({ i, f }) => ({ front: this.pageSpec(i, false), back: this.pageSpec(i, true), q: f.q, v: f.v, bs: f.bs, ls: f.ls })));
     let lA = 0, rA = 0;
     for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
