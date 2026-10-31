@@ -486,12 +486,12 @@ export class AlbumEngine {
     const inv = `scale3d(${iv},${iv},${this.dz.toFixed(6)})`;
     this.cov.style.transform = flat || shut ? `scale(${iv})` : `translateX(${this.hx.toFixed(4)}px) rotateY(${ca.toFixed(2)}deg) translateX(${(-this.hx).toFixed(4)}px) ${inv}`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
-    // hřbet je vidět až zevnitř otevřeného alba (při otevírání se z vnějšku neukazuje)
-    // vnitřek dvoustrany: zavřené album ukazuje jen zadní desku (od 7 px za osou), při otvírání se plynule odkryje pruh hřbetu
-    // (14 px před osou, zakryje spáru u otáčené desky), otevřené v klidu celé
+    // vnitřek dvoustrany: zavřené album v klidu ukazuje jen zadní desku (od 7 px za osou). Jakmile se deska zvedne,
+    // odkryje se i pruh mezi osou a zadní deskou (jinak by v něm byla vidět mezera) a od půlky otáčení pruh hřbetu
+    // 14 px před osou, který zakryje spáru u otáčené desky. Otevřené album v klidu je vidět celé.
     if (this.spr) {
-      const l = 381 - 21 * clamp((cq - 0.5) * 4, 0, 1);
-      this.spr.style.clipPath = flat ? '' : `inset(-60px -90px -130px ${l.toFixed(2)}px)`;
+      const x = shut ? 7 : 7 - 5 * clamp(cq / 0.06, 0, 1) - 16 * clamp((cq - 0.5) * 4, 0, 1);
+      this.spr.style.clipPath = flat ? '' : `inset(-60px -90px -130px ${(x + 374).toFixed(2)}px)`;
     }
     const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
     cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
