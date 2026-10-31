@@ -759,7 +759,15 @@ export class AlbumEngine {
     let to = f.q > 0.5 ? 1 : 0;
     if (vq > 1.1 || (moved > 0.15 && vq > 0.35)) to = 1;
     if (vq < -1.1 || (moved < -0.15 && vq < -0.35)) to = 0;
-    this.flip(g.i!, to, { spring: true, cover: g.i === 0, v: clamp(vq, -6, 6) });
+    // dotočení po puštění: pevná délka jako u šipek, rozjezd navazuje na rychlost prstu (Hermite). Pružina dřív
+    // dobíhala posledních ~10 % skoro sekundu a karty šly kliknout až po jejím úplném zastavení.
+    const dist = Math.abs(to - f.q);
+    if (dist < 0.002) { this.flip(g.i!, to, { dur: 1, ease: (p) => p }); return; }
+    const vt = clamp(vq, -6, 6) * Math.sign(to - f.q);
+    let dur = (g.i === 0 ? 1150 : 900) * Math.max(0.35, dist);
+    if (vt > 0) dur = Math.max(160, Math.min(dur, (2.5 * dist / vt) * 1000));
+    const m0 = clamp(vt * dur / 1000 / dist, -1, 2.5);
+    this.flip(g.i!, to, { dur, ease: (p) => m0 * (p * p * p - 2 * p * p + p) + (3 * p * p - 2 * p * p * p) });
   }
 
   // ---------- vyjetí karty (klik na kartu v albu) ----------
