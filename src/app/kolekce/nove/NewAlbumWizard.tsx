@@ -197,7 +197,7 @@ export function NewAlbumWizard() {
           <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
           <div className={s.prevSl}>
             <Sleeve sleeve={look.sleeve} image={tray[0]?.image ?? cards?.find((c) => picked.has(c.id))?.image ?? null} scale={0.55} />
-            <Sleeve sleeve={look.sleeve} image={tray[1]?.image ?? null} scale={0.45} />
+            <Sleeve sleeve={look.sleeve} image={null} scale={0.55} back />
           </div>
           <h3>{look.name || 'Moje album'}</h3>
           <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
