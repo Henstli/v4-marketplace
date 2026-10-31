@@ -423,7 +423,8 @@ export class AlbumEngine {
     let lA = 0, rA = 0;
     for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
     const el = this.bl.querySelector<HTMLElement>('.edg'), er = this.br.querySelector<HTMLElement>('.edg');
-    const hl = !this.bl.querySelector('.pg:not(.none)'), hr = !this.br.querySelector('.pg:not(.none)');
+    // vnitřek desky (.ins) není strana: pod ním není blok stran ani jeho vržený stín
+    const hl = !this.bl.querySelector('.pg:not(.none):not(.ins)'), hr = !this.br.querySelector('.pg:not(.none):not(.ins)');
     const m0 = m.length ? this.F[m[0]].q : null, m1 = m.length ? this.F[m[m.length - 1]].q : null;
     // prázdná strana (vnitřek desky): vržený stín bloku přibývá už během dopadu prvního listu, ne až po dosednutí
     const drop = (a: number) => (a > 0.001 ? `0 40px 70px -28px rgba(0,0,0,${clamp(a, 0, 1).toFixed(3)})` : 'none');
