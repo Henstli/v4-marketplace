@@ -148,6 +148,7 @@ export class AlbumEngine {
   private book!: HTMLElement;
   private cov!: HTMLElement;
   private spn: HTMLElement | null = null;
+  private lsh: HTMLElement | null = null;
   private bl!: HTMLElement;
   private br!: HTMLElement;
   private leafbox!: HTMLElement;
@@ -264,7 +265,7 @@ export class AlbumEngine {
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
       `<span class="spn"></span><span class="brd"${d.glow ? ` style="box-shadow:0 0 34px ${d.glow}55,0 40px 60px -24px #000"` : ''}></span>` +
-      `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="csh"></span></div>` +
+      `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="lsh"></span><span class="csh"></span></div>` +
       `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
       `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
@@ -275,6 +276,7 @@ export class AlbumEngine {
     this.book = this.root.querySelector('.book')!;
     this.cov = this.root.querySelector('.cov')!;
     this.spn = this.root.querySelector('.spn');
+    this.lsh = this.root.querySelector('.cf.in .lsh');
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
     this.leafbox = this.root.querySelector('.leafbox')!;
@@ -393,7 +395,7 @@ export class AlbumEngine {
       const x = T * k / C;
       L.push(`${(sx * (x - 1)).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 30%,#000)`, `${(sx * x).toFixed(2)}px ${(x * 0.2).toFixed(2)}px 0 color-mix(in srgb,var(--page) 72%,#000)`);
     }
-    L.push('0 40px 70px -28px #000');
+    L.push('0 40px 70px -28px #000');  // vržený stín bloku
     return L.join(',');
   }
 
@@ -422,7 +424,11 @@ export class AlbumEngine {
     for (let i = 1; i < this.NL; i++) { const f = this.F[i], q = f ? clamp(f.q, 0, 1) : (this.side[i] === 'L' ? 1 : 0); lA += q; rA += 1 - q; }
     const el = this.bl.querySelector<HTMLElement>('.edg'), er = this.br.querySelector<HTMLElement>('.edg');
     const hl = !this.bl.querySelector('.pg:not(.none)'), hr = !this.br.querySelector('.pg:not(.none)');
-    const sl0 = hl ? 'none' : this.edgeShadow((lA - 1) * this.edgeK, -1), sr0 = hr ? 'none' : this.edgeShadow((rA - 1) * this.edgeK, 1);
+    const m0 = m.length ? this.F[m[0]].q : null, m1 = m.length ? this.F[m[m.length - 1]].q : null;
+    // prázdná strana (vnitřek desky): vržený stín bloku přibývá už během dopadu prvního listu, ne až po dosednutí
+    const drop = (a: number) => (a > 0.001 ? `0 40px 70px -28px rgba(0,0,0,${clamp(a, 0, 1).toFixed(3)})` : 'none');
+    const sl0 = hl ? (m0 === null ? 'none' : drop(m0 * m0)) : this.edgeShadow((lA - 1) * this.edgeK, -1);
+    const sr0 = hr ? (m1 === null ? 'none' : drop((1 - m1) * (1 - m1))) : this.edgeShadow((rA - 1) * this.edgeK, 1);
     if (el && sl0 !== this.lastEdge[0]) { el.style.boxShadow = sl0; this.lastEdge[0] = sl0; }
     if (er && sr0 !== this.lastEdge[1]) { er.style.boxShadow = sr0; this.lastEdge[1] = sr0; }
     const sl = this.bl.querySelector<HTMLElement>('.shade'), sr = this.br.querySelector<HTMLElement>('.shade');
@@ -430,6 +436,8 @@ export class AlbumEngine {
     // stín, který list vrhá na stranu pod sebou: čím blíž list je, tím tmavší (plynule až do zakrytí, bez zesvětlení na konci)
     const sh = (x: number) => (0.45 * clamp(x, 0, 1) ** 2).toFixed(3);
     if (sl) sl.style.opacity = qMinL === null ? '0' : sh(qMinL);
+    // na začátku alba leží vlevo vnitřek přední desky: stín listu dopadá na prohlubeň, kam list dosedne (okraje desky zůstanou)
+    if (this.lsh) this.lsh.style.opacity = hl && cq >= 1 && qMinL !== null ? sh(qMinL) : '0';
     if (sr) sr.style.opacity = qMaxR === null ? '0' : sh(1 - qMaxR);
   }
 
