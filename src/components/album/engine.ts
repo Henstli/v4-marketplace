@@ -4,6 +4,23 @@ import { coverDeco, type AlbumDesign, type SleeveDesign } from '@/lib/album/desi
 import { thumbUrl } from '@/lib/images';
 import { LeafCanvas, gutterImage, type PageSpec } from './leafCanvas';
 
+// velikosti vrstev potahu: vrstva s vlastní velikostí ("… / 4px 4px") ji drží, ostatní se roztáhnou přes dvoustranu
+function liningSizes(bg: string): string {
+  const layers: string[] = [];
+  let depth = 0, cur = '';
+  for (const ch of bg) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) { layers.push(cur); cur = ''; } else cur += ch;
+  }
+  layers.push(cur);
+  return layers.map((l) => {
+    let d = 0, slash = -1;
+    for (let i = 0; i < l.length; i++) { const c = l[i]; if (c === '(') d++; else if (c === ')') d--; else if (c === '/' && d === 0) slash = i; }
+    return slash >= 0 ? l.slice(slash + 1).trim() : '752px 504px';
+  }).join(', ');
+}
+
 export interface EngineCard {
   id: string;
   slug: string;
@@ -147,7 +164,7 @@ export class AlbumEngine {
   private stage!: HTMLElement;
   private book!: HTMLElement;
   private cov!: HTMLElement;
-  private spn: HTMLElement | null = null;
+  private spr: HTMLElement | null = null;
   private lsh: HTMLElement | null = null;
   private bl!: HTMLElement;
   private br!: HTMLElement;
@@ -262,8 +279,8 @@ export class AlbumEngine {
     this.root.style.setProperty('--page', d.page);
     this.root.style.setProperty('--lining', d.lining);
     this.root.style.setProperty('--mat', d.mat);
-    // vnitřek přední desky má potah zrcadlově k zadní desce, aby u hřbetu barvy plynule navazovaly
-    this.root.style.setProperty('--lining-m', d.lining.replace(/(-?\d+(?:\.\d+)?)deg/g, (_m: string, a: string) => `${360 - Number(a)}deg`));
+    // velikost potahu: vzor s vlastní velikostí (např. tečky 4 px) ji drží, přechod se roztáhne přes celou dvoustranu
+    this.root.style.setProperty('--lining-sz', liningSizes(d.lining));
     this.root.style.setProperty('--pocket', d.pocket);
     this.root.style.setProperty('--empty', d.empty);
     this.root.style.setProperty('--edge', 'rgba(0,0,0,.55)');
@@ -271,9 +288,9 @@ export class AlbumEngine {
     const arrow = (dir: string) => `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir}"></path></svg>`;
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
-      `<span class="bsh"></span><span class="brd"${d.glow ? ` style="--glw:0 0 34px ${d.glow}55,"` : ''}></span>` +
+      `<span class="spr"${d.glow ? ` style="--glw:0 0 34px ${d.glow}55,"` : ''}></span>` +
       `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="lsh"></span><span class="csh"></span></div>` +
-      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div><span class="spn"></span>` +
+      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
       `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
       `<button type="button" class="arr nx" aria-label="Další strana">${arrow('M8.5 5 L14.5 11 L8.5 17')}</button>` +
@@ -282,7 +299,7 @@ export class AlbumEngine {
     this.stage = this.root.querySelector('.alb-stage')!;
     this.book = this.root.querySelector('.book')!;
     this.cov = this.root.querySelector('.cov')!;
-    this.spn = this.root.querySelector('.spn');
+    this.spr = this.root.querySelector('.spr');
     this.lsh = this.root.querySelector('.cf.in .lsh');
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
@@ -467,11 +484,15 @@ export class AlbumEngine {
     const ss = this.ss, iv = (1 / ss).toFixed(6);
     // zmenšit i hloubku (scale3d), jinak by se posun translateZ uvnitř zvětšené desky násobil a deska by po dokončení otáčení poskočila
     const inv = `scale3d(${iv},${iv},${this.dz.toFixed(6)})`;
-    this.book.classList.toggle('open', flat);
     this.cov.style.transform = flat || shut ? `scale(${iv})` : `translateX(${this.hx.toFixed(4)}px) rotateY(${ca.toFixed(2)}deg) translateX(${(-this.hx).toFixed(4)}px) ${inv}`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
     // hřbet je vidět až zevnitř otevřeného alba (při otevírání se z vnějšku neukazuje)
-    if (this.spn) this.spn.style.opacity = clamp((cq - 0.5) * 4, 0, 1).toFixed(3);
+    // vnitřek dvoustrany: zavřené album ukazuje jen zadní desku (od 7 px za osou), při otvírání se plynule odkryje pruh hřbetu
+    // (14 px před osou, zakryje spáru u otáčené desky), otevřené v klidu celé
+    if (this.spr) {
+      const l = 381 - 21 * clamp((cq - 0.5) * 4, 0, 1);
+      this.spr.style.clipPath = flat ? '' : `inset(-60px -90px -130px ${l.toFixed(2)}px)`;
+    }
     const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
     cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
     cs[1].style.opacity = (0.4 * (1 + c) / 2).toFixed(3);
