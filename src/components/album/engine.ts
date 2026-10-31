@@ -847,10 +847,12 @@ export class AlbumEngine {
     // přesun .pc trvá 0,58 s (s mírným přejetím); po jeho doběhnutí se vracející karta prolne s kartou v kapse,
     // aby nepobliklo to, co v kapse leží přes kartu (stín hřbetu u středu alba)
     setTimeout(() => {
-      if (kc) { kc.style.transition = 'opacity .2s'; kc.style.opacity = ''; }
+      // karta v kapse se ukáže hned celá (je pod vracející se kartou) a prolíná se jen horní karta; kdyby mizely
+      // obě naráz, prosvítala by na chvíli světlá strana a karta by problikla
+      if (kc) kc.style.opacity = '';
       pc.style.transition = 'opacity .2s'; pc.style.opacity = '0';
     }, 590);
-    setTimeout(() => { p.el.remove(); if (kc) kc.style.transition = ''; this.pop = null; this.ry = 0; this.rx = 0; this.w = 0; }, 820);
+    setTimeout(() => { p.el.remove(); this.pop = null; this.ry = 0; this.rx = 0; this.w = 0; }, 820);
   }
 
   // otáčení vyjeté karty: setrvačnost, na konci pružinou dosedne na líc nebo rub
