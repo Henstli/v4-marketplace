@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef } from 'react';
 import { albumDesign, sleeveDesign } from '@/lib/album/designs';
-import { coverHTML, fitCoverNames, sleeveHTML } from './engine';
+import { coverHTML, fitCoverNames, sleeveBackHTML, sleeveHTML } from './engine';
 import './album.css';
 
 /** Zavřené album naplocho podle desky Design album (police, výběr vzhledu). scale zmenší album 168 × 210. */
@@ -27,13 +27,13 @@ export function AlbumBook({ design, name, scale = 1, lift, hover }: { design: nu
   );
 }
 
-/** Obal s kartou (150 × 206, scale zmenší). */
-export function Sleeve({ sleeve, image, alt = '', scale = 1 }: { sleeve: number; image: string | null; alt?: string; scale?: number }) {
+/** Obal s kartou (150 × 206, scale zmenší); back = obal zezadu bez karty. */
+export function Sleeve({ sleeve, image, alt = '', scale = 1, back }: { sleeve: number; image: string | null; alt?: string; scale?: number; back?: boolean }) {
   return (
     <div style={{ width: 150 * scale, height: 206 * scale, position: 'relative', flex: 'none' }}>
       <div
         style={{ position: 'absolute', left: 0, top: 0, transform: `scale(${scale})`, transformOrigin: '0 0' }}
-        dangerouslySetInnerHTML={{ __html: sleeveHTML(sleeveDesign(sleeve), image, alt) }}
+        dangerouslySetInnerHTML={{ __html: back ? sleeveBackHTML(sleeveDesign(sleeve)) : sleeveHTML(sleeveDesign(sleeve), image, alt) }}
       />
     </div>
   );
