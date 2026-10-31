@@ -95,7 +95,7 @@
 .alb .cf.out{transform:translateZ(3.5px);overflow:hidden;box-shadow:0 30px 50px -20px rgba(0,0,0,.8)}
 .alb .cf.out .acv{transform:scale(2.2381,2.4);transform-origin:0 0;border-radius:4px 12px 12px 4px}
 .alb .cf.in{transform:rotateY(180deg) translateZ(3.5px);border-radius:27px 9px 9px 27px/29px 10px 10px 29px;background:var(--lining);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),-2px 3px 0 var(--edge),-4px 6px 0 rgba(0,0,0,.5),0 30px 50px -20px rgba(0,0,0,.8)}
-.alb .cf.in::before{content:"";position:absolute;left:14px;top:12px;right:2px;bottom:12px;border-radius:14px 6px 6px 14px;background:linear-gradient(rgba(0,0,0,.13),rgba(0,0,0,.13)),var(--lining);box-shadow:inset 0 2px 5px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.1)}
+.alb .cf.in::before{content:"";position:absolute;left:15px;top:13px;right:3px;bottom:13px;border-radius:14px 6px 6px 14px;background:linear-gradient(rgba(0,0,0,.13),rgba(0,0,0,.13)),var(--lining);box-shadow:inset 0 2px 5px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.1)}
 .alb .cf.in::after{content:"";position:absolute;left:6px;top:5px;right:-2px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-right:none;border-radius:22px 0 0 22px/24px 0 0 24px}
 .alb .cov.flat{transform-style:flat}.alb .cov.flat .cf.out,.alb .cov.flat .ce{display:none}
 /* naplocho se stejnou velikostí jako ve 3D (deska leží 3,5 px blíž k divákovi, perspektiva 1800 px → zvětšení 1800/1796,5) */
@@ -107,7 +107,7 @@
 .alb .ce.cr{left:0;top:0;height:8px;transform-origin:50% 50%}
 .alb .ce.et{left:9px;top:-3.5px;width:340px;height:8px;transform:rotateX(90deg)}
 .alb .ce.eb{left:9px;top:499.5px;width:340px;height:8px;transform:rotateX(90deg)}
-.alb .cf.in .lsh{position:absolute;left:14px;top:12px;right:2px;bottom:12px;border-radius:14px 6px 6px 14px;background:#000;opacity:0;pointer-events:none;z-index:5}
+.alb .cf.in .lsh{position:absolute;left:15px;top:13px;right:3px;bottom:13px;border-radius:14px 6px 6px 14px;background:#000;opacity:0;pointer-events:none;z-index:5}
 .alb .csh{position:absolute;inset:0;border-radius:inherit;background:#000;opacity:0;pointer-events:none;z-index:6}
 /* otáčené listy kreslí plátno (leafCanvas.ts) */
 .alb .lcv{position:absolute;pointer-events:none}
