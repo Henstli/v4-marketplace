@@ -111,6 +111,7 @@ export class LeafCanvas {
   private sized = false;
   private tex = new Map<string, HTMLCanvasElement>();
   private imgs = new Map<string, HTMLImageElement>();
+  private ok = new Set<string>();
   private sleeve: HTMLImageElement | null = null;
   private onReady: () => void;
   // posun mřížky plátna proti pixelům obrazovky (aby list v klidu seděl na pixel přesně jako strana v DOM)
@@ -133,7 +134,8 @@ export class LeafCanvas {
   /** Vzor obalu (rastrovaný obrázek). Do té doby se karta kreslí bez obalu. */
   setSleeve(url: string) {
     const im = new Image();
-    im.onload = () => { this.sleeve = im; this.tex.clear(); this.onReady(); };
+    const done = () => { this.sleeve = im; this.tex.clear(); this.onReady(); };
+    im.onload = () => { im.decode().then(done, done); };
     im.src = url;
   }
 
@@ -175,14 +177,24 @@ export class LeafCanvas {
   private image(src: string) {
     let im = this.imgs.get(src);
     if (!im) {
-      im = new Image();
-      im.decoding = 'async';
-      im.onload = () => { this.tex.clear(); this.onReady(); };
-      im.src = src;
-      this.imgs.set(src, im);
+      const el = im = new Image();
+      el.decoding = 'async';
+      // obrázek se použije až dekódovaný mimo hlavní vlákno (jinak ho drawImage dekóduje uprostřed animace a list se zasekne)
+      // a zahodí se jen strany s tímto obrázkem, ne všechny připravené
+      const done = () => {
+        this.ok.add(src);
+        for (const k of [...this.tex.keys()]) if (k.includes(src)) this.tex.delete(k);
+        this.onReady();
+      };
+      el.onload = () => { el.decode().then(done, done); };
+      el.src = src;
+      this.imgs.set(src, el);
     }
-    return im.complete && im.naturalWidth ? im : null;
+    return this.ok.has(src) && im.naturalWidth ? im : null;
   }
+
+  /** Stáhne a dekóduje obrázky strany dopředu (bez kreslení), aby byly hotové, než na ni dojde. */
+  preload(p: PageSpec | null) { p?.pockets.forEach((c) => { if (c?.img && c.owned > 0) this.image(c.img); }); }
 
   private key(p: PageSpec) {
     const [a, b] = this.frac(p.side);

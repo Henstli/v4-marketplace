@@ -187,6 +187,7 @@ export class AlbumEngine {
   private glow = new Set<number>();
   private sel: number | null = null;
   private lastBases = '';
+  private warmTimer = 0;
   private ro: ResizeObserver | null = null;
   private dead = false;
   private busy = false;
@@ -261,6 +262,17 @@ export class AlbumEngine {
   }
 
   /** Strana otáčeného listu pro plátno (stejný obsah jako pageHTML). */
+  /** Připraví strany listů, které se nejspíš otočí jako další; obrázky stran o list dál jen stáhne a dekóduje. */
+  private warmNext() {
+    clearTimeout(this.warmTimer);
+    this.warmTimer = window.setTimeout(() => {
+      if (this.dead || this.moving().length) return;
+      const t = this.logicalT();
+      for (const i of [t, t - 1]) { this.lc.warm(this.pageSpec(i, false)); this.lc.warm(this.pageSpec(i, true)); }
+      for (const i of [t + 1, t - 2, t + 2, t - 3]) { this.lc.preload(this.pageSpec(i, false)); this.lc.preload(this.pageSpec(i, true)); }
+    }, 60);
+  }
+
   private pageSpec(i: number, back: boolean): PageSpec | null {
     if (i < 1 || i >= this.NL) return null;
     const p = back ? 2 * i : 2 * i - 1, blank = p > this.NP, pockets: PageSpec['pockets'] = [];
@@ -306,7 +318,7 @@ export class AlbumEngine {
     this.leafbox = this.root.querySelector('.leafbox')!;
     this.root.style.setProperty('--gut-r', `url("${gutterImage('r').toDataURL()}")`);
     this.root.style.setProperty('--gut-l', `url("${gutterImage('l').toDataURL()}")`);
-    this.lc = new LeafCanvas(this.leafbox, { page: d.page, pocket: d.pocket, empty: d.empty, square: !!d.square, film: this.o.sleeve.film, glow: d.glow ?? undefined }, () => { if (this.moving().length) this.apply(); });
+    this.lc = new LeafCanvas(this.leafbox, { page: d.page, pocket: d.pocket, empty: d.empty, square: !!d.square, film: this.o.sleeve.film, glow: d.glow ?? undefined }, () => { if (this.moving().length) this.apply(); else this.warmNext(); });
     fitCoverNames(this.cov);
     if (typeof document !== 'undefined' && document.fonts) document.fonts.ready.then(() => { if (!this.dead) fitCoverNames(this.cov); });
 
@@ -395,7 +407,7 @@ export class AlbumEngine {
       if (force || rb !== this.lastLR[1]) { this.br.innerHTML = `<span class="edg r"></span>${this.face(rb, false, 'r')}`; this.lastEdge[1] = ''; }
       this.lastLR = [lb, rb];
       // strany listů, které se pravděpodobně otočí jako další, se připraví předem
-      if (!m.length) { const t = this.logicalT(); setTimeout(() => { if (this.dead) return; for (const i of [t, t - 1]) { this.lc.warm(this.pageSpec(i, false)); this.lc.warm(this.pageSpec(i, true)); } }, 60); }
+      if (!m.length) this.warmNext();
     }
     this.ui();
     this.apply();
