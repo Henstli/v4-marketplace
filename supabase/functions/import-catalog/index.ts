@@ -5,7 +5,8 @@
 //   One Piece: OPTCG API (https://optcgapi.com/documentation), chybějící obrázky z Limitless TCG.
 // Volá ho plánovač v databázi (pg_cron) s hlavičkou x-import-secret (heslo je ve Vaultu jako import_secret).
 //   { "mode": "discover" }  doplní seznam sad do catalog_sources
-//   { "mode": "next" }      importuje sady, které ještě nebyly nebo jsou starší než 7 dní (kolik stihne za ~40 s)
+//   { "mode": "next" }      importuje sady, které ještě nebyly nebo jsou starší než 7 dní (kolik stihne za ~40 s);
+//                           v noci (0–4 h UTC) navíc hledá nové sady a nové karty u všech her
 //   { "mode": "set", "game": "magic", "id": "dmu" }  naimportuje konkrétní sadu
 //   { "mode": "discover", "games": ["lorcana"] }  jen vybrané hry
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
@@ -22,6 +23,14 @@ const POKEMON_SKIP_SERIES = ['tcgp'];
 const MAGIC_SKIP_TYPES = ['token', 'memorabilia', 'minigame', 'alchemy', 'treasure_chest', 'vanguard'];
 // Režim next zpracuje víc sad za sebou, dokud nevyprší tento čas (plánovač ho volá každou minutu).
 const NEXT_BUDGET_MS = 40_000;
+// Noční kontrola nových karet (0–4 h UTC): znovu stáhne sady vydané v posledních dnech a sběrné promo sady,
+// do kterých průběžně přibývají karty. Riftbound celý, galerie Riotu se stahuje jen jednou.
+const NIGHT_END_HOUR_UTC = 4;
+const NIGHT_RECENT_DAYS = 60;
+const NIGHT_ROLLING: Record<string, string[]> = {
+  pokemon: ['svp', 'mep'],
+  onepiece: ['promo', 'don'],
+};
 
 interface ImportedCard {
   slug: string;
@@ -93,6 +102,25 @@ interface TcgdexSet {
   abbreviation?: { official?: string };
   cardCount: { official?: number; total?: number };
   cards: Array<{ id: string; localId: string; name: string; image?: string }>;
+}
+
+async function discoverAll(games: string[]): Promise<Record<string, number | string>> {
+  // Každá hra zvlášť, výpadek jednoho zdroje nezastaví ostatní. Zdroje bez data vydání (One Piece,
+  // Pokémon před prvním importem) dostanou u nové sady dnešek, aby ji noční kontrola brala jako novou.
+  const today = new Date().toISOString().slice(0, 10);
+  const result: Record<string, number | string> = {};
+  for (const game of games.filter((g) => g in SOURCES)) {
+    try {
+      const sets = await SOURCES[game].discover();
+      const rows = sets.map((s) => ({ game_id: game, source_set_id: s.id, name: s.name, released_on: s.released_on ?? today }));
+      const { error } = await supabase.from('catalog_sources').upsert(rows, { onConflict: 'game_id,source_set_id', ignoreDuplicates: true });
+      if (error) throw error;
+      result[game] = rows.length;
+    } catch (e) {
+      result[game] = describe(e);
+    }
+  }
+  return result;
 }
 
 async function discoverPokemon(): Promise<DiscoveredSet[]> {
@@ -795,6 +823,14 @@ async function importSet(game: string, id: string): Promise<number> {
       .from('catalog_sources')
       .update({ imported_at: new Date().toISOString(), cards_imported: count, last_error: null })
       .match({ game_id: game, source_set_id: id });
+    // Datum vydání ze zdroje doplníme, pokud ho seznam sad neměl (Pokémon), noční kontrola podle něj hledá nové sady.
+    if (set.released_on) {
+      await supabase
+        .from('catalog_sources')
+        .update({ released_on: set.released_on })
+        .match({ game_id: game, source_set_id: id })
+        .is('released_on', null);
+    }
     return count;
   } catch (e) {
     await supabase
@@ -814,35 +850,29 @@ Deno.serve(async (req) => {
 
   try {
     if (body.mode === 'discover') {
-      // Každá hra zvlášť, výpadek jednoho zdroje nezastaví ostatní.
       const games: string[] = Array.isArray(body.games) ? body.games : Object.keys(SOURCES);
-      const result: Record<string, number | string> = {};
-      for (const game of games.filter((g) => g in SOURCES)) {
-        try {
-          const sets = await SOURCES[game].discover();
-          const rows = sets.map((s) => ({ game_id: game, source_set_id: s.id, name: s.name, released_on: s.released_on ?? null }));
-          const { error } = await supabase.from('catalog_sources').upsert(rows, { onConflict: 'game_id,source_set_id', ignoreDuplicates: true });
-          if (error) throw error;
-          result[game] = rows.length;
-        } catch (e) {
-          result[game] = describe(e);
-        }
-      }
-      return json({ discovered: result });
+      return json({ discovered: await discoverAll(games) });
     }
 
     if (body.mode === 'set') return json({ imported: await importSet(body.game, body.id) });
 
     // Režim next: nejdřív sady, které ještě nebyly, pak ty starší než 7 dní a hodinu staré chyby.
-    // Riftbound se navíc kontroluje každou noc (0–4 h UTC), aby nové karty z galerie Riotu byly hned v katalogu.
+    // V noci (0–4 h UTC) navíc noční kontrola nových karet: o půlnoci hledá nové sady u všech her
+    // (tři pokusy, kdyby jedno volání vypadlo) a pak znovu stáhne čerstvé a sběrné promo sady.
     // Víc sad za sebou, dokud je čas.
     const started = Date.now();
+    const now = new Date();
+    const night = now.getUTCHours() < NIGHT_END_HOUR_UTC;
+    let discovered: Record<string, number | string> | undefined;
+    if (now.getUTCHours() === 0 && now.getUTCMinutes() % 20 === 0) discovered = await discoverAll(Object.keys(SOURCES));
     const done: Array<{ set: string; imported?: number; error?: string }> = [];
     while (Date.now() - started < NEXT_BUDGET_MS) {
       const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
       const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
-      const nightly = new Date().getUTCHours() < 4
-        ? `,and(game_id.eq.riftbound,imported_at.lt.${new Date(Date.now() - 12 * 3_600_000).toISOString()})`
+      const recent = new Date(Date.now() - NIGHT_RECENT_DAYS * 86_400_000).toISOString().slice(0, 10);
+      const rolling = Object.entries(NIGHT_ROLLING).map(([g, ids]) => `and(game_id.eq.${g},source_set_id.in.(${ids.join(',')}))`);
+      const nightly = night
+        ? `,and(imported_at.lt.${new Date(Date.now() - 12 * 3_600_000).toISOString()},or(game_id.eq.riftbound,released_on.gte.${recent},${rolling.join(',')}))`
         : '';
       const { data: next } = await supabase
         .from('catalog_sources')
@@ -865,7 +895,7 @@ Deno.serve(async (req) => {
         done.push({ set: next.source_set_id, error: describe(e) });
       }
     }
-    return json(done.length ? { done } : { idle: true });
+    return json(done.length || discovered ? { discovered, done } : { idle: true });
   } catch (e) {
     return json({ error: describe(e) }, 500);
   }
