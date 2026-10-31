@@ -2,7 +2,7 @@
 // Kreslí se přímo do DOM: pohyb listů běží ve smyčce requestAnimationFrame, React by ho zbytečně brzdil.
 import { coverDeco, type AlbumDesign, type SleeveDesign } from '@/lib/album/designs';
 import { thumbUrl } from '@/lib/images';
-import { LeafCanvas, type PageSpec } from './leafCanvas';
+import { LeafCanvas, gutterImage, type PageSpec } from './leafCanvas';
 
 export interface EngineCard {
   id: string;
@@ -233,6 +233,8 @@ export class AlbumEngine {
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
     this.leafbox = this.root.querySelector('.leafbox')!;
+    this.root.style.setProperty('--gut-r', `url("${gutterImage('r').toDataURL()}")`);
+    this.root.style.setProperty('--gut-l', `url("${gutterImage('l').toDataURL()}")`);
     this.lc = new LeafCanvas(this.leafbox, { page: d.page, pocket: d.pocket, empty: d.empty, square: !!d.square, film: this.o.sleeve.film }, () => { if (this.moving().length) this.apply(); });
     fitCoverNames(this.cov);
     if (typeof document !== 'undefined' && document.fonts) document.fonts.ready.then(() => { if (!this.dead) fitCoverNames(this.cov); });

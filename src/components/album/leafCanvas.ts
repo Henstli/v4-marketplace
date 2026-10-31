@@ -55,7 +55,51 @@ function cssLinear(g: G, deg: number, x: number, y: number, w: number, h: number
   return gr;
 }
 
-const GUTTER: Array<[number, string]> = [[0, 'rgba(255,255,255,.14)'], [0.012, 'rgba(0,0,0,.6)'], [0.05, 'rgba(0,0,0,.26)'], [0.095, 'rgba(0,0,0,.08)'], [0.13, 'rgba(255,255,255,.07)'], [0.2, 'rgba(0,0,0,0)']];
+/**
+ * CSS míchá barvy přechodu s předem vynásobenou průhledností, plátno ne: přechod z bílé do černé by v plátně
+ * prošel světle šedou a stín u hřbetu by byl světlejší než na stranách v DOM. Proto se mezi zarážky doplní
+ * jemné kroky spočítané stejně jako v CSS.
+ */
+function premul(stops: Array<[number, [number, number, number, number]]>, steps = 12): Array<[number, string]> {
+  const out: Array<[number, string]> = [];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [p0, c0] = stops[i], [p1, c1] = stops[i + 1];
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps, a = c0[3] + (c1[3] - c0[3]) * t;
+      const ch = (j: number) => a > 0 ? Math.round((c0[j] * c0[3] + (c1[j] * c1[3] - c0[j] * c0[3]) * t) / a) : 0;
+      out.push([p0 + (p1 - p0) * t, `rgba(${ch(0)},${ch(1)},${ch(2)},${a.toFixed(4)})`]);
+    }
+  }
+  const [pl, cl] = stops[stops.length - 1];
+  out.push([pl, `rgba(${cl[0]},${cl[1]},${cl[2]},${cl[3]})`]);
+  return out;
+}
+
+// stín hřbetu (.pg .gl v album.css)
+const GUTTER = premul([[0, [255, 255, 255, 0.14]], [0.012, [0, 0, 0, 0.6]], [0.05, [0, 0, 0, 0.26]], [0.095, [0, 0, 0, 0.08]], [0.13, [255, 255, 255, 0.07]], [0.2, [0, 0, 0, 0]]]);
+
+const gutters: Partial<Record<'l' | 'r', HTMLCanvasElement>> = {};
+/**
+ * Stín hřbetu jako obrázek. Kreslí ho plátno i strany v DOM (album.css .gl), takže je na listu při otáčení
+ * i po dosednutí úplně stejný (přechod v CSS vycházel v prohlížeči o kus tmavší než v plátně).
+ */
+export function gutterImage(side: 'l' | 'r') {
+  let c = gutters[side];
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = 1440; c.height = 2;
+    const g = c.getContext('2d')!;
+    g.fillStyle = cssLinear(g, side === 'r' ? 90 : 270, 0, 0, 1440, 2, GUTTER);
+    g.fillRect(0, 0, 1440, 2);
+    // hloubka u hřbetu: dřív ji dělal stín bloku stran z protější strany, který přesahoval přes hřbet (teď je oříznutý)
+    const deep: Array<[number, string]> = [];
+    for (let d = 0; d <= 96; d += 4) deep.push([d / LW, `rgba(0,0,0,${(0.215 * Math.exp(-d / 22)).toFixed(4)})`]);
+    g.fillStyle = cssLinear(g, side === 'r' ? 90 : 270, 0, 0, 1440, 2, deep);
+    g.fillRect(0, 0, 1440, 2);
+    gutters[side] = c;
+  }
+  return c;
+}
 
 export class LeafCanvas {
   readonly el: HTMLCanvasElement;
@@ -179,8 +223,7 @@ export class LeafCanvas {
       if (c.owned > 0) { if (!c.hidden) this.paintCard(g, c, x + (pw - 92) / 2, y + (ph - 126) / 2); return; }
       this.paintEmpty(g, c, x, y, pw, ph);
     });
-    const gl = p.side === 'r' ? cssLinear(g, 90, 0, 0, LW, LH, GUTTER) : cssLinear(g, 270, 0, 0, LW, LH, GUTTER);
-    g.fillStyle = gl; g.fillRect(0, 0, LW, LH);
+    g.drawImage(gutterImage(p.side), 0, 0, LW, LH);
     g.restore();
   }
 
