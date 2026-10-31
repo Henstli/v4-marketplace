@@ -248,14 +248,18 @@ export class LeafCanvas {
     g.save();
     rr(g, x, y, 92, 126, 9 * sx); g.clip();
     if (this.sleeve) g.drawImage(this.sleeve, x, y, 92, 126);
-    const ix = x + 7 * sx, iy = y + 7 * sy, iw = 92 - 14 * sx, ih = 126 - 14 * sy;
-    g.save();
-    rr(g, ix, iy, iw, ih, 6 * sx); g.clip();
-    g.fillStyle = '#151a22'; g.fillRect(ix, iy, iw, ih);
+    // okénko 136 × 190 v obalu 150 × 206 = poměr karty 63 : 88
+    const ix = x + 7 * sx, iy = y + 8 * sy, iw = 92 - 14 * sx, ih = 126 - 16 * sy;
     const im = c.img ? this.image(c.img) : null;
+    g.save();
     if (im) {
+      // jako DOM: obrázek se zaoblenými rohy podle svého skutečného poměru, okénko kolem bez tmavé výplně
       const s = Math.min(iw / im.naturalWidth, ih / im.naturalHeight), w = im.naturalWidth * s, h = im.naturalHeight * s;
-      g.drawImage(im, ix + (iw - w) / 2, iy + (ih - h) / 2, w, h);
+      const dx = ix + (iw - w) / 2, dy = iy + (ih - h) / 2;
+      rr(g, dx, dy, w, h, 6 * sx); g.clip();
+      g.drawImage(im, dx, dy, w, h);
+    } else {
+      rr(g, ix, iy, iw, ih, 6 * sx); g.fillStyle = '#151a22'; g.fill();
     }
     g.restore();
     this.paintFilm(g, x, y, 92, 126);
