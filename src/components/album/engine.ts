@@ -1027,7 +1027,8 @@ export class AlbumEngine {
         const lands: Promise<void>[] = [];
         let t = 0;
         mine.forEach((ci, idx) => {
-          const k = cos((s + idx / Math.max(1, mine.length)) / 5), t0 = t;
+          // zrychlení se zastaví na nejrychlejším letu (k těsně nad hranicí okamžitého vložení), karty tak létají až do konce
+          const k = Math.max(0.2, cos((s + idx / Math.max(1, mine.length)) / 5)), t0 = t;
           t += 6 + 52 * k;
           lands.push(sleep(t0).then(async () => {
             if (!alive()) return;
