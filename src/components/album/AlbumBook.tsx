@@ -5,15 +5,11 @@ import { albumDesign, sleeveDesign } from '@/lib/album/designs';
 import { coverHTML, fitCoverNames, sleeveHTML } from './engine';
 import './album.css';
 
-/** Zavřené album ve 3D (police, výběr vzhledu). scale zmenší album 168 × 210. */
+/** Zavřené album naplocho podle desky Design album (police, výběr vzhledu). scale zmenší album 168 × 210. */
 export function AlbumBook({ design, name, scale = 1, lift, hover }: { design: number; name: string; scale?: number; lift?: boolean; hover?: boolean }) {
   const d = albumDesign(design);
   const ref = useRef<HTMLDivElement>(null);
-  const html =
-    `<div class="bx"><div class="fc bkf" style="background:${d.lining}"></div>` +
-    `<div class="fc sp" style="background:${d.mat}"><span></span></div>` +
-    `<div class="fc tp"></div><div class="fc rt"></div>` +
-    `<div class="fc fr">${coverHTML(d, name)}</div></div>`;
+  const html = `<div class="bk">${coverHTML(d, name)}</div>`;
   useLayoutEffect(() => {
     if (!ref.current) return;
     fitCoverNames(ref.current);
@@ -24,7 +20,7 @@ export function AlbumBook({ design, name, scale = 1, lift, hover }: { design: nu
       <div
         ref={ref}
         className={`ab3${lift ? ' lift' : ''}${hover ? ' hov' : ''}`}
-        style={{ transform: scale !== 1 ? `scale(${scale})` : undefined, ['--page' as string]: d.page }}
+        style={{ transform: scale !== 1 ? `scale(${scale})` : undefined }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

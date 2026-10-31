@@ -1,20 +1,12 @@
 /* Album (Moje kolekce): chování a vzhled podle desek 3A a 3B na plátně „V4cards: alba a obaly“.
    Desky a vnitřek podle Design album (--mat, --lining, --page, --pocket, --empty), obaly karet podle Design obaly. */
 
-/* ---------- zavřené album ve 3D (police, výběr vzhledu) ---------- */
-.ab3{position:relative;width:168px;height:210px;perspective:900px;flex:none}
-.ab3::after{content:"";position:absolute;left:-4%;right:-10%;bottom:-16px;height:26px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);filter:blur(5px);z-index:0;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .6s}
-.ab3 .bx{position:absolute;inset:0;z-index:1;transform-style:preserve-3d;transform:rotateY(24deg) rotateX(-6deg);transition:transform .7s cubic-bezier(.2,.8,.2,1)}
-.ab3.lift:hover .bx,a:hover>.ab3.lift .bx,a:hover .ab3.lift .bx,.ab3.hov .bx{transform:rotateY(14deg) rotateX(-9deg) translateY(-10px) translateZ(14px)}
+/* ---------- zavřené album naplocho (police, výběr vzhledu), podle desky Design album ---------- */
+.ab3{position:relative;width:168px;height:210px;flex:none}
+.ab3::after{content:"";position:absolute;left:6%;right:-3%;bottom:-12px;height:20px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.7),transparent);filter:blur(4px);z-index:0;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .45s}
+.ab3 .bk{position:absolute;inset:0;z-index:1;border-radius:4px 12px 12px 4px;box-shadow:0 2px 3px rgba(0,0,0,.35),0 18px 30px -14px rgba(0,0,0,.9),8px 14px 26px -16px rgba(0,0,0,.8);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.ab3.lift:hover .bk,a:hover>.ab3.lift .bk,a:hover .ab3.lift .bk,.ab3.hov .bk{transform:translateY(-6px)}
 .ab3.lift:hover::after,a:hover .ab3.lift::after,.ab3.hov::after{transform:scale(.92);opacity:.75}
-.ab3 .fc{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.ab3 .fr{left:0;top:0;width:168px;height:210px;transform:translateZ(15px)}
-.ab3 .bkf{left:0;top:0;width:168px;height:210px;transform:rotateY(180deg) translateZ(15px);border-radius:12px 4px 4px 12px}
-.ab3 .sp{left:-15px;top:0;width:30px;height:210px;transform:rotateY(-90deg);border-radius:3px;overflow:hidden}
-.ab3 .sp span{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.55),rgba(255,255,255,.18) 30%,rgba(255,255,255,.06) 50%,rgba(0,0,0,.35) 80%,rgba(0,0,0,.6)),linear-gradient(180deg,rgba(255,255,255,.1),transparent 20%,transparent 80%,rgba(0,0,0,.3))}
-.ab3 .tp{left:0;top:-15px;width:166px;height:30px;transform:rotateX(90deg);border-radius:2px;
- background:linear-gradient(180deg,#000 0,rgba(0,0,0,.6) 3px,transparent 4px calc(100% - 4px),rgba(0,0,0,.6) calc(100% - 4px) calc(100% - 3px),#222 calc(100% - 3px)),repeating-linear-gradient(180deg,var(--page) 0 1.4px,rgba(0,0,0,.35) 1.4px 2px)}
-.ab3 .rt{left:151px;top:4px;width:30px;height:202px;transform:rotateY(90deg);background:repeating-linear-gradient(90deg,var(--page) 0 1.4px,rgba(0,0,0,.4) 1.4px 2px)}
 .ab-mini{position:relative;flex:none}
 .ab-mini>.ab3{position:absolute;left:0;top:0;transform-origin:0 0}
 
