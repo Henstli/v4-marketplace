@@ -165,14 +165,16 @@ export interface CollectionOverview {
   missing: Array<AlbumCard & { albumId: string; albumName: string }>;
   missingTotal: number;
   missingOffered: number;
+  /** Ve kterých albech karta je (filtr Všechny karty) */
+  cardAlbums: Record<string, string[]>;
 }
 
 export async function getCollectionOverview(): Promise<CollectionOverview> {
   const supabase = await createClient();
-  const [{ data: albumRows_ }, { data: owned }] = await Promise.all([
+  const [{ data: albumRows_ }, owned] = await Promise.all([
     supabase.from('collection_albums').select(ALBUM_COLS).order('updated_at', { ascending: false }).returns<AlbumRow[]>(),
-    supabase.from('collection_cards').select('card_id, quantity, added_at').limit(10000)
-      .returns<Array<{ card_id: string; quantity: number; added_at: string }>>(),
+    pages(20000, (from, to) => supabase.from('collection_cards').select('card_id, quantity, added_at').order('card_id').range(from, to)
+      .returns<Array<{ card_id: string; quantity: number; added_at: string }>>()),
   ]);
   const own = owned ?? [];
   const weekAgo = Date.now() - 7 * 86400_000;
@@ -186,7 +188,9 @@ export async function getCollectionOverview(): Promise<CollectionOverview> {
   const missing: CollectionOverview['missing'] = [];
   let missingTotal = 0;
   let missingOffered = 0;
+  const cardAlbums: Record<string, string[]> = {};
   for (const [ai, a] of (albumRows_ ?? []).entries()) {
+    for (const r of rowsOf[ai]) (cardAlbums[r.id] ??= []).includes(a.id) || cardAlbums[r.id].push(a.id);
     const cards = rowsOf[ai].map((r) => toCard(r, ownQty.get(r.id) ?? 0, allStats.get(r.id)));
     const have = cards.filter((c) => c.owned > 0).length;
     albums.push({
@@ -209,20 +213,33 @@ export async function getCollectionOverview(): Promise<CollectionOverview> {
     uniqueCount: own.length,
     addedThisWeek: own.filter((o) => Date.parse(o.added_at) > weekAgo).length,
     value,
-    missing: missing.slice(0, 60),
+    missing: missing.slice(0, 5000),
     missingTotal,
     missingOffered,
+    cardAlbums,
   };
 }
 
 /** Všechny karty ve sbírce (záložka Všechny karty). */
-export async function getCollectionCards(limit = 300): Promise<AlbumCard[]> {
+export async function getCollectionCards(limit = 5000): Promise<AlbumCard[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from('collection_cards').select(`quantity, added_at, cards(${CARD_COLS})`)
-    .order('added_at', { ascending: false }).limit(limit).returns<Array<{ quantity: number; cards: CardRow | null }>>();
-  const rows = (data ?? []).filter((r) => r.cards);
+  // databáze vrací nejvýš 1000 řádků naráz, proto po stránkách
+  const data = await pages(limit, (from, to) => supabase.from('collection_cards').select(`quantity, added_at, cards(${CARD_COLS})`)
+    .order('added_at', { ascending: false }).order('card_id').range(from, to).returns<Array<{ quantity: number; cards: CardRow | null }>>());
+  const rows = data.filter((r) => r.cards);
   const stats = await offerStats(supabase, rows.map((r) => r.cards!.id));
   return rows.map((r) => toCard(r.cards!, r.quantity, stats.get(r.cards!.id)));
+}
+
+/** Načte řádky po stránkách po 1000 (víc databáze naráz nevrátí). */
+async function pages<T>(limit: number, q: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < limit; from += 1000) {
+    const { data } = await q(from, Math.min(from + 999, limit - 1));
+    out.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  return out;
 }
 
 /** Alba, do kterých se karta hodí (detail karty: „Mám ji“). */
