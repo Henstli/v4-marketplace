@@ -33,6 +33,8 @@ export interface LeafState {
 export interface LeafLook {
   page: string; pocket: string; empty: string; square: boolean;
   film: 'gloss' | 'matte' | 'holo' | 'glit';
+  /** svítící kapsy (Neon, Láva): jako CSS 0 0 16px -5px var(--glow) */
+  glow?: string;
 }
 
 type G = CanvasRenderingContext2D;
@@ -216,7 +218,15 @@ export class LeafCanvas {
     p.pockets.forEach((c, k) => {
       const x = 18 + (k % 3) * (pw + 10), y = 18 + Math.floor(k / 3) * (ph + 10);
       g.globalAlpha = p.blank ? 0.6 : 1;
-      rr(g, x, y, pw, ph, pr); g.fillStyle = 'rgba(255,255,255,.035)'; g.fill();
+      if (L.glow) {
+        // vnější záře kapsy: stín obdélníku zmenšeného o 5 px, kreslený jen mimo kapsu
+        g.save();
+        g.beginPath(); g.rect(x - 30, y - 30, pw + 60, ph + 60); g.rect(x, y, pw, ph); g.clip('evenodd');
+        g.shadowColor = L.glow; g.shadowBlur = 16 * R; g.shadowOffsetX = 10000 * R;
+        g.fillStyle = '#000'; g.fillRect(x + 5 - 10000, y + 5, pw - 10, ph - 10);
+        g.restore();
+      }
+      rr(g, x, y, pw, ph, pr); g.fillStyle = cssLinear(g, 160, x, y, pw, ph, [[0, 'rgba(255,255,255,.07)'], [0.4, 'rgba(255,255,255,0)']]); g.fill();
       rr(g, x + 0.5, y + 0.5, pw - 1, ph - 1, Math.max(0, pr - 0.5)); g.strokeStyle = L.pocket; g.lineWidth = 1; g.stroke();
       g.globalAlpha = 1;
       if (!c) return;
