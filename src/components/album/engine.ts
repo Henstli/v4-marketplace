@@ -438,7 +438,13 @@ export class AlbumEngine {
   private stackCmp(ia: number, fa: Leaf, ib: number, fb: Leaf) {
     // na kterou polovinu list opravdu padá, určuje jeho střed: zahnutý okraj ho při letu táhne daleko za úhel u hřbetu
     const mid = (f: Leaf) => f.q - Math.sin(Math.PI * clamp(f.q, 0, 1)) * (13 + 9 * Math.abs(clamp(f.v * 0.35, -1, 1))) * f.bs * 2.025 / 180;
-    const la = mid(fa) >= 0.5, lb = mid(fb) >= 0.5;
+    const ma = mid(fa), mb = mid(fb), la = ma >= 0.5, lb = mb >= 0.5;
+    // listy jedoucí stejným směrem na různých polovinách: kde se překrývají, je výš ten, který stojí blíž svislé poloze
+    // (dolétající list se pokládá na ten, který už je skoro dole, a odlétající je nad tím, který se teprve zvedá)
+    if (la !== lb && fa.tq === fb.tq) {
+      const d = Math.abs(mb - 0.5) - Math.abs(ma - 0.5);
+      if (Math.abs(d) > 1e-6) return d;
+    }
     if (la === lb) return la ? ia - ib : ib - ia;
     const ha = la === (fa.tq === 1), hb = lb === (fb.tq === 1);
     if (ha !== hb) return ha ? 1 : -1;
