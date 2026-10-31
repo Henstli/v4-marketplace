@@ -1143,7 +1143,11 @@ export class AlbumEngine {
     const dec = () => { left = Math.max(0, left - 1); cv.textContent = String(left); sm.textContent = left === 1 ? 'karta k vložení' : `${cardsWord(left)} k vložení`; };
     const shift = () => { const e = els.shift(); if (e) e.el.remove(); add(true); restack(); };
     return {
-      origin: () => { const r = this.local(host.getBoundingClientRect()); return { x: r.x, y: r.y }; },
+      // klidová poloha hromádky: v tu chvíli ještě vyjíždí zleva (translateX), a let by pak začal o kus vedle karty
+      origin: () => {
+        if (host.offsetParent === this.stage) return { x: host.offsetLeft, y: host.offsetTop };
+        const r = this.local(host.getBoundingClientRect()); return { x: r.x, y: r.y };
+      },
       /** Obaly se nasunou celé hromádce naráz: karty se roztočí, shora se nasune obal, cvakne a zajiskří (2B). */
       intro: async () => {
         host.classList.add('on');
