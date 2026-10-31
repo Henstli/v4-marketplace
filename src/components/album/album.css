@@ -87,7 +87,7 @@
 /* pevná vazba s tloušťkou */
 .alb .brd{position:absolute;left:-2px;top:-12px;width:376px;height:504px;border-radius:9px 27px 27px 9px/10px 29px 29px 10px;z-index:0;background:var(--lining);
  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),inset 0 1px 0 rgba(255,255,255,.12),0 5px 0 var(--edge),0 6px 1px rgba(0,0,0,.6),0 40px 60px -24px #000}
-.alb .brd::after{content:"";position:absolute;left:-2px;top:5px;right:6px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-left:none;border-radius:0 22px 22px 0/0 24px 24px 0}
+.alb .brd::after{content:"";position:absolute;left:14px;top:5px;right:6px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-left:none;border-radius:0 22px 22px 0/0 24px 24px 0}
 .alb .spn{position:absolute;left:-14px;top:-12px;width:28px;height:504px;border-radius:6px;z-index:0;background:var(--mat);box-shadow:0 3px 0 var(--edge),0 6px 0 rgba(0,0,0,.6),0 40px 60px -24px #000}
 .alb .spn::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(255,255,255,.12) 30%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.12) 70%,rgba(0,0,0,.6))}
 .alb .cov{position:absolute;left:-2px;top:-12px;width:376px;height:504px;transform-origin:2px center;transform-style:preserve-3d;z-index:20;cursor:grab}
@@ -99,6 +99,7 @@
 .alb .cf.in::after{content:"";position:absolute;left:6px;top:5px;right:-2px;bottom:5px;border:1.5px dashed rgba(255,255,255,.32);border-right:none;border-radius:22px 0 0 22px/24px 0 0 24px}
 .alb .cov.flat{transform-style:flat}.alb .cov.flat .cf.out,.alb .cov.flat .ce{display:none}
 .alb .cov.flat .cf.in{transform:translateX(-372px)}
+.alb .cov.shut{transform-style:flat}.alb .cov.shut .cf.in,.alb .cov.shut .ce{display:none}.alb .cov.shut .cf.out{transform:none}
 .alb .ce{position:absolute;pointer-events:none;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)),var(--mat)}
 .alb .ce.er{left:371.5px;top:29px;width:8px;height:446px;transform:rotateY(90deg)}
 .alb .ce.eh{display:none}
