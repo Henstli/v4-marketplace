@@ -52,6 +52,12 @@ export function coverDeco(d: AlbumDesign, name: string): string {
   return d.deco.split('{{NAME_UP}}').join(esc(n.toLocaleUpperCase('cs'))).split('{{NAME}}').join(esc(n));
 }
 
+/** Název alba v textu webu (nadpis, seznam, navigace): po 24 znacích tři tečky. Celý název je v title. */
+export function shortAlbumName(name: string, max = 24): string {
+  const ch = Array.from(name.trim());
+  return ch.length > max ? ch.slice(0, max).join('').trimEnd() + '...' : ch.join('');
+}
+
 /** Písma, která používají názvy na deskách (načítají se jen na stránkách s alby). */
 export const ALBUM_FONTS =
   'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Fraunces:ital,wght@0,600;0,700;1,600&family=Poiret+One&family=Orbitron:wght@800&family=Barlow+Condensed:wght@700;800&family=Shippori+Mincho:wght@700;800&family=Bangers&family=Caveat:wght@700&family=Fredoka:wght@600&display=swap';

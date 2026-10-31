@@ -11,6 +11,7 @@ import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { CollectionTabs } from './CollectionTabs';
 import s from './kolekce.module.css';
+import { shortAlbumName } from '@/lib/album/designs';
 
 export const metadata: Metadata = { title: 'Moje kolekce' };
 
@@ -23,7 +24,7 @@ function AlbumTile({ a }: { a: AlbumSummary }) {
   return (
     <Link href={`/kolekce/${a.id}`} className={s.album}>
       <div className={s.shelf}><AlbumBook design={a.design} name={a.name} lift /></div>
-      <h3>{a.name}</h3>
+      <h3 title={a.name}>{shortAlbumName(a.name)}</h3>
       <div className={s.meta}>
         {g ? <span className={s.dot} style={{ background: g.dot }} /> : <span className={s.dot} style={{ background: 'var(--accent)' }} />}
         {a.kind === 'set' ? `${a.setName ?? 'Sada'}${a.setYear ? ` · ${a.setYear}` : ''}` : 'Vlastní album'}
