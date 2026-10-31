@@ -240,7 +240,8 @@ export class LeafCanvas {
   private paintCard(g: G, c: PocketSpec, x: number, y: number) {
     const sx = 92 / 150, sy = 126 / 206;
     g.save();
-    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
+    // stín canvasu se neškáluje transformací, proto * R (jinak je při zvětšení slabší než box-shadow v DOM)
+    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 4 * this.R; g.shadowOffsetY = 2 * this.R;
     // jen vržený stín jako v DOM (.kc box-shadow): tvar má barvu strany, takže kolem obalu neprosvítá tmavý okraj
     rr(g, x, y, 92, 126, 7); g.fillStyle = this.look.page; g.fill();
     g.restore();
