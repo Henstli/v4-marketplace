@@ -78,8 +78,10 @@ function chunks<T>(a: T[], n = 150): T[][] {
 /** Nejnižší cena a počet nabídek pro karty (jen nabídky se skladem). */
 export async function offerStats(supabase: SupabaseClient, ids: string[]): Promise<Map<string, { min: number; n: number }>> {
   const m = new Map<string, { min: number; n: number }>();
-  for (const part of chunks([...new Set(ids)])) {
-    const { data } = await supabase.from('listings').select('card_id, price_czk').in('card_id', part).gt('quantity', 0);
+  // části se ptají naráz, ne jedna po druhé (každý dotaz je cesta do databáze)
+  const parts = await Promise.all(chunks([...new Set(ids)]).map((part) =>
+    supabase.from('listings').select('card_id, price_czk').in('card_id', part).gt('quantity', 0)));
+  for (const { data } of parts) {
     for (const r of (data ?? []) as Array<{ card_id: string; price_czk: number }>) {
       const s = m.get(r.card_id);
       if (!s) m.set(r.card_id, { min: r.price_czk, n: 1 });
@@ -92,8 +94,8 @@ export async function offerStats(supabase: SupabaseClient, ids: string[]): Promi
 async function ownedMap(supabase: SupabaseClient, ids?: string[]): Promise<Map<string, number>> {
   const m = new Map<string, number>();
   if (ids) {
-    for (const part of chunks(ids)) {
-      const { data } = await supabase.from('collection_cards').select('card_id, quantity').in('card_id', part);
+    const parts = await Promise.all(chunks(ids).map((part) => supabase.from('collection_cards').select('card_id, quantity').in('card_id', part)));
+    for (const { data } of parts) {
       for (const r of (data ?? []) as Array<{ card_id: string; quantity: number }>) m.set(r.card_id, r.quantity);
     }
   } else {
@@ -120,8 +122,8 @@ function summaryOf(a: AlbumRow): Omit<AlbumSummary, 'have' | 'total' | 'value'> 
   };
 }
 
-/** Karty alba v pořadí, ve kterém leží v kapsách. */
-async function albumCards(supabase: SupabaseClient, a: AlbumRow): Promise<AlbumCard[]> {
+/** Řádky karet alba v pořadí, ve kterém leží v kapsách (bez cen a vlastnictví). */
+async function albumRows(supabase: SupabaseClient, a: AlbumRow): Promise<CardRow[]> {
   let rows: CardRow[] = [];
   if (a.kind === 'set' && a.set_id) {
     const { data } = await supabase.from('cards').select(CARD_COLS).eq('set_id', a.set_id).eq('hidden', false).limit(1000)
@@ -132,6 +134,12 @@ async function albumCards(supabase: SupabaseClient, a: AlbumRow): Promise<AlbumC
       .order('position').returns<Array<{ position: number; cards: CardRow | null }>>();
     rows = (data ?? []).map((r) => r.cards).filter((c): c is CardRow => !!c);
   }
+  return rows;
+}
+
+/** Karty alba v pořadí, ve kterém leží v kapsách. */
+async function albumCards(supabase: SupabaseClient, a: AlbumRow): Promise<AlbumCard[]> {
+  const rows = await albumRows(supabase, a);
   const ids = rows.map((r) => r.id);
   const [owned, stats] = await Promise.all([ownedMap(supabase, ids), offerStats(supabase, ids)]);
   return rows.map((r) => toCard(r, owned.get(r.id) ?? 0, stats.get(r.id)));
@@ -161,22 +169,25 @@ export interface CollectionOverview {
 
 export async function getCollectionOverview(): Promise<CollectionOverview> {
   const supabase = await createClient();
-  const [{ data: albumRows }, { data: owned }] = await Promise.all([
+  const [{ data: albumRows_ }, { data: owned }] = await Promise.all([
     supabase.from('collection_albums').select(ALBUM_COLS).order('updated_at', { ascending: false }).returns<AlbumRow[]>(),
     supabase.from('collection_cards').select('card_id, quantity, added_at').limit(10000)
       .returns<Array<{ card_id: string; quantity: number; added_at: string }>>(),
   ]);
   const own = owned ?? [];
   const weekAgo = Date.now() - 7 * 86400_000;
-  const allStats = await offerStats(supabase, own.map((o) => o.card_id));
+  // karty všech alb naráz a pak jeden společný dotaz na ceny; vlastnictví už známe z `own`
+  const ownQty = new Map(own.map((o) => [o.card_id, o.quantity]));
+  const rowsOf = await Promise.all((albumRows_ ?? []).map((a) => albumRows(supabase, a)));
+  const allStats = await offerStats(supabase, [...own.map((o) => o.card_id), ...rowsOf.flat().map((r) => r.id)]);
   const value = own.reduce((s, o) => s + (allStats.get(o.card_id)?.min ?? 0) * o.quantity, 0);
 
   const albums: AlbumSummary[] = [];
   const missing: CollectionOverview['missing'] = [];
   let missingTotal = 0;
   let missingOffered = 0;
-  for (const a of albumRows ?? []) {
-    const cards = await albumCards(supabase, a);
+  for (const [ai, a] of (albumRows_ ?? []).entries()) {
+    const cards = rowsOf[ai].map((r) => toCard(r, ownQty.get(r.id) ?? 0, allStats.get(r.id)));
     const have = cards.filter((c) => c.owned > 0).length;
     albums.push({
       ...summaryOf(a), have, total: cards.length,
