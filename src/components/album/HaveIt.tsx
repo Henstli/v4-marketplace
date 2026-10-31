@@ -7,6 +7,7 @@ import { addCards, cardAlbums } from '@/app/kolekce/actions';
 import { Button, PlusIcon } from '@/components/trezor';
 import s from './HaveIt.module.css';
 import dynamic from 'next/dynamic';
+import { shortAlbumName } from '@/lib/album/designs';
 
 // vzhledy alb (~18 kB) se stáhnou až při otevření nabídky, ne se stránkou karty
 const AlbumBook = dynamic(() => import('./AlbumBook').then((m) => m.AlbumBook), { ssr: false });
@@ -61,7 +62,7 @@ export function HaveIt({ cardId }: { cardId: string }) {
             <button key={a.id} type="button" className={s.row} disabled={busy || (a.kind === 'custom' && a.inAlbum)} onClick={() => add(a.id, a.name)}>
               <AlbumBook design={a.design} name={a.name} scale={0.22} />
               <span>
-                <b>{a.name}</b>
+                <b title={a.name}>{shortAlbumName(a.name)}</b>
                 <small>
                   {a.kind === 'set'
                     ? `${a.inAlbum ? 'Už ji tam máš, přidá se další kus' : 'Patří sem'}${a.position ? ` · místo ${a.position}` : ''}`

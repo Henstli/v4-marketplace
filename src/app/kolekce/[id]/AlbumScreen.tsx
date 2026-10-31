@@ -16,6 +16,7 @@ import { addCards, cardOffers, deleteAlbum, removeCard, searchForAlbum, updateAl
 import { AlbumLook } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
 import s from '../kolekce.module.css';
+import { shortAlbumName } from '@/lib/album/designs';
 
 const Kc = ({ n }: { n: number }) => <>{formatNumber(Math.round(n))}&nbsp;Kč</>;
 
@@ -93,12 +94,12 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
 
   return (
     <main className={s.wrap}>
-      <div className={s.crumb}><Link href="/kolekce">Moje kolekce</Link><span>›</span><span>{look.name}</span></div>
+      <div className={s.crumb}><Link href="/kolekce">Moje kolekce</Link><span>›</span><span title={look.name}>{shortAlbumName(look.name)}</span></div>
       <div className={s.ahead}>
         <div className={s.atitle}>
           <AlbumBook design={look.design} name={look.name} scale={0.3} />
           <div>
-            <h1>{look.name}</h1>
+            <h1 title={look.name}>{shortAlbumName(look.name)}</h1>
             <div className={s.meta}>
               {g ? <span className={s.dot} style={{ background: g.dot }} /> : null}
               <span>{album.kind === 'set' ? `${g?.name ?? ''} · ${album.setName ?? ''}${album.setYear ? ` · ${album.setYear}` : ''}` : 'Vlastní album'}</span>
