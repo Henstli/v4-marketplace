@@ -142,7 +142,8 @@
 .alb .ov{position:absolute;inset:0;z-index:50;background:rgba(5,7,10,.78);backdrop-filter:blur(3px);transition:opacity .35s ease;opacity:0}
 .alb .pc{position:absolute;z-index:51;perspective:1400px;transition:left .58s cubic-bezier(.22,1.2,.36,1),top .58s cubic-bezier(.22,1.2,.36,1),width .58s cubic-bezier(.22,1.2,.36,1),height .58s cubic-bezier(.22,1.2,.36,1)}
 .alb .rot{position:absolute;inset:0;transform-style:preserve-3d;cursor:grab}
-.alb .rot .fc{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:4.5%/3.3%;overflow:hidden;background:#151a22;box-shadow:0 30px 60px -20px rgba(0,0,0,.9),inset 0 0 0 1.5px rgba(255,255,255,.25)}
+/* líc a rub přepíná kód (visibility); backface-visibility Firefox u téhle karty vyhodnotí špatně a kartu skryje celou */
+.alb .rot .fc{position:absolute;inset:0;border-radius:4.5%/3.3%;overflow:hidden;background:#151a22;box-shadow:0 30px 60px -20px rgba(0,0,0,.9),inset 0 0 0 1.5px rgba(255,255,255,.25)}
 .alb .rot .fc img{width:100%;height:100%;object-fit:contain;display:block}
 .alb .rot .fc.slv{background:none}
 .alb .rot .fc.slv .asl{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit}
