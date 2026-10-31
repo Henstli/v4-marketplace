@@ -67,12 +67,19 @@ export class LeafCanvas {
   private imgs = new Map<string, HTMLImageElement>();
   private sleeve: HTMLImageElement | null = null;
   private onReady: () => void;
+  // posun mřížky plátna proti pixelům obrazovky (aby list v klidu seděl na pixel přesně jako strana v DOM)
+  private fx = 0; private fy = 0;
+  private host: HTMLElement;
+  private live: LeafState[] = [];
+  // dosedlé listy se ještě chvíli prolínají do stran v DOM, aby přechod nebyl znát
+  private ghosts: Array<{ l: LeafState; t0: number }> = [];
+  private graf = 0;
 
   constructor(host: HTMLElement, private look: LeafLook, onReady: () => void) {
     this.el = document.createElement('canvas');
     this.el.className = 'lcv';
-    Object.assign(this.el.style, { left: `${-PADX}px`, top: `${-PADT}px`, width: `${LW + 2 * PADX}px`, height: `${LH + PADT + PADB}px` });
     host.appendChild(this.el);
+    this.host = host;
     this.g = this.el.getContext('2d')!;
     this.onReady = onReady;
   }
@@ -90,13 +97,33 @@ export class LeafCanvas {
   /** Rozlišení plátna podle zvětšení alba a hustoty pixelů obrazovky. */
   setScale(k: number) {
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const R = Math.min(2, Math.max(1, k * dpr));
-    if (this.sized && Math.abs(R - this.R) < 0.02) return;
+    // jeden pixel plátna = jeden pixel obrazovky; jinak by se list při otáčení i po dosednutí rozmazal
+    const R = Math.min(3, Math.max(0.5, k * dpr));
+    if (this.sized && Math.abs(R - this.R) < 0.001) { this.align(); return; }
     this.sized = true;
     this.R = R;
-    this.el.width = Math.round((LW + 2 * PADX) * R);
-    this.el.height = Math.round((LH + PADT + PADB) * R);
+    this.el.width = Math.ceil((LW + 2 * PADX) * R) + 1;
+    this.el.height = Math.ceil((LH + PADT + PADB) * R) + 1;
+    this.el.style.width = `${this.el.width / R}px`;
+    this.el.style.height = `${this.el.height / R}px`;
     this.tex.clear();
+    this.align();
+  }
+
+  /** Srovná plátno na celé pixely obrazovky a zapamatuje si zbylý zlomek pixelu pro kreslení. */
+  private align() {
+    const dpr = window.devicePixelRatio || 1, r = this.host.getBoundingClientRect(), R = this.R;
+    const lx = r.left * dpr - PADX * R, ty = r.top * dpr - PADT * R;
+    const fx = lx - Math.floor(lx), fy = ty - Math.floor(ty);
+    this.fx = fx; this.fy = fy;
+    this.el.style.left = `${-PADX - fx / R}px`;
+    this.el.style.top = `${-PADT - fy / R}px`;
+  }
+
+  /** Zlomek pixelu, na kterém na obrazovce začíná strana v klidu (líc vpravo od hřbetu, rub vlevo). */
+  private frac(side: 'l' | 'r') {
+    const v = this.fx + (PADX + (side === 'l' ? -LW : 0)) * this.R;
+    return [v - Math.floor(v), this.fy + PADT * this.R - Math.floor(this.fy + PADT * this.R)] as const;
   }
 
   private image(src: string) {
@@ -112,7 +139,8 @@ export class LeafCanvas {
   }
 
   private key(p: PageSpec) {
-    return p.side + (p.blank ? 'b' : '') + p.pockets.map((c) => c ? `${c.img}|${c.owned}|${c.hidden ? 1 : 0}|${c.number}` : '-').join(';');
+    const [a, b] = this.frac(p.side);
+    return `${this.R.toFixed(3)}:${a.toFixed(2)}:${b.toFixed(2)}:` + p.side + (p.blank ? 'b' : '') + p.pockets.map((c) => c ? `${c.img}|${c.owned}|${c.hidden ? 1 : 0}|${c.number}` : '-').join(';');
   }
 
   /** Předem připraví stranu, aby byla hotová, než se list začne otáčet. */
@@ -123,8 +151,11 @@ export class LeafCanvas {
     let c = this.tex.get(k);
     if (c) return c;
     c = document.createElement('canvas');
-    c.width = Math.ceil(LW * this.R); c.height = Math.ceil(LH * this.R);
-    this.paintPage(c.getContext('2d')!, p);
+    c.width = Math.ceil(LW * this.R) + 1; c.height = Math.ceil(LH * this.R) + 1;
+    const g = c.getContext('2d')!, [ox, oy] = this.frac(p.side);
+    // strana se vykreslí se stejným zlomkem pixelu, na jakém leží na obrazovce, takže v klidu sedí 1 : 1
+    g.translate(ox, oy);
+    this.paintPage(g, p);
     if (this.tex.size > 24) this.tex.delete(this.tex.keys().next().value!);
     this.tex.set(k, c);
     return c;
@@ -225,14 +256,37 @@ export class LeafCanvas {
 
   /** Nakreslí otáčené listy (pořadí zespodu nahoru). Prázdný seznam plátno vyčistí. */
   draw(leaves: LeafState[]) {
-    const g = this.g, R = this.R;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.clearRect(0, 0, this.el.width, this.el.height);
-    for (const l of leaves) this.drawLeaf(l, R);
+    if (leaves.length && !this.live.length && !this.ghosts.length) this.align();
+    this.live = leaves;
+    this.render();
   }
 
-  private drawLeaf(l: LeafState, R: number) {
-    const g = this.g, q = l.q, th = -180 * q, b = Math.sin(Math.PI * clamp(q, 0, 1));
+  /** Dosedlé listy (q = 0 nebo 1) se 160 ms prolínají do stran v DOM. */
+  fade(leaves: LeafState[]) {
+    const t0 = performance.now();
+    leaves.forEach((l) => this.ghosts.push({ l, t0 }));
+    if (!this.graf) {
+      const step = () => {
+        this.render();
+        this.graf = this.ghosts.length ? requestAnimationFrame(step) : 0;
+      };
+      this.graf = requestAnimationFrame(step);
+    }
+    this.render();
+  }
+
+  private render() {
+    const g = this.g, now = performance.now();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, this.el.width, this.el.height);
+    this.ghosts = this.ghosts.filter((x) => now - x.t0 < 160);
+    for (const x of this.ghosts) { g.globalAlpha = 1 - (now - x.t0) / 160; this.drawLeaf(x.l); }
+    g.globalAlpha = 1;
+    for (const l of this.live) this.drawLeaf(l);
+  }
+
+  private drawLeaf(l: LeafState) {
+    const R = this.R, g = this.g, q = l.q, th = -180 * q, b = Math.sin(Math.PI * clamp(q, 0, 1));
     const dyn = clamp(l.v * 0.35, -1, 1), bend = b * (13 + 9 * Math.abs(dyn)) * l.bs, sag = b * 22 * l.ls * l.bs;
     const ang = (s: number) => clamp(th + bend * (3.1 * s + 1.9 * s * s), -180, 0);
     // body ohnuté křivky listu (x podél strany, z k divákovi, y pokles volného okraje)
@@ -246,6 +300,7 @@ export class LeafCanvas {
     // vzdálenější proužky první, bližší přes ně
     const order = Array.from({ length: NSL }, (_, i) => i).sort((a, c) => (P[a][1] + P[a + 1][1]) - (P[c][1] + P[c + 1][1]));
     const tf = l.front ? this.texture(l.front) : null, tb = l.back ? this.texture(l.back) : null;
+    const ff = l.front ? this.frac(l.front.side) : [0, 0], fb = l.back ? this.frac(l.back.side) : [0, 0];
     for (const i of order) {
       const a = ang((i + 0.5) / NSL), r = a * Math.PI / 180;
       const mx = (P[i][0] + P[i + 1][0]) / 2, mz = (P[i][1] + P[i + 1][1]) / 2;
@@ -255,9 +310,9 @@ export class LeafCanvas {
       const p0 = pts[i], p1 = pts[i + 1], A = front ? p0 : p1, B = front ? p1 : p0;
       const u0 = front ? i * SL : LW - (i + 1) * SL, ax = (B.X - A.X) / SL, ay = (B.Y - A.Y) / SL, d = (p0.s + p1.s) / 2;
       // zdrojový proužek u0..u0+SL se zobrazí mezi body A a B; přesah EXT překryje styk se sousedem
-      g.setTransform(R * ax, R * ay, 0, R * d, R * (A.X - ax * u0), R * (A.Y - ay * u0 - d * OY));
-      const sw = Math.min(SL + EXT, LW - u0);
-      g.drawImage(t, u0 * this.R, 0, sw * this.R, LH * this.R, u0, 0, sw, LH);
+      g.setTransform(R * ax, R * ay, 0, R * d, R * (A.X - ax * u0) + this.fx, R * (A.Y - ay * u0 - d * OY) + this.fy);
+      const sw = Math.min(SL + EXT, LW - u0), [ox, oy] = front ? ff : fb;
+      g.drawImage(t, u0 * R + ox, oy, sw * R, LH * R, u0, 0, sw, LH);
       // líc tmavne, jak se odvrací od světla, rub naopak
       const sh = 0.46 * (1 + (front ? -1 : 1) * Math.cos(r)) / 2;
       if (sh > 0.004) {

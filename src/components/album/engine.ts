@@ -401,8 +401,11 @@ export class AlbumEngine {
       this.apply();
       if (done.length) {
         const waits: Array<() => void> = [];
+        // dosedlý list se ještě krátce prolne do strany v DOM (žádné cuknutí při výměně)
+        const ghosts = done.map((i) => ({ front: this.pageSpec(i, false), back: this.pageSpec(i, true), q: this.F[i].tq, v: 0, bs: this.F[i].bs, ls: this.F[i].ls }));
         done.forEach((i) => { this.side[i] = this.F[i].tq === 1 ? 'L' : 'R'; waits.push(...this.F[i].wait); delete this.F[i]; });
         this.sync();
+        this.lc.fade(ghosts);
         waits.forEach((w) => w());
       }
       if (Object.keys(this.F).length) this.raf = requestAnimationFrame(step); else this.raf = 0;
