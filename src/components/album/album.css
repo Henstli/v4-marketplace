@@ -82,7 +82,9 @@
 /* vnitřek desek: tmavší prohlubeň, kam dosedají strany, a šev po okraji */
 .alb .pg.ins{background:rgba(0,0,0,.13);box-shadow:inset 0 2px 5px rgba(0,0,0,.22),inset 0 0 0 1px rgba(0,0,0,.1),0 1px 0 rgba(255,255,255,.1)}
 .alb .pg.ins.l{border-radius:14px 6px 6px 14px}.alb .pg.ins.r{border-radius:6px 14px 14px 6px}
-.alb .pg.ins .gl{opacity:.55}
+/* vnitřek desky není papír: místo hřbetního ohybu stránky (tmavý pruh a světlý proužek) jen jemné stínění u hřbetu */
+.alb .pg.ins.r .gl{background:linear-gradient(90deg,rgba(0,0,0,.14),rgba(0,0,0,.05) 4%,transparent 9%)}
+.alb .pg.ins.l .gl{background:linear-gradient(270deg,rgba(0,0,0,.14),rgba(0,0,0,.05) 4%,transparent 9%)}
 .alb .pg.blank .pk{opacity:.6}
 /* pevná vazba s tloušťkou */
 /* vnitřek otevřeného alba je JEDEN prvek přes celou dvoustranu (vnitřek přední desky, hřbet, zadní deska),
