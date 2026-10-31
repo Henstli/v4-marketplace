@@ -1,5 +1,5 @@
 // Import katalogů karet do databáze.
-//   Pokémon: TCGdex (https://tcgdex.dev), chybějící obrázky z pokemontcg.io a Limitless TCG, Magic: Scryfall (https://scryfall.com/docs/api),
+//   Pokémon: TCGdex (https://tcgdex.dev), chybějící obrázky z pokemontcg.io, pkmncards.com a Limitless TCG, Magic: Scryfall (https://scryfall.com/docs/api),
 //   Riftbound: oficiální galerie Riotu (https://playriftbound.com/en-us/card-gallery/), promo sady a záloha
 //   Riftcodex (https://riftcodex.com/docs), Lorcana: Lorcast (https://lorcast.com/docs/api),
 //   One Piece: OPTCG API (https://optcgapi.com/documentation), chybějící obrázky z Limitless TCG.
@@ -179,6 +179,50 @@ async function limitlessPokemonImage(setId: string, localId: string): Promise<st
   }
 }
 
+// Čtvrtý zdroj: pkmncards.com má skeny Trainer Kitů a McDonald's 2023, které jinde nejsou.
+// Jedna stránka sady obsahuje všechny karty, číslo je v názvu souboru (en_US-TK6A-001-spoink.jpg).
+const PKMNCARDS_SETS: Record<string, string> = {
+  'tk-sm-r': 'sun-moon-trainer-kit-alolan-raichu',
+  'tk-sm-l': 'sun-moon-trainer-kit-lycanroc',
+  'tk-dp-l': 'diamond-pearl-trainer-kit-lucario',
+  'tk-dp-m': 'diamond-pearl-trainer-kit-manaphy',
+  'tk-hs-g': 'hs-trainer-kit-gyarados',
+  'tk-hs-r': 'hs-trainer-kit-raichu',
+  'tk-bw-e': 'black-white-trainer-kit-excadrill',
+  'tk-bw-z': 'black-white-trainer-kit-zoroark',
+  'tk-xy-n': 'xy-trainer-kit-noivern',
+  'tk-xy-sy': 'xy-trainer-kit-sylveon',
+  'tk-xy-b': 'xy-trainer-kit-bisharp',
+  'tk-xy-w': 'xy-trainer-kit-wigglytuff',
+  'tk-xy-latia': 'xy-trainer-kit-latias',
+  'tk-xy-latio': 'xy-trainer-kit-latios',
+  'tk-xy-p': 'xy-trainer-kit-pikachu-libre',
+  'tk-xy-su': 'xy-trainer-kit-suicune',
+  '2023sv': 'mcdonalds-match-battle-2023',
+};
+
+async function pkmncardsImages(setId: string): Promise<Map<string, { url: string; name: string | null }>> {
+  const images = new Map<string, { url: string; name: string | null }>();
+  const slug = PKMNCARDS_SETS[setId];
+  if (!slug) return images;
+  try {
+    const res = await fetch(`https://pkmncards.com/set/${slug}/?display=images&sort=number&ord=auto`, {
+      headers: { 'User-Agent': HEADERS['User-Agent'], Accept: 'text/html' },
+    });
+    if (!res.ok) return images;
+    const html = await res.text();
+    // en_US-TK6A-001-spoink.jpg (číslo a jméno karty) nebo m23_en_001_std.jpg (jen číslo).
+    const re = /src="(https:\/\/pkmncards\.com\/wp-content\/uploads\/(?:en_US-[A-Za-z0-9]+-0*(\d+)-([a-z0-9_]+)|[a-z0-9]+_en_0*(\d+)_std)\.jpg)"/g;
+    for (const m of html.matchAll(re)) {
+      const number = m[2] ?? m[4];
+      if (!images.has(number)) images.set(number, { url: m[1], name: m[3] ?? null });
+    }
+  } catch {
+    // Záložní zdroj je jen doplněk.
+  }
+  return images;
+}
+
 async function fetchPokemonSet(id: string): Promise<ImportedSet> {
   const set = await getJson<TcgdexSet>(`https://api.tcgdex.net/v2/en/sets/${id}`);
   const code = (set.abbreviation?.official || set.id).toUpperCase();
@@ -190,8 +234,16 @@ async function fetchPokemonSet(id: string): Promise<ImportedSet> {
     }
   });
   const fallback = set.cards.some((c) => !c.image) ? await ptcgImages(set.id, set.name) : new Map<string, string>();
-  for (const c of set.cards) {
-    if (c.image || fallback.has(numberKey(c.localId))) continue;
+  const missing = set.cards.filter((c) => !c.image && !fallback.has(numberKey(c.localId)));
+  const pkmncards = missing.length ? await pkmncardsImages(set.id) : new Map<string, { url: string; name: string | null }>();
+  for (const c of missing) {
+    // U starších kitů pkmncards ukazuje jen část karet a občas z druhé poloviny balíčku,
+    // proto obrázek bereme, jen když sedí i jméno karty.
+    const fromPkmncards = pkmncards.get(numberKey(c.localId));
+    if (fromPkmncards && (!fromPkmncards.name || nameKey(c.name).startsWith(nameKey(fromPkmncards.name)))) {
+      fallback.set(numberKey(c.localId), fromPkmncards.url);
+      continue;
+    }
     const url = await limitlessPokemonImage(set.id, c.localId);
     if (url) fallback.set(numberKey(c.localId), url);
   }
