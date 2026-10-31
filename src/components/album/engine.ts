@@ -980,7 +980,7 @@ export class AlbumEngine {
     this.sync(true);
     this.root.querySelector('.ind')?.classList.add('live');
 
-    // Přeskočit (jen při založení): místo ukazatele stran ukazuje postup a hned vloží zbylé karty
+    // Přeskočit (založení i více karet): místo ukazatele stran ukazuje postup a hned vloží zbylé karty
     this.skipping = false;
     let skipNow = () => {};
     const skipped = new Promise<void>((res) => { skipNow = res; });
@@ -992,7 +992,7 @@ export class AlbumEngine {
       skp.querySelector('b')!.textContent = `${done} / ${n}`;
       skp.querySelector<HTMLElement>('.bar i')!.style.width = `${(100 * done / n).toFixed(1)}%`;
     };
-    if (founding && !single) {
+    if (!single) {
       skp = document.createElement('div');
       skp.className = 'skp';
       skp.innerHTML = `<span>Vloženo</span><b></b><span class="bar"><i></i></span>` +
@@ -1006,7 +1006,7 @@ export class AlbumEngine {
         this.skipping = true;
         skp?.classList.remove('on');
         // letící karty zmizí a rozjeté listy doběhnou hned
-        this.stage.querySelectorAll<HTMLElement>('.fly.arc').forEach((f) => f.getAnimations().forEach((a) => a.cancel()));
+        this.stage.querySelectorAll<HTMLElement>('.fly.arc,.fly.ghost').forEach((f) => f.getAnimations().forEach((a) => a.cancel()));
         for (const k in this.F) { const tw = this.F[k].tw; if (tw) tw.dur = 1; }
         skipNow();
       });
@@ -1088,23 +1088,11 @@ export class AlbumEngine {
         await race(Promise.all(lands));
         await race(sleep(30 + 200 * cos((s + 1) / 5)));
       }
-      if (this.skipping && alive()) {
-        // zbylé karty jsou hned v albu a album stojí na poslední dvoustraně, kam karty přibyly
-        await sleep(50);
-        if (!alive()) return;
-        const last = spreads[spreads.length - 1];
-        this.F = {};
-        for (let i = 0; i < this.NL; i++) this.side[i] = i < last ? 'L' : 'R';
-        this.edgeK = 1;
-        list.forEach((ci) => { this.hidden.delete(ci); this.glow.add(ci); });
-        have = haveBefore + n;
-        this.sync(true);
-      }
     } else {
       // 2B / 2C: karty odlétají z hromádky po 420 ms; po ~12 kartách se tempo zrychluje až k okamžitému vkládání
       const kOf = (x: number) => cos((x - 12) / 28);
       let seen = 0, first = true;
-      for (let s = 0; s < spreads.length; s++) {
+      for (let s = 0; s < spreads.length && !this.skipping; s++) {
         if (!alive()) return;
         const tgt = spreads[s];
         const mine = list.filter((i) => this.spreadOf(i) === tgt);
@@ -1113,24 +1101,37 @@ export class AlbumEngine {
         const riffle = tgt !== cur
           ? this.goToRaw(tgt, Math.max(170, 340 * Math.max(0.5, k0)), Math.max(30, Math.min(135, 700 / Math.abs(tgt - cur))))
           : Promise.resolve();
-        await Promise.all([riffle, first ? intro : null]);
+        await race(Promise.all([riffle, first ? intro : null]));
         first = false;
         if (!alive()) return;
+        if (this.skipping) break;
         const lands: Promise<void>[] = [];
-        for (let j = 0; j < mine.length; j++) {
+        for (let j = 0; j < mine.length && !this.skipping; j++) {
           const ci = mine[j], k = kOf(seen + j);
           if (k < 0.12) { pile.take(); pop(ci); await sleep(4 + 30 * k); continue; }
           const el = kc(ci);
           if (!el) { pile.take(); this.hidden.delete(ci); continue; }
           const T = rel(el);
-          lands.push(pile.lift().then(() => this.flyBend(ci, D, T, k, single)).then(() => { if (alive()) land(ci, k); }));
-          if (j < mine.length - 1) await sleep(420 * Math.max(0.25, k));
+          lands.push(pile.lift().then(() => (this.skipping ? undefined : this.flyBend(ci, D, T, k, single))).then(() => { if (alive() && !this.skipping) land(ci, k); }));
+          if (j < mine.length - 1) await race(sleep(420 * Math.max(0.25, k)));
         }
-        await Promise.all(lands);
+        await race(Promise.all(lands));
         seen += mine.length;
         // list se otočí až po dosednutí poslední karty
-        await sleep(single ? 0 : 120 + 600 * k0);
+        await race(sleep(single ? 0 : 120 + 600 * k0));
       }
+    }
+    if (this.skipping && alive()) {
+      // zbylé karty jsou hned v albu a album stojí na poslední dvoustraně, kam karty přibyly
+      await sleep(50);
+      if (!alive()) return;
+      const last = spreads[spreads.length - 1];
+      this.F = {};
+      for (let i = 0; i < this.NL; i++) this.side[i] = i < last ? 'L' : 'R';
+      this.edgeK = 1;
+      list.forEach((ci) => { this.hidden.delete(ci); this.glow.add(ci); });
+      have = haveBefore + n;
+      this.sync(true);
     }
     if (!alive()) return;
     pile.end();
@@ -1354,7 +1355,7 @@ export class AlbumEngine {
     }
     return new Promise<void>((res) => {
       const step = (now: number) => {
-        if (this.dead) { f.remove(); ghost?.remove(); return res(); }
+        if (this.dead || this.skipping) { f.remove(); ghost?.remove(); return res(); }
         if (draw(now) >= 1) { f.remove(); ghost?.remove(); return res(); }
         requestAnimationFrame(step);
       };
