@@ -108,6 +108,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
                   <span style={{ fontFamily: 'var(--font-mono)' }}><b style={{ color: 'var(--ink)' }}>{have}</b> / {cards.length}</span>
                 </>
               ) : <span>· {cards.length} {cardsWord(cards.length)}</span>}
+              <span>· Hodnota <b style={{ color: 'var(--ink)' }}><Kc n={value} /></b></span>
             </div>
           </div>
         </div>
@@ -117,7 +118,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
         </div>
       </div>
 
-      <div className={s.layout}>
+      <div className={s.full}>
         <div className={s.stage}>
           <AlbumViewer
             key={`${look.design}-${look.sleeve}`}
@@ -132,55 +133,39 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
             onRemove={remove}
           />
           {!cards.length ? <p className={s.hint} style={{ textAlign: 'center' }}>Album je prázdné. Přidej do něj karty tlačítkem Přidat karty.</p> : null}
+          {err && !selCard ? <p className={s.err} style={{ textAlign: 'center' }}>{err}</p> : null}
         </div>
+      </div>
 
-        <aside className={s.side}>
-          {selCard && !selCard.owned ? (
-            <div className={s.panel}>
-              <div className={s.pHead}>
-                <b>#{selCard.number}{album.kind === 'set' ? ` / ${cards.length}` : ''}</b>
-                <span className={s.tag}>Chybí</span>
-              </div>
-              <div className={s.pCard}>
-                <div className={`${s.mcImg} ${s.missing}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {selCard.image ? <img src={thumbUrl(selCard.image) ?? selCard.image} alt={selCard.name} /> : null}
-                </div>
-                <div>
-                  <h4>{selCard.name}</h4>
-                  <p>{[selCard.rarity, selCard.setName].filter(Boolean).join(' · ')}</p>
-                  {selCard.minPrice ? <p>Nejnižší cena <b><Kc n={selCard.minPrice} /></b></p> : <p>Teď ji nikdo neprodává.</p>}
-                </div>
-              </div>
-              <div className={s.pBtns}>
-                <Button disabled={pending} onClick={() => insert([selCard.id])}>✓ Mám ji, vložit do alba</Button>
-                {selCard.offers ? (
-                  <ButtonLink variant="secondary" href={`/karty/${selCard.slug}`}>
-                    Zobrazit {selCard.offers} {selCard.offers === 1 ? 'nabídku' : selCard.offers <= 4 ? 'nabídky' : 'nabídek'}
-                  </ButtonLink>
-                ) : <ButtonLink variant="secondary" href={`/karty/${selCard.slug}`}>Detail karty</ButtonLink>}
-                <WatchButton cardId={selCard.id} size="md" />
-                <Button variant="ghost" onClick={() => { setSel(null); view.current?.select(null); }}>Zavřít</Button>
-              </div>
-              {err ? <p className={s.err}>{err}</p> : null}
+      {selCard && !selCard.owned ? (
+        <Drawer title="Chybějící karta" onClose={() => { setSel(null); view.current?.select(null); }}>
+          <div className={s.pHead}>
+            <b>#{selCard.number}{album.kind === 'set' ? ` / ${cards.length}` : ''}</b>
+            <span className={s.tag}>Chybí</span>
+          </div>
+          <div className={s.pCard}>
+            <div className={`${s.mcImg} ${s.missing}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {selCard.image ? <img src={thumbUrl(selCard.image) ?? selCard.image} alt={selCard.name} /> : null}
             </div>
-          ) : (
-            <div className={s.panel}>
-              <h3>O albu</h3>
-              <div className={s.kv}><span>Karet v albu</span><b>{have}{album.kind === 'set' ? ` / ${cards.length}` : ''}</b></div>
-              {album.kind === 'set' ? <div className={s.kv}><span>Chybí</span><b>{cards.length - have}</b></div> : null}
-              {album.kind === 'set' ? <div className={s.kv}><span>Chybějící v nabídce</span><b>{cards.filter((c) => !c.owned && c.offers).length}</b></div> : null}
-              <div className={s.kv}><span>Hodnota</span><b><Kc n={value} /></b></div>
-              <p className={s.hint}>
-                {album.kind === 'set'
-                  ? 'Klikni na prázdnou kapsu: uvidíš nabídky chybějící karty, nebo ji rovnou vložíš, když ji máš.'
-                  : 'Klikni na kartu, vyjede a můžeš s ní otáčet.'}
-              </p>
-              {err ? <p className={s.err}>{err}</p> : null}
+            <div>
+              <h4>{selCard.name}</h4>
+              <p>{[selCard.rarity, selCard.setName].filter(Boolean).join(' · ')}</p>
+              {selCard.minPrice ? <p>Nejnižší cena <b><Kc n={selCard.minPrice} /></b></p> : <p>Teď ji nikdo neprodává.</p>}
             </div>
-          )}
-          {selCard && !selCard.owned && offers?.id === selCard.id && offers.list.length ? (
-            <div className={s.panel}>
+          </div>
+          <div className={s.pBtns}>
+            <Button disabled={pending} onClick={() => insert([selCard.id])}>✓ Mám ji, vložit do alba</Button>
+            {selCard.offers ? (
+              <ButtonLink variant="secondary" href={`/karty/${selCard.slug}`}>
+                Zobrazit {selCard.offers} {selCard.offers === 1 ? 'nabídku' : selCard.offers <= 4 ? 'nabídky' : 'nabídek'}
+              </ButtonLink>
+            ) : <ButtonLink variant="secondary" href={`/karty/${selCard.slug}`}>Detail karty</ButtonLink>}
+            <WatchButton cardId={selCard.id} size="md" />
+          </div>
+          {err ? <p className={s.err}>{err}</p> : null}
+          {offers?.id === selCard.id && offers.list.length ? (
+            <div className={s.offers}>
               <h3>Nejlevnější nabídky</h3>
               {offers.list.map((o, i) => (
                 <div key={i} className={s.offer}>
@@ -190,8 +175,8 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
               ))}
             </div>
           ) : null}
-        </aside>
-      </div>
+        </Drawer>
+      ) : null}
 
       {drawer === 'add' ? (
         <AddDrawer album={album} cards={cards} pending={pending} onClose={() => setDrawer(null)} onAdd={insert} />

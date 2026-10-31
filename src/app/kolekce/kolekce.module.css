@@ -66,11 +66,10 @@
 .atitle .meta{margin-top:4px;flex-wrap:wrap}
 .minibar{width:140px;height:5px;border-radius:3px;background:var(--surface-sunken);overflow:hidden}
 .minibar i{display:block;height:100%;background:var(--accent)}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--space-4);margin-top:var(--space-6);align-items:start}
+.full{margin-top:var(--space-6)}
+.offers{margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--line)}
+.offers h3{margin:0 0 var(--space-3);font:700 16px var(--font-display)}
 .stage{padding:var(--space-4);border:1px solid var(--line);border-radius:var(--radius-lg);background:radial-gradient(ellipse 70% 60% at 50% 45%,#1b2230,#0b0e13 80%);overflow:hidden}
-.side{display:flex;flex-direction:column;gap:var(--space-4)}
-.panel{padding:var(--space-4);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
-.panel h3{margin:0 0 var(--space-3);font:700 16px var(--font-display)}
 .pHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)}
 .pHead b{font:700 18px var(--font-display)}
 .pCard{display:flex;gap:var(--space-3);margin-bottom:var(--space-4)}
@@ -86,7 +85,6 @@
 .kv{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink-muted)}
 .kv b{color:var(--ink)}
 .err{margin:var(--space-2) 0 0;color:var(--down);font-size:13px}
-@media (max-width:980px){.layout{grid-template-columns:1fr}}
 
 /* zásuvka (Přidat karty, Vzhled alba) */
 .drawerBg{position:fixed;inset:0;z-index:80;background:rgba(5,7,10,.6);backdrop-filter:blur(2px)}
