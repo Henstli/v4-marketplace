@@ -442,6 +442,33 @@ export class AlbumEngine {
     if (sr) sr.style.opacity = qMaxR === null ? '0' : sh(1 - qMaxR);
   }
 
+  /**
+   * Sousední otáčené listy se nepředbíhají (list i leží vždy nad listem i+1). Dohánějící list jen počká
+   * u souseda, nikdy necouvne. Vrací listy, které musely počkat.
+   */
+  private keepOrder(q0: Record<number, number>) {
+    const ks = this.moving(), blocked = new Set<number>(), gap = 0.012;
+    const was = (i: number) => q0[i] ?? this.F[i].q;
+    // zavírání: nižší list (blíž desce) dohání vyšší, který už letí doprava
+    for (let j = ks.length - 2; j >= 0; j--) {
+      const a = ks[j], b = ks[j + 1], fa = this.F[a], fb = this.F[b];
+      if (b !== a + 1 || fa.drag || fa.tq !== 0 || was(a) < was(b)) continue;
+      // deska je pevná a kreslí se mimo plátno listů: nesmí projít ani zahnutým volným okrajem listu
+      let top = fb.q;
+      if (a === 0 && fb.bs < 0) top += 5 * Math.sin(Math.PI * clamp(fb.q, 0, 1)) * (13 + 9 * Math.abs(clamp(fb.v * 0.35, -1, 1))) / 180;
+      const lim = Math.min(was(a), clamp(top, 0, 1) + gap);
+      if (fa.q < lim) { fa.q = lim; blocked.add(a); }
+    }
+    // otevírání: vyšší list dohání nižší, který už letí doleva
+    for (let j = 0; j < ks.length - 1; j++) {
+      const a = ks[j], b = ks[j + 1], fa = this.F[a], fb = this.F[b];
+      if (b !== a + 1 || fb.drag || fb.tq !== 1 || was(b) > was(a)) continue;
+      const lim = Math.max(was(b), fa.q - gap);
+      if (fb.q > lim) { fb.q = lim; blocked.add(b); }
+    }
+    return blocked;
+  }
+
   // jedna smyčka pohne všemi listy; dokončené listy se uloží na svou stranu
   private run() {
     if (this.raf) return;
@@ -449,18 +476,29 @@ export class AlbumEngine {
     const step = (now: number) => {
       if (this.dead) return;
       const dt = Math.min(0.032, (now - last) / 1000); last = now;
-      const done: number[] = [];
+      const done: number[] = [], ended = new Set<number>(), q0: Record<number, number> = {};
       for (const k in this.F) {
         const f = this.F[k];
         if (f.drag) continue;
+        q0[k] = f.q;
         if (f.tw) {
-          const w = f.tw, p = Math.min(1, (now - w.t0) / w.dur), nq = w.from + (w.to - w.from) * w.ease(p);
-          f.v = dt > 0 ? (nq - f.q) / dt : 0; f.q = nq;
-          if (p >= 1) { f.tw = null; f.q = f.tq; f.v = 0; done.push(Number(k)); }
+          const w = f.tw, p = Math.min(1, (now - w.t0) / w.dur);
+          f.q = w.from + (w.to - w.from) * w.ease(p);
+          if (p >= 1) { f.q = f.tq; ended.add(Number(k)); }
           continue;
         }
         const a = f.k * (f.tq - f.q) - f.c * f.v; f.v += a * dt; f.q += f.v * dt;
-        if (Math.abs(f.tq - f.q) < 0.0015 && Math.abs(f.v) < 0.02) { f.q = f.tq; f.v = 0; done.push(Number(k)); }
+        if (Math.abs(f.tq - f.q) < 0.0015 && Math.abs(f.v) < 0.02) { f.q = f.tq; ended.add(Number(k)); }
+      }
+      // listy nemůžou projít jeden druhým: při rychlém zavírání by deska předběhla list, který ještě letí, a list by pod ní zmizel
+      const blocked = this.keepOrder(q0);
+      for (const k in this.F) {
+        const f = this.F[k], i = Number(k);
+        if (f.drag) continue;
+        if (f.tw || blocked.has(i)) f.v = dt > 0 ? (f.q - q0[i]) / dt : 0;
+        // čekající list se po uvolnění rozjede plynule z místa, kde stojí (ne skokem tam, kde by podle času už byl)
+        if (f.tw && blocked.has(i)) f.tw = { ...f.tw, t0: now, from: f.q, dur: (i === 0 ? 1150 : 900) * Math.max(0.35, Math.abs(f.tq - f.q)), ease: smooth };
+        if (ended.has(i) && !blocked.has(i)) { f.tw = null; f.v = 0; done.push(i); }
       }
       this.apply();
       if (done.length) {
