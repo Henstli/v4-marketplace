@@ -259,6 +259,8 @@ export class AlbumEngine {
     this.root.style.setProperty('--page', d.page);
     this.root.style.setProperty('--lining', d.lining);
     this.root.style.setProperty('--mat', d.mat);
+    // vnitřek přední desky má potah zrcadlově k zadní desce, aby u hřbetu barvy plynule navazovaly
+    this.root.style.setProperty('--lining-m', d.lining.replace(/(-?\d+(?:\.\d+)?)deg/g, (_m: string, a: string) => `${360 - Number(a)}deg`));
     this.root.style.setProperty('--pocket', d.pocket);
     this.root.style.setProperty('--empty', d.empty);
     this.root.style.setProperty('--edge', 'rgba(0,0,0,.55)');
@@ -266,9 +268,9 @@ export class AlbumEngine {
     const arrow = (dir: string) => `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir}"></path></svg>`;
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
-      `<span class="spn"></span><span class="brd"${d.glow ? ` style="box-shadow:0 0 34px ${d.glow}55,0 40px 60px -24px #000"` : ''}></span>` +
+      `<span class="bsh"></span><span class="brd"${d.glow ? ` style="--glw:0 0 34px ${d.glow}55,"` : ''}></span>` +
       `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="lsh"></span><span class="csh"></span></div>` +
-      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
+      `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div><span class="spn"></span>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
       `<button type="button" class="arr pv" aria-label="Předchozí strana">${arrow('M13.5 5 L7.5 11 L13.5 17')}</button>` +
       `<button type="button" class="arr nx" aria-label="Další strana">${arrow('M8.5 5 L14.5 11 L8.5 17')}</button>` +
@@ -432,7 +434,10 @@ export class AlbumEngine {
     const flat = !f0 && cq >= 1, shut = !f0 && cq <= 0;
     this.cov.classList.toggle('flat', flat);
     this.cov.classList.toggle('shut', shut);
-    const ss = this.ss, inv = `scale(${(1 / ss).toFixed(6)})`;
+    const ss = this.ss, iv = (1 / ss).toFixed(6);
+    // zmenšit i hloubku (scale3d), jinak by se posun translateZ uvnitř zvětšené desky násobil a deska by po dokončení otáčení poskočila
+    const inv = `scale3d(${iv},${iv},${iv})`;
+    this.book.classList.toggle('open', flat);
     // posuny uvnitř transformace se násobí zoomem desky, proto /ss
     this.cov.style.transform = flat || shut ? inv : `translateX(${2 / ss}px) rotateY(${ca.toFixed(2)}deg) translateX(${-2 / ss}px) ${inv}`;
     this.cov.style.zIndex = ca > -90 ? '60' : '1';
