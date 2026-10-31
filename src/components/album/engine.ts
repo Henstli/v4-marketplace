@@ -89,6 +89,19 @@ export function cardsWord(n: number) {
   return n === 1 ? 'karta' : n >= 2 && n <= 4 ? 'karty' : 'karet';
 }
 
+let measureCtx: CanvasRenderingContext2D | null = null;
+/** Metriky písma prvku při velikosti fs: výška velkých písmen a horní/dolní část řádku. */
+function fontMetrics(cs: CSSStyleDeclaration, fs: number) {
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  if (!measureCtx) return null;
+  measureCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${fs}px ${cs.fontFamily}`;
+  const t = measureCtx.measureText('H');
+  return { cap: t.actualBoundingBoxAscent, a: t.fontBoundingBoxAscent, d: t.fontBoundingBoxDescent };
+}
+function capHeight(cs: CSSStyleDeclaration, fs: number) {
+  return fontMetrics(cs, fs)?.cap ?? 0;
+}
+
 /** Vejde název do štítku na desce stejně jako v návrzích alb: nejdřív ubírá rozpal písmen, pak velikost písma. */
 export function fitCoverNames(root: ParentNode) {
   root.querySelectorAll<HTMLElement | SVGTextElement>('.nm').forEach((el) => {
@@ -111,6 +124,15 @@ export function fitCoverNames(root: ParentNode) {
           set();
         }
         if (el.getComputedTextLength() > w) { el.setAttribute('textLength', String(w)); el.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
+        // Svisle: střed velkých písmen na střed štítku (data-cy), jinak tam, kde byl při původní velikosti písma.
+        const cs = getComputedStyle(el);
+        if (el.dataset.y0 === undefined) el.dataset.y0 = el.getAttribute('y') || '0';
+        const fs0 = Number(el.dataset.fs), y0 = Number(el.dataset.y0);
+        const c0 = capHeight(cs, fs0);
+        if (c0 > 0) {
+          const cy = el.dataset.cy !== undefined ? Number(el.dataset.cy) : y0 - c0 / 2;
+          el.setAttribute('y', String(Math.round((cy + capHeight(cs, fs) / 2) * 100) / 100));
+        }
       } else {
         const cs = getComputedStyle(el);
         if (!el.dataset.fs0) { el.dataset.fs0 = String(parseFloat(cs.fontSize)); el.dataset.ls0 = String(parseFloat(cs.letterSpacing) || 0); }
@@ -122,6 +144,16 @@ export function fitCoverNames(root: ParentNode) {
           set();
         }
         while (fs > 6 && el.scrollWidth > el.clientWidth && n++ < 400) { fs -= 0.5; set(); }
+        // Svisle: střed velkých písmen na střed štítku. Řádek písmo posadí podle svých metrik, které má každé písmo jiné.
+        if (el.dataset.pt0 === undefined) { el.dataset.pt0 = String(parseFloat(cs.paddingTop) || 0); el.dataset.pb0 = String(parseFloat(cs.paddingBottom) || 0); }
+        const m = fontMetrics(getComputedStyle(el), fs);
+        const lh = parseFloat(getComputedStyle(el).lineHeight);
+        if (m && lh > 0) {
+          const base = (lh - (m.a + m.d)) / 2 + m.a;
+          const dy = Math.round((lh / 2 - (base - m.cap / 2)) * 100) / 100;
+          el.style.paddingTop = Number(el.dataset.pt0) + dy + 'px';
+          el.style.paddingBottom = Number(el.dataset.pb0) - dy + 'px';
+        }
       }
     } catch { /* písmo ještě není nebo prvek není vidět */ }
   });
