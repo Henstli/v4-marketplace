@@ -248,7 +248,8 @@ export class LeafCanvas {
     g.save();
     rr(g, x, y, 92, 126, 9 * sx); g.clip();
     if (this.sleeve) g.drawImage(this.sleeve, x, y, 92, 126);
-    const ix = x + 7 * sx, iy = y + 7 * sy, iw = 92 - 14 * sx, ih = 126 - 14 * sy;
+    // okénko 136 × 190 v obalu 150 × 206 = poměr karty 63 : 88, obrázek ho vyplní bez tmavých pruhů nahoře a dole
+    const ix = x + 7 * sx, iy = y + 8 * sy, iw = 92 - 14 * sx, ih = 126 - 16 * sy;
     g.save();
     rr(g, ix, iy, iw, ih, 6 * sx); g.clip();
     g.fillStyle = '#151a22'; g.fillRect(ix, iy, iw, ih);
