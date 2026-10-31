@@ -247,8 +247,10 @@ export class AlbumEngine {
     const c = this.cards[idx];
     const cls = 'pk' + (this.glow.has(idx) ? ' glow' : '') + (this.sel === idx ? ' sel' : '');
     if (!c) return `<div class="pk"></div>`;
+    // karta na cestě do kapsy: pod ní zůstává popisek prázdné kapsy, dokud ji karta nezakryje
+    const under = (i: number) => this.hidden.has(i) ? `<div class="em under" aria-hidden="true"><span>#${esc(c.number)}</span><small>${esc(c.name)}</small></div>` : '';
     if (c.owned > 0) {
-      return `<div class="${cls}"><div class="kc${this.hidden.has(idx) ? ' off' : ''}" data-c="${idx}">${sleeveHTML(this.o.sleeve, c.image, c.name)}` +
+      return `<div class="${cls}">${under(idx)}<div class="kc${this.hidden.has(idx) ? ' off' : ''}" data-c="${idx}">${sleeveHTML(this.o.sleeve, c.image, c.name)}` +
         `<span class="gs"></span>${c.owned > 1 ? `<span class="qty">×${c.owned}</span>` : ''}</div></div>`;
     }
     return `<div class="${cls}"><div class="em" data-e="${idx}" title="${esc(c.name)}"><span>#${esc(c.number)}</span><small>${esc(c.name)}</small></div></div>`;

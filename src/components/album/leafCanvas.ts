@@ -242,7 +242,7 @@ export class LeafCanvas {
       rr(g, x + 0.5, y + 0.5, pw - 1, ph - 1, Math.max(0, pr - 0.5)); g.strokeStyle = L.pocket; g.lineWidth = 1; g.stroke();
       g.globalAlpha = 1;
       if (!c) return;
-      if (c.owned > 0) { if (!c.hidden) this.paintCard(g, c, x + (pw - 92) / 2, y + (ph - 126) / 2); return; }
+      if (c.owned > 0 && !c.hidden) { this.paintCard(g, c, x + (pw - 92) / 2, y + (ph - 126) / 2); return; }
       this.paintEmpty(g, c, x, y, pw, ph);
     });
     g.drawImage(gutterImage(p.side), 0, 0, LW, LH);
