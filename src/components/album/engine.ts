@@ -1398,6 +1398,18 @@ export class AlbumEngine {
       : '';
     sum.innerHTML = `<h2>${esc(sd.title)}</h2><div class="sub">${esc(sd.sub)}</div><div class="sgr">${g}</div>${nav}<button type="button" class="bt pri done">Prohlédnout album</button>`;
     sum.classList.add('on');
+    if (anim) {
+      // deska 2B: až jsou dvoustrany vidět, ostatní karty ztmavnou a nové se rozsvítí jedna po druhé
+      const t0 = 120 + (m - 1) * 90 + 500;
+      sum.querySelectorAll<HTMLElement>('.mk.f').forEach((el) => el.animate([{ opacity: 1 }, { opacity: 0.42 }], { duration: 500, delay: t0 - 50, easing: 'ease-out', fill: 'both' }));
+      const fresh = [...sum.querySelectorAll<HTMLElement>('.mk.n')];
+      const step = Math.min(130, 2400 / Math.max(1, fresh.length));
+      fresh.forEach((el, j) => el.animate([
+        { boxShadow: '0 0 0 0 rgba(124,242,200,0)', transform: 'none' },
+        { boxShadow: '0 0 0 2px #7cf2c8,0 0 22px rgba(124,242,200,.9)', transform: 'translateY(-4px) scale(1.06)', offset: 0.23 },
+        { boxShadow: '0 0 0 1.5px rgba(124,242,200,.85),0 0 10px rgba(124,242,200,.45)', transform: 'translateY(-2px) scale(1.03)' },
+      ], { duration: 700, delay: t0 + j * step, easing: 'ease-out', fill: 'both' }));
+    }
     sum.querySelector<HTMLElement>('.spg .pv')?.addEventListener('click', () => { this.sumPage--; this.showSum(true); });
     sum.querySelector<HTMLElement>('.spg .nx')?.addEventListener('click', () => { this.sumPage++; this.showSum(true); });
     sum.querySelectorAll<HTMLElement>('.ms').forEach((el) => el.addEventListener('click', () => this.closeSum(Number(el.dataset.t))));
