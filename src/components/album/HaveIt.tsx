@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { addCards, cardAlbums } from '@/app/kolekce/actions';
-import { Button } from '@/components/trezor';
+import { Button, PlusIcon } from '@/components/trezor';
 import { AlbumBook } from './AlbumBook';
 import s from './HaveIt.module.css';
 
@@ -73,7 +73,7 @@ export function HaveIt({ cardId }: { cardId: string }) {
             <span><b>Jen do sbírky</b><small>Bez alba, uvidíš ji ve Všech kartách</small></span>
           </button>
           <Link className={s.row} href="/kolekce/nove">
-            <span className={s.plus}>＋</span>
+            <span className={s.plus}><PlusIcon size={18} stroke={2.5} /></span>
             <span><b>Založit nové album</b><small>Celá sada nebo vlastní výběr</small></span>
           </Link>
           {done ? (
