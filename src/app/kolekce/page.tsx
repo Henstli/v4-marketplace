@@ -9,6 +9,7 @@ import { formatNumber } from '@/lib/format';
 import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { CollectionTabs } from './CollectionTabs';
 import s from './kolekce.module.css';
 
 export const metadata: Metadata = { title: 'Moje kolekce' };
@@ -71,7 +72,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
   if (!user) redirect('/prihlaseni?dalsi=/kolekce');
   const { tab: rawTab } = await searchParams;
   const tab = rawTab === 'karty' || rawTab === 'chybi' ? rawTab : 'alba';
-  const [o, all] = await Promise.all([getCollectionOverview(), tab === 'karty' ? getCollectionCards(400) : Promise.resolve([])]);
+  const [o, all] = await Promise.all([getCollectionOverview(), getCollectionCards(400)]);
   const complete = o.albums.filter((a) => a.kind === 'set' && a.total > 0 && a.have >= a.total).length;
   const firstMissing = o.missing.filter((m) => m.offers > 0).slice(0, 6);
   const albumsWithMissing = [...new Set(firstMissing.map((m) => m.albumName))];
@@ -95,13 +96,11 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
         <div className={s.stat}><span>Chybí do kompletních sad</span><b>{formatNumber(o.missingTotal)}</b><em><i>{o.missingOffered}</i> z nich je teď v nabídce</em></div>
       </div>
 
-      <nav className={s.tabs} aria-label="Části kolekce">
-        <Link className={s.tab} href="/kolekce" aria-current={tab === 'alba' ? 'page' : undefined}>Alba<small>{o.albums.length}</small></Link>
-        <Link className={s.tab} href="/kolekce?tab=karty" aria-current={tab === 'karty' ? 'page' : undefined}>Všechny karty<small>{formatNumber(o.cardCount)}</small></Link>
-        <Link className={s.tab} href="/kolekce?tab=chybi" aria-current={tab === 'chybi' ? 'page' : undefined}>Chybějící<small>{formatNumber(o.missingTotal)}</small></Link>
-      </nav>
-
-      {tab === 'alba' ? (
+      <CollectionTabs
+        initial={tab}
+        counts={{ alba: String(o.albums.length), karty: formatNumber(o.cardCount), chybi: formatNumber(o.missingTotal) }}
+        panels={{
+          alba: (
         <>
           <div className={s.grid}>
             {o.albums.map((a) => <AlbumTile key={a.id} a={a} />)}
@@ -115,15 +114,14 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             <>
               <div className={s.sec}>
                 <h2>Chybí ti a jsou v nabídce<small>z alb {albumsWithMissing.join(', ')}</small></h2>
-                <Link href="/kolekce?tab=chybi">Všechny chybějící →</Link>
+                <Link href="/kolekce?tab=chybi" data-tab="chybi">Všechny chybějící →</Link>
               </div>
               <div className={s.cards}>{firstMissing.map((c) => <CardItem key={`${c.albumId}-${c.id}`} c={c} missing />)}</div>
             </>
           ) : null}
         </>
-      ) : null}
-
-      {tab === 'karty' ? (
+          ),
+          karty: (
         all.length ? (
           <div className={s.cards} style={{ marginTop: 'var(--space-6)' }}>{all.map((c) => <CardItem key={c.id} c={c} />)}</div>
         ) : (
@@ -133,9 +131,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             <ButtonLink href="/kolekce/nove">Založit album</ButtonLink>
           </div>
         )
-      ) : null}
-
-      {tab === 'chybi' ? (
+          ),
+          chybi: (
         o.missing.length ? (
           <>
             <p className={s.hint} style={{ marginTop: 'var(--space-4)' }}>Karty, které ti chybí v albech sad. Nahoře jsou ty, které teď někdo prodává.{o.missingTotal > o.missing.length ? ` Zobrazeno ${o.missing.length} z ${formatNumber(o.missingTotal)}.` : ''}</p>
@@ -148,7 +145,9 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
             <ButtonLink href="/kolekce/nove">Založit album sady</ButtonLink>
           </div>
         )
-      ) : null}
+          ),
+        }}
+      />
     </main>
   );
 }
