@@ -59,7 +59,6 @@ export function HeaderUser() {
   return (
     <>
       {state.kind === 'in' ? <PresencePing /> : null}
-      {state.kind === 'in' ? <HeaderIcon href="/kolekce" icon="album" label="Moje kolekce" count={0} current={pathname.startsWith('/kolekce')} /> : null}
       {state.kind === 'in' ? <MessagesLink initial={0} /> : null}
       <CartLink />
       {state.kind === 'in' ? (

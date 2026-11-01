@@ -6,7 +6,7 @@ import { ProfileMat } from '@/components/profile/ProfileMat';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { SellerTrust } from '@/components/shop/SellerTrust';
 import { ReportContent } from '@/components/reports/ReportContent';
-import { FriendButton } from '@/components/profile/FriendButton';
+import { FriendRow } from '@/components/profile/FriendButton';
 import { getAccountSummary } from '@/lib/account';
 import { getCurrentUser } from '@/lib/auth';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
@@ -50,9 +50,8 @@ export default async function SellerPage({ params, searchParams }: Props) {
     </>
   ) : (
     <>
-      {shopLink ? <Link href={shopLink} className="tz-btn tz-btn-md tz-btn-primary">{seller.kind === 'shop' ? 'Obchod' : 'Stránka'}</Link> : null}
-      <Link href={`/zpravy/${seller.id}`} className="tz-btn tz-btn-md tz-btn-orange">Napsat</Link>
-      <FriendButton other={seller.id} initial={status} signedIn={!!viewer} />
+      {shopLink ? <Link href={shopLink} className="tz-btn tz-btn-md tz-btn-primary">Obchod</Link> : null}
+      <FriendRow other={seller.id} initial={status} signedIn={!!viewer} writeHref={`/zpravy/${seller.id}`} />
     </>
   );
 
