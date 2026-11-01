@@ -67,3 +67,33 @@ export const getProfileCard = cache(async (id: string): Promise<ProfileCardData 
     listings: offers.count ?? 0,
   };
 });
+
+// Celý profil na hrací podložce (deska P5): alba, chybějící karty, poslední obchody, hodnocení, doba odpovědi.
+export interface ShowcaseAlbum { id: string; name: string; design: number; kind: 'set' | 'custom'; setName: string | null; have: number; total: number }
+export interface ShowcaseTrade { id: string; sold: boolean; at: string; other: string | null; card: string | null; image: string | null; items: number; rating: number | null }
+export interface ProfileShowcase {
+  albums: ShowcaseAlbum[];
+  missing: { album: { id: string; name: string; design: number }; count: number; cards: Array<{ slug: string; name: string; number: string; image: string | null }> } | null;
+  trades: ShowcaseTrade[];
+  reviews: Array<{ rating: number; comment: string; author: string | null }>;
+  sales: number;
+  replyMinutes: number | null;
+}
+
+const EMPTY_SHOWCASE: ProfileShowcase = { albums: [], missing: null, trades: [], reviews: [], sales: 0, replyMinutes: null };
+
+export const getProfileShowcase = cache(async (id: string): Promise<ProfileShowcase> => {
+  if (!isSupabaseConfigured()) return EMPTY_SHOWCASE;
+  const { data } = await createPublicClient().rpc('profile_showcase', { p_user: id });
+  if (!data) return EMPTY_SHOWCASE;
+  const d = data as Record<string, unknown>;
+  type RawAlbum = { id: string; name: string; design: number; kind: 'set' | 'custom'; set_name: string | null; have: number; total: number };
+  return {
+    albums: ((d.albums ?? []) as RawAlbum[]).map((a) => ({ id: a.id, name: a.name, design: a.design, kind: a.kind, setName: a.set_name, have: a.have, total: a.total })),
+    missing: (d.missing as ProfileShowcase['missing']) ?? null,
+    trades: (d.trades ?? []) as ShowcaseTrade[],
+    reviews: (d.reviews ?? []) as ProfileShowcase['reviews'],
+    sales: Number(d.sales ?? 0),
+    replyMinutes: d.replyMinutes == null ? null : Number(d.replyMinutes),
+  };
+});

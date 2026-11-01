@@ -81,6 +81,17 @@ export async function removeCard(cardId: string, albumId?: string): Promise<Resu
   return { ok: true };
 }
 
+/** Ukázat album na profilu, nebo ho z profilu skrýt (hrací podložka P5). */
+export async function setAlbumOnProfile(id: string, on: boolean): Promise<Result> {
+  const { supabase, uid } = await user();
+  if (!uid || !isId(id)) return { error: 'login' };
+  const { error } = await supabase.from('collection_albums').update({ on_profile: on }).eq('id', id);
+  if (error) return { error: 'Změnu se nepodařilo uložit' };
+  refresh(id);
+  revalidatePath(`/prodejci/${uid}`);
+  return { ok: true };
+}
+
 export async function updateAlbum(id: string, p: { name?: string; design?: number; sleeve?: number }): Promise<Result> {
   const { supabase, uid } = await user();
   if (!uid || !isId(id)) return { error: 'login' };

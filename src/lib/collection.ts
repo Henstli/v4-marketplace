@@ -30,6 +30,8 @@ export interface AlbumSummary {
   kind: 'set' | 'custom';
   setId: string | null;
   setName: string | null;
+  /** Album je vidět na profilu (hrací podložka); jde skrýt. */
+  onProfile: boolean;
   setCode: string | null;
   setYear: number | null;
   game: GameId | null;
@@ -51,6 +53,7 @@ interface AlbumRow {
   sleeve: number;
   kind: 'set' | 'custom';
   set_id: string | null;
+  on_profile: boolean;
   updated_at: string;
   card_sets: { name: string; code: string; game_id: GameId; released_on: string | null } | null;
 }
@@ -67,7 +70,7 @@ interface CardRow {
 }
 
 const CARD_COLS = 'id, slug, name, number, rarity, image_url, game_id, card_sets(name, game_id)';
-const ALBUM_COLS = 'id, name, design, sleeve, kind, set_id, updated_at, card_sets(name, code, game_id, released_on)';
+const ALBUM_COLS = 'id, name, design, sleeve, kind, set_id, on_profile, updated_at, card_sets(name, code, game_id, released_on)';
 
 function chunks<T>(a: T[], n = 150): T[][] {
   const out: T[][] = [];
@@ -118,7 +121,7 @@ function summaryOf(a: AlbumRow): Omit<AlbumSummary, 'have' | 'total' | 'value'> 
     id: a.id, name: a.name, design: a.design, sleeve: a.sleeve, kind: a.kind, setId: a.set_id,
     setName: a.card_sets?.name ?? null, setCode: a.card_sets?.code ?? null,
     setYear: a.card_sets?.released_on ? Number(a.card_sets.released_on.slice(0, 4)) : null,
-    game: a.card_sets?.game_id ?? null, updatedAt: a.updated_at,
+    game: a.card_sets?.game_id ?? null, updatedAt: a.updated_at, onProfile: a.on_profile !== false,
   };
 }
 
