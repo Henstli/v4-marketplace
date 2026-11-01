@@ -135,7 +135,7 @@ function fromRow(r: SearchRow): CardSummary {
 async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
   const supabase = createPublicClient();
   const size = query.pageSize ?? PAGE_SIZE;
-  const { data, error } = await supabase.rpc('search_catalog', {
+  const args = {
     p_q: query.q ?? null,
     p_game: query.game ?? null,
     p_condition: query.condition ?? null,
@@ -147,7 +147,10 @@ async function dbSearch(query: CatalogQuery): Promise<CatalogPage> {
     p_offset: ((query.page ?? 1) - 1) * size,
     p_set: query.setId ?? null,
     p_seller: query.sellerId ?? null,
-  });
+  };
+  let { data, error } = await supabase.rpc('search_catalog', args);
+  // Když je databáze chvíli přetížená (vypršel časový limit dotazu), zkusí to ještě jednou.
+  if (error?.code === '57014') ({ data, error } = await supabase.rpc('search_catalog', args));
   if (error) throw new Error(`Katalog se nepodařilo načíst: ${error.message}`);
   const rows = (data ?? []) as SearchRow[];
   return { cards: rows.map(fromRow), total: rows[0]?.total_count ?? 0 };
