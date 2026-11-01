@@ -1,0 +1,101 @@
+// Profil jako sběratelská karta (DS Trezor › ProfileCard): typová řádka, rámečky, status, stav a odznak věrnosti.
+// Kódy stylů a rámečků zná jen web, databáze ukládá text. Nové styly a rámečky (kolo 2) se přidávají sem.
+import type { Plan } from './plans';
+import type { SellerKind } from './types';
+
+export type CardForm = 'm' | 'f';
+export type Presence = 'online' | 'offline' | 'dnd';
+export type PresenceMode = 'auto' | 'dnd' | 'hidden';
+
+/** Styl sběratele za pomlčkou v typové řádce (mužský a ženský tvar) */
+export const COLLECTOR_STYLES: { id: string; m: string; f: string }[] = [
+  { id: 'kompletista', m: 'Kompletista', f: 'Kompletistka' },
+  { id: 'lovec', m: 'Lovec vzácností', f: 'Lovkyně vzácností' },
+  { id: 'hrac', m: 'Hráč', f: 'Hráčka' },
+  { id: 'investor', m: 'Investor', f: 'Investorka' },
+  { id: 'otvirac', m: 'Otvírač boosterů', f: 'Otvíračka boosterů' },
+  { id: 'gradovac', m: 'Gradovací nadšenec', f: 'Gradovací nadšenkyně' },
+];
+
+/** Druh obchodu za pomlčkou */
+export const SHOP_STYLES: { id: string; label: string }[] = [
+  { id: 'kamenny', label: 'Kamenný obchod' },
+  { id: 'eshop', label: 'E-shop' },
+  { id: 'kamenny-eshop', label: 'Kamenný obchod a e-shop' },
+  { id: 'herna', label: 'Herna' },
+  { id: 'stanek', label: 'Stánek na burzách' },
+];
+
+/** Rámečky typové řádky. Kolo 1: sklo pro všechny, stříbrná a zlatá fólie pro Plus a Pro. */
+export const TYPE_FRAMES: { id: string; label: string; plans: Plan[] }[] = [
+  { id: 'sklo', label: 'Sklo', plans: ['free', 'plus', 'pro'] },
+  { id: 'stribro', label: 'Stříbrná fólie', plans: ['plus', 'pro'] },
+  { id: 'zlato', label: 'Zlatá fólie', plans: ['plus', 'pro'] },
+];
+
+export function frameAllowed(frame: string, plan: Plan): boolean {
+  return !!TYPE_FRAMES.find((f) => f.id === frame)?.plans.includes(plan);
+}
+
+/** Rámeček, který se opravdu ukáže (po snížení tarifu se vrátí sklo, uložená volba zůstane) */
+export function effectiveFrame(frame: string | null | undefined, plan: Plan): string {
+  return frame && frameAllowed(frame, plan) ? frame : 'sklo';
+}
+
+export function typeLineLabel(kind: SellerKind, style: string | null | undefined, form: CardForm): { lead: string; style: string | null } {
+  if (kind === 'shop') return { lead: 'Obchod', style: SHOP_STYLES.find((s) => s.id === style)?.label ?? null };
+  const s = COLLECTOR_STYLES.find((c) => c.id === style);
+  return { lead: form === 'f' ? 'Sběratelka' : 'Sběratel', style: s ? s[form] : null };
+}
+
+/** Odznak věrnosti: 8 úrovní podle toho, jak dlouho má někdo nepřetržitě Plus nebo Pro */
+export const LOYALTY_LEVELS = [
+  { id: 'bronz', name: 'Bronz', months: 1, label: '1 měsíc' },
+  { id: 'stribro', name: 'Stříbro', months: 3, label: '3 měsíce' },
+  { id: 'zlato', name: 'Zlato', months: 6, label: '6 měsíců' },
+  { id: 'platina', name: 'Platina', months: 12, label: '1 rok' },
+  { id: 'smaragd', name: 'Smaragd', months: 24, label: '2 roky' },
+  { id: 'diamant', name: 'Diamant', months: 36, label: '3 roky' },
+  { id: 'rubin', name: 'Rubín', months: 60, label: '5 let' },
+  { id: 'opal', name: 'Opál', months: 72, label: '6 a více let' },
+] as const;
+export type LoyaltyLevel = (typeof LOYALTY_LEVELS)[number];
+
+/** Celé měsíce od začátku předplatného */
+export function monthsSince(since: string, now = new Date()): number {
+  const d = new Date(since);
+  let m = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  if (now.getDate() < d.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
+/** Úroveň odznaku po odsloužených měsících (bronz po prvním měsíci, jako milníky na Discordu). */
+export function loyaltyLevel(plan: Plan, since: string | null): LoyaltyLevel | null {
+  if (plan === 'free' || !since) return null;
+  const m = monthsSince(since);
+  let lvl: LoyaltyLevel | null = null;
+  for (const l of LOYALTY_LEVELS) if (m >= l.months) lvl = l;
+  return lvl;
+}
+
+/** Vše, co potřebuje karta profilu (bez serverových závislostí, jde poslat i do prohlížeče) */
+export interface ProfileCardData {
+  id: string;
+  name: string;
+  kind: SellerKind;
+  plan: Plan;
+  memberNo: number | null;
+  memberYear: number | null;
+  status: string | null;
+  presence: Presence;
+  typeLead: string;
+  typeStyle: string | null;
+  city: string | null;
+  frame: string;
+  about: string | null;
+  avatar: string | null;
+  loyalty: { id: string; name: string; label: string; months: number } | null;
+  rating: number | null;
+  reviews: number;
+  listings: number;
+}

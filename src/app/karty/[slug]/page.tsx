@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ProfileLink } from '@/components/profile/ProfileLink';
 import { Fragment } from 'react';
 import { notFound } from 'next/navigation';
 import { ButtonLink, Price, SellerBadge, ShopLogo, shopStyle, Status, Trend } from '@/components/trezor';
@@ -159,7 +160,7 @@ export default async function CardDetailPage({ params }: Props) {
                             ) : null}
                             <div className={styles.sellerText}>
                               <div className={styles.sellerName}>
-                                <Link href={b?.href ?? `/prodejci/${o.seller.id}`} className={styles.seller}>{o.seller.name}</Link>
+                                <ProfileLink id={o.seller.id} shopHref={b?.href} className={styles.seller}>{o.seller.name}</ProfileLink>
                                 {b?.badge ? <SellerBadge type="verified" /> : null}
                                 {pro ? <SellerBadge type="pro" /> : null}
                               </div>

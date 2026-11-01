@@ -59,6 +59,7 @@ function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
         { label: 'Přehled', icon: 'home', href: '/ucet', sideOnly: true },
         { label: a.shopPage ? (a.kind === 'shop' ? 'Můj obchod' : 'Moje stránka') : 'Můj profil', icon: 'shop', href: a.href },
         ...(a.shopPage ? [{ label: 'Upravit stránku', icon: 'edit' as const, href: '/ucet/stranka', sideOnly: true }] : []),
+        { label: 'Vzhled profilu', icon: 'card', href: '/ucet/vzhled' },
         { label: 'Moje kolekce', icon: 'coll', href: '/kolekce' },
       ],
     },
