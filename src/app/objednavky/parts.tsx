@@ -29,7 +29,7 @@ export const AGREED = new Set(['confirmed', 'paid', 'shipped', 'delivered']);
 // Skončené bez obchodu.
 export const ENDED = new Set(['cancelled', 'declined', 'expired']);
 
-export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, paid_via, not_received_at, buyer_insist_at, cancel_request_at, cancel_rejected_at, cancel_agreed, delivered_at, tracking, ship_change_czk, ship_change_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id))';
+export const ORDER_SELECT = 'id, buyer_id, seller_id, status, number, delivery, expires_at, total_czk, shipping_czk, created_at, payment, carrier, carrier_label, pickup_point, ship_city, cod_fee_czk, buyer_paid_at, paid_via, not_received_at, buyer_insist_at, cancel_request_at, cancel_rejected_at, cancel_agreed, delivered_at, tracking, ship_change_czk, ship_change_reason, decided_at, decline_reason, order_items(quantity, price_czk, condition, cards(name, slug, image_url, game_id, number, card_sets(code)))';
 
 export interface OrderRow {
   id: string;
@@ -64,9 +64,13 @@ export interface OrderRow {
   /** Prodejce navrhl vyšší dopravu, čeká na kupujícího. */
   ship_change_czk: number | null;
   ship_change_reason: string | null;
+  /** Kdy prodejce potvrdil nebo odmítl. */
+  decided_at: string | null;
+  /** Důvod odmítnutí pro kupujícího (DS Orders › Odmítnout). */
+  decline_reason: string | null;
   /** Prodejce je pozastavený a kupující ještě nezaplatil (doplní markSellerRestricted). */
   seller_restricted?: boolean;
-  order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null } | null }>;
+  order_items: Array<{ quantity: number; price_czk: number; condition: string | null; cards: { name: string; slug: string; image_url: string | null; game_id: string | null; number?: string | null; card_sets?: { code: string | null } | null } | null }>;
 }
 
 export type Payment = PrepayRow & { qr: string | null };
@@ -158,7 +162,7 @@ export async function loadPayment(supabase: Supabase, o: OrderRow): Promise<Paym
 export const flowOf = (o: OrderRow): FlowOrder => ({ status: o.status, delivery: o.delivery, payment: o.payment, buyerPaidAt: o.buyer_paid_at, paidVia: o.paid_via, notReceivedAt: o.not_received_at, buyerInsistAt: o.buyer_insist_at, cancelRequestAt: o.cancel_request_at, cancelRejectedAt: o.cancel_rejected_at, shipChange: o.ship_change_czk, total: o.total_czk, shipping: o.shipping_czk, sellerRestricted: o.seller_restricted });
 
 /** Řádek PLATBA, když kupující napsal, jak zaplatil (DS OrderPayment › Jak jste zaplatili). */
-function PaidVia({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
+export function PaidViaInfo({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
   if (!o.paid_via || !o.buyer_paid_at || !['confirmed', 'paid', 'shipped'].includes(o.status)) return null;
   return <PaidViaRow via={o.paid_via} at={o.buyer_paid_at} amount={o.total_czk} role={role} pending={o.status === 'confirmed'} notReceived={!!o.not_received_at} insistAt={o.buyer_insist_at} />;
 }
@@ -176,7 +180,7 @@ export async function markSellerRestricted(supabase: Supabase, orders: OrderRow[
 export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }) {
   return (
     <>
-      <PaidVia o={o} role="buyer" />
+      <PaidViaInfo o={o} role="buyer" />
       {o.seller_restricted ? <SellerRestrictedNotice /> : null}
       <CancelBlocks o={o} role="buyer" />
       {flowActions(flowOf(o), 'buyer').map((a) => <FlowButton key={a.label} id={o.id} action={a} />)}
@@ -190,7 +194,7 @@ export function BuyerActions({ o, reviewed }: { o: OrderRow; reviewed: boolean }
 export function SellerActions({ o, shipCap }: { o: OrderRow; shipCap?: number | null }) {
   return (
     <>
-      <PaidVia o={o} role="seller" />
+      <PaidViaInfo o={o} role="seller" />
       {canChangeShipping(flowOf(o)) ? (
         <ShipEdit
           key={o.ship_change_czk ?? o.shipping_czk}
@@ -208,7 +212,7 @@ export function SellerActions({ o, shipCap }: { o: OrderRow; shipCap?: number | 
 }
 
 /** Žádost o zrušení a odkdy prodejce smí zrušit objednávku označenou jako zaplacenou (po Nepřišla), pro obě strany. */
-function CancelBlocks({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
+export function CancelBlocks({ o, role }: { o: OrderRow; role: 'buyer' | 'seller' }) {
   if (o.status !== 'confirmed' || !o.not_received_at) return null;
   const f = flowOf(o);
   return (

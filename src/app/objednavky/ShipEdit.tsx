@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
+import { useNowMode } from '@/components/orders/NowMode';
 import { keepForm } from '@/lib/form';
 import { Button } from '@/components/trezor';
 import { changeShipping, type ShipChangeState } from './actions';
@@ -10,11 +11,13 @@ const REASONS = ['Těžší nebo větší zásilka', 'Víc kusů v krabici', 'Po
 const kc = (n: number) => `${n.toLocaleString('cs-CZ')} Kč`;
 
 /** Prodejce: řádek Doprava s Upravit od objednání do zaplacení (DS DeliveryPayment, varianta B). */
-export function ShipEdit({ id, carrier, shipping, total, cap }: { id: string; carrier: string; shipping: number; total: number; cap: number | null }) {
+export function ShipEdit({ id, carrier, shipping, total, cap, inNow }: { id: string; carrier: string; shipping: number; total: number; cap: number | null; /** V rámečku Co teď (DS Orders): otevře se hned, zavření vrátí tlačítka. */ inNow?: boolean }) {
   const [state, action, pending] = useActionState<ShipChangeState, FormData>(changeShipping, {});
+  const { setMode } = useNowMode();
   // Otevřeno od stavu `opened`; po úspěšném odeslání se formulář zavře.
-  const [opened, setOpened] = useState<ShipChangeState | null>(null);
+  const [opened, setOpened] = useState<ShipChangeState | null>(inNow ? state : null);
   const open = opened !== null && (state === opened || !state.ok);
+  useEffect(() => { if (inNow && !open) setMode(''); }, [inNow, open, setMode]);
   // Text, ať jde pole při psaní úplně smazat (prázdné = 0 Kč).
   const [draft, setDraft] = useState(String(shipping));
   const price = Number(draft) || 0;
@@ -68,7 +71,7 @@ export function ShipEdit({ id, carrier, shipping, total, cap }: { id: string; ca
           Celkem <s className="code">{kc(total)}</s> → <strong className="code">{kc(total - shipping + price)}</strong>
         </span>
         <span className={styles.shipBtns}>
-          <Button variant="ghost" onClick={() => setOpened(null)}>Zrušit</Button>
+          <Button variant="ghost" onClick={() => setOpened(null)}>{inNow ? 'Zpět' : 'Zrušit'}</Button>
           <Button type="submit" disabled={pending || price === shipping || over > 0}>{lower ? 'Snížit dopravu' : 'Poslat kupujícímu'}</Button>
         </span>
       </div>
