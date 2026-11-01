@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { getSeller } from './catalog';
 import { toPlan } from './plans';
 import {
-  effectiveFrame, effectiveMat, loyaltyLevel, monthsSince, sanitizeCrop, typeLineLabel,
+  effectiveFrame, effectiveMat, loyaltyLevel, paidMonths, sanitizeCrop, typeLineLabel,
   type CardForm, type Presence, type ProfileCardData,
 } from './profile-card';
 import { mediaImage } from './shop';
@@ -65,7 +65,7 @@ export const getProfileCard = cache(async (id: string): Promise<ProfileCardData 
     about: (page.data?.about as string | null | undefined)?.trim() || null,
     avatar: mediaImage(page.data?.logo_path as string | null | undefined, 256),
     photo: photoSrc && crop ? { src: photoSrc, crop } : null,
-    loyalty: level ? { id: level.id, name: level.name, label: level.label, months: monthsSince(sub!.since) } : null,
+    loyalty: level ? { id: level.id, name: level.name, label: level.label, months: paidMonths(sub!.since) } : null,
     loyaltyHidden: !!row?.loyalty_hidden,
     mat: effectiveMat(row?.profile_mat, plan),
     listings: offers.count ?? 0,

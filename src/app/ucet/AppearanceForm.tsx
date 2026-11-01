@@ -359,10 +359,10 @@ export function AppearanceForm({ card, saved, show }: { card: ProfileCardData; s
               />
               <p className="t-small muted" style={{ margin: '10px 0' }}>
                 {card.plan === 'free'
-                  ? <>Odznak roste s tím, jak dlouho máte Plus nebo Pro. <Link href="/ucet/predplatne">Předplatné</Link></>
+                  ? <>Odznak dostanete hned se zaplacením Plus nebo Pro a roste s každým zaplaceným měsícem. <Link href="/ucet/predplatne">Předplatné</Link></>
                   : card.loyalty
-                    ? <>Máte <b>{card.loyalty.name}</b> s tarifem {PLANS[card.plan].name}.{nextLevel ? <> Další úroveň {nextLevel.name} za {nextLevel.label} předplatného.</> : ' To je nejvyšší úroveň.'}</>
-                    : <>První odznak, Bronz, dostanete po měsíci s tarifem {PLANS[card.plan].name}.</>}
+                    ? <>Máte <b>{card.loyalty.name}</b> s tarifem {PLANS[card.plan].name}.{nextLevel ? <> Další úroveň {nextLevel.name} dostanete s {nextLevel.months}. zaplaceným měsícem.</> : ' To je nejvyšší úroveň.'}</>
+                    : <>Bronz dostanete hned s prvním zaplaceným měsícem tarifu {PLANS[card.plan].name}.</>}
               </p>
               <ol className={styles.levels}>
                 {LOYALTY_LEVELS.map((l) => (

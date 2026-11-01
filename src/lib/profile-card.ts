@@ -88,10 +88,15 @@ export function monthsSince(since: string, now = new Date()): number {
   return Math.max(0, m);
 }
 
-/** Úroveň odznaku po odsloužených měsících (bronz po prvním měsíci, jako milníky na Discordu). */
+/** Zaplacené měsíce předplatného včetně právě běžícího: hned po zaplacení 1, na začátku třetího měsíce 3. */
+export function paidMonths(since: string, now = new Date()): number {
+  return monthsSince(since, now) + 1;
+}
+
+/** Úroveň odznaku podle zaplacených měsíců: Bronz hned s prvním zaplacením, Stříbro se třetím, Opál se 72. */
 export function loyaltyLevel(plan: Plan, since: string | null): LoyaltyLevel | null {
   if (plan === 'free' || !since) return null;
-  const m = monthsSince(since);
+  const m = paidMonths(since);
   let lvl: LoyaltyLevel | null = null;
   for (const l of LOYALTY_LEVELS) if (m >= l.months) lvl = l;
   return lvl;
