@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ShopLogo, SellerBadge, shopStyle } from '@/components/trezor';
+import { ShopLogo, TierLabel, shopStyle } from '@/components/trezor';
 import { signOut } from '@/app/prihlaseni/actions';
 import type { AccountSummary } from '@/lib/account';
 import { PLANS } from '@/lib/plans';
@@ -127,7 +127,7 @@ export function AccountWho({ a }: { a: AccountSummary }) {
     <div className="tz-acct-who">
       <Avatar a={a} size={44} />
       <div>
-        <div className="tz-acct-name"><span>{a.name}</span>{a.plan === 'pro' ? <SellerBadge type="pro" /> : null}</div>
+        <div className="tz-acct-name"><span>{a.name}</span><TierLabel plan={a.plan} /></div>
         <p className="tz-acct-sub">{a.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {a.email}</p>
       </div>
     </div>

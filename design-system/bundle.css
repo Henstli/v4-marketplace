@@ -459,7 +459,7 @@
 .tz-acct-who>div{min-width:0}
 .tz-acct-name{display:flex;align-items:center;gap:6px;font-weight:600;font-size:15px;line-height:20px;color:var(--ink)}
 .tz-acct-name>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tz-acct-name .tz-badge-pro{height:18px;padding:0 6px;font-size:11px}
+.tz-acct-name .tz-tierlabel{height:18px;padding:0 7px;font-size:10px}
 .tz-acct-sub{margin:2px 0 0;font-size:12px;line-height:16px;color:var(--ink-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tz-acct-cta{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 var(--space-2) var(--space-3)}
 .tz-acct-cta .tz-btn{height:36px;padding:0 10px;font-size:13px}
