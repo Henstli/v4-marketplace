@@ -18,19 +18,13 @@ export interface MatFriend {
 
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-export function MatFriends({ friends, shop, own, signedIn, requests = 0 }: {
-  friends: MatFriend[]; shop: boolean; own: boolean; signedIn: boolean; requests?: number;
+export function MatFriends({ friends, shop, own, signedIn }: {
+  friends: MatFriend[]; shop: boolean; own: boolean; signedIn: boolean;
 }) {
   const [order, setOrder] = useState(() => friends.map((_, k) => k));
   const n = friends.length;
   const go = (d: number) => setOrder((o) => (d > 0 ? [...o.slice(1), o[0]] : [o[n - 1], ...o.slice(0, n - 1)]));
 
-  const note = own && requests ? (
-    <Link href="/zpravy?pratele" className="tz-mat-freq">
-      <span className="tz-acct-count">{requests}</span>
-      {requests === 1 ? 'Nová žádost o přátelství' : requests < 5 ? 'Nové žádosti o přátelství' : 'Nových žádostí o přátelství'}
-    </Link>
-  ) : null;
 
   if (!n) {
     const text = !signedIn ? 'Přihlas se a uvidíš, koho z přátel tu znáš.'
@@ -39,7 +33,6 @@ export function MatFriends({ friends, shop, own, signedIn, requests = 0 }: {
       : 'Zatím žádní společní přátelé.';
     return (
       <>
-        {note}
         <p className="tz-mat-empty">
           {text}
           {!signedIn ? <><br /><Link href="/prihlaseni" className="tz-btn tz-btn-sm tz-mat-ghost" style={{ marginTop: 10 }}>Přihlásit se</Link></> : null}
@@ -55,7 +48,6 @@ export function MatFriends({ friends, shop, own, signedIn, requests = 0 }: {
     : (t ? plural(t, ['společný obchod', 'společné obchody', 'společných obchodů']) : 'Spolu zatím neobchodovali');
   return (
     <>
-      {note}
       <div className="tz-mat-friends">
         <div className="tz-mat-deck">
           {friends.map((f, k) => {

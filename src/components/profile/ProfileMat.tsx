@@ -43,9 +43,9 @@ function ago(iso: string): string {
 
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-export function ProfileMat({ card, show, own, actions, surface, friends = [], signedIn = false, requests = 0, more }: {
+export function ProfileMat({ card, show, own, actions, surface, friends = [], signedIn = false, more }: {
   card: ProfileCardData; show: ProfileShowcase; own: boolean; actions: ReactNode; surface?: MatSurface;
-  friends?: MatFriend[]; signedIn?: boolean; requests?: number;
+  friends?: MatFriend[]; signedIn?: boolean;
   /** Tři tečky (Nahlásit…) v rohu nad kartou */
   more?: ReactNode;
 }) {
@@ -115,7 +115,7 @@ export function ProfileMat({ card, show, own, actions, surface, friends = [], si
         </Zone>
 
         <Zone label={own ? 'Přátelé' : shop ? 'Zkušenosti přátel' : 'Společní přátelé'} area="d">
-          <MatFriends key={card.id} friends={friends} shop={shop} own={own} signedIn={signedIn} requests={requests} />
+          <MatFriends key={card.id} friends={friends} shop={shop} own={own} signedIn={signedIn} />
         </Zone>
 
         <div className="tz-mat-actions">{actions}</div>

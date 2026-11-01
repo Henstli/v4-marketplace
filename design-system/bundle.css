@@ -611,6 +611,7 @@ a.tz-acct-tile:hover{border-color:var(--line-strong)}
 .tz-mat-actions .tz-btn-orange{background:#ff8a3d;border-color:#ff8a3d;color:#1a0d09}
 .tz-mat-actions .tz-btn-orange:hover{background:#ff9d5a}
 .tz-mat .tz-btn-sm{height:30px;padding:0 10px;font-size:12px;border-radius:9px}
+.tz-mat-ghost .tz-acct-count{margin-left:8px}
 .tz-mat-ghost{color:#fff;border-color:rgba(255,255,255,.3)!important;background:transparent!important}
 .tz-mat-sub{font-size:11px;color:rgba(255,255,255,.62)}
 /* Alba: police, která plynule ujede do strany */
@@ -665,9 +666,6 @@ a.tz-acct-tile:hover{border-color:var(--line-strong)}
 .tz-mat-fexp[data-none]{color:rgba(255,255,255,.55)}
 .tz-mat-fquote{font:italic 12.5px/1.35 var(--font-sans);color:#e6dcd3;quotes:"„" "“";display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tz-mat-finfo .tz-mat-pager{margin-top:auto;padding-top:8px}
-.tz-mat-freq{position:absolute;right:12px;top:-28px;display:inline-flex;align-items:center;gap:7px;font:600 11.5px/1 var(--font-sans);color:#fff;text-decoration:none}
-.tz-mat-freq .tz-acct-count{margin:0}
-.tz-mat-freq:hover{text-decoration:underline}
 .tz-mat-friend{gap:6px;white-space:nowrap}
 .tz-mat-friend[data-on]{color:var(--accent);border-color:rgba(124,242,200,.45)!important}
 .tz-mat-friend[data-wait]{color:rgba(255,255,255,.7)}

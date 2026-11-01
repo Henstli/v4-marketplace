@@ -39,13 +39,14 @@ export default async function SellerPage({ params, searchParams }: Props) {
   const pages = Math.ceil(total / PAGE_SIZE);
   const pageHref = (p: number) => (p <= 1 ? `/prodejci/${seller.id}` : `/prodejci/${seller.id}?strana=${p}`);
   const own = viewer?.id === seller.id;
+  const requests = own ? (await getAccountSummary())?.friendRequests ?? 0 : 0;
   const [friends, status] = viewer ? await Promise.all([getProfileFriends(seller.id), own ? 'none' as const : getFriendStatus(seller.id)]) : [[], 'none' as const];
 
   const actions = own ? (
     <>
       <Link href="/ucet/vzhled" className="tz-btn tz-btn-md tz-btn-primary">Upravit vzhled profilu</Link>
       <Link href="/kolekce" className="tz-btn tz-btn-md tz-mat-ghost">Moje kolekce</Link>
-      <Link href="/zpravy?pratele" className="tz-btn tz-btn-md tz-mat-ghost">Přátelé</Link>
+      <Link href="/zpravy?pratele" className="tz-btn tz-btn-md tz-mat-ghost">Přátelé{requests ? <span className="tz-acct-count" aria-label={`${requests} nové žádosti`}>{requests}</span> : null}</Link>
     </>
   ) : (
     <>
@@ -57,7 +58,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
 
   return (
     <div className={`container ${styles.page}`}>
-      <ProfileMat card={card} show={show} own={own} actions={actions} friends={friends} signedIn={!!viewer} requests={own ? (await getAccountSummary())?.friendRequests ?? 0 : 0}
+      <ProfileMat card={card} show={show} own={own} actions={actions} friends={friends} signedIn={!!viewer}
         more={own ? undefined : <ReportContent kind="seller" target={seller.id} variant="menu" preview={{ title: seller.name }} />} />
 
       {seller.rating != null || seller.sales ? (
