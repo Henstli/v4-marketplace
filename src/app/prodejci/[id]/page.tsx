@@ -45,19 +45,20 @@ export default async function SellerPage({ params, searchParams }: Props) {
     <>
       <Link href="/ucet/vzhled" className="tz-btn tz-btn-md tz-btn-primary">Upravit vzhled profilu</Link>
       <Link href="/kolekce" className="tz-btn tz-btn-md tz-mat-ghost">Moje kolekce</Link>
+      <Link href="/zpravy?pratele" className="tz-btn tz-btn-md tz-mat-ghost">Přátelé</Link>
     </>
   ) : (
     <>
       {shopLink ? <Link href={shopLink} className="tz-btn tz-btn-md tz-btn-primary">{seller.kind === 'shop' ? 'Obchod' : 'Stránka'}</Link> : null}
       <Link href={`/zpravy/${seller.id}`} className="tz-btn tz-btn-md tz-btn-orange">Napsat</Link>
       <FriendButton other={seller.id} initial={status} signedIn={!!viewer} />
-      <ReportContent kind="seller" target={seller.id} variant="menu" preview={{ title: seller.name }} />
     </>
   );
 
   return (
     <div className={`container ${styles.page}`}>
-      <ProfileMat card={card} show={show} own={own} actions={actions} friends={friends} signedIn={!!viewer} requests={own ? (await getAccountSummary())?.friendRequests ?? 0 : 0} />
+      <ProfileMat card={card} show={show} own={own} actions={actions} friends={friends} signedIn={!!viewer} requests={own ? (await getAccountSummary())?.friendRequests ?? 0 : 0}
+        more={own ? undefined : <ReportContent kind="seller" target={seller.id} variant="menu" preview={{ title: seller.name }} />} />
 
       {seller.rating != null || seller.sales ? (
         <section className="panel" aria-labelledby="spolehlivost">

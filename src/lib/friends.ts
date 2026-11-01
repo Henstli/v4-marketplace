@@ -1,6 +1,6 @@
 // Přátelé (jen na serveru): podložka profilu a stránka Přátelé v centru účtu.
 import type { MatFriend } from '@/components/profile/MatFriends';
-import type { FriendTile } from '@/components/friends/FriendsGrid';
+import type { FriendRow } from '@/components/messages/FriendsPanel';
 import type { FriendStatus } from '@/app/ucet/pratele-actions';
 import { getProfileCard } from './profile';
 import type { ProfileCardData } from './profile-card';
@@ -32,26 +32,22 @@ export async function getFriendStatus(other: string): Promise<FriendStatus> {
   return (data as FriendStatus | null) ?? 'none';
 }
 
-/** Všechny vztahy přihlášeného: přátelé, žádosti pro mě, odeslané žádosti. */
-export async function getMyFriends(me: string): Promise<{ friends: FriendTile[]; incoming: FriendTile[]; outgoing: FriendTile[] }> {
-  const empty = { friends: [], incoming: [], outgoing: [] };
-  if (!isSupabaseConfigured()) return empty;
+/** Přátelé do Zpráv (záložka Přátelé): přátelé, žádosti pro mě a odeslané žádosti. */
+export async function getChatFriends(me: string): Promise<FriendRow[]> {
+  if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
   const [{ data: rows }, { data: trades }] = await Promise.all([
     supabase.from('friendships').select('requester, addressee, created_at, accepted_at').order('created_at', { ascending: false }).limit(300),
     supabase.rpc('profile_friends', { p_profile: me }),
   ]);
-  if (!rows?.length) return empty;
+  if (!rows?.length) return [];
   const tradeMap = new Map(((trades ?? []) as Array<{ id: string; trades: number }>).map((t) => [t.id, t.trades]));
   const other = (r: { requester: string; addressee: string }) => (r.requester === me ? r.addressee : r.requester);
   const map = await cards(rows.map(other));
-  const tile = (r: (typeof rows)[number], status: FriendStatus): FriendTile[] => {
-    const card = map.get(other(r));
-    return card ? [{ card, trades: tradeMap.get(card.id) ?? 0, status, since: r.accepted_at ?? r.created_at }] : [];
-  };
-  return {
-    friends: rows.filter((r) => r.accepted_at).flatMap((r) => tile(r, 'friends')),
-    incoming: rows.filter((r) => !r.accepted_at && r.addressee === me).flatMap((r) => tile(r, 'incoming')),
-    outgoing: rows.filter((r) => !r.accepted_at && r.requester === me).flatMap((r) => tile(r, 'outgoing')),
-  };
+  return rows.flatMap((r) => {
+    const c = map.get(other(r));
+    if (!c) return [];
+    const status: FriendRow['status'] = r.accepted_at ? 'friends' : r.addressee === me ? 'incoming' : 'outgoing';
+    return [{ id: c.id, name: c.name, avatar: c.avatar, presence: c.presence, sub: `${c.typeLead}${c.city ? ` · ${c.city}` : ''}`, trades: tradeMap.get(c.id) ?? 0, status }];
+  });
 }

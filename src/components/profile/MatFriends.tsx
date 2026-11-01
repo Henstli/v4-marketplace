@@ -26,7 +26,7 @@ export function MatFriends({ friends, shop, own, signedIn, requests = 0 }: {
   const go = (d: number) => setOrder((o) => (d > 0 ? [...o.slice(1), o[0]] : [o[n - 1], ...o.slice(0, n - 1)]));
 
   const note = own && requests ? (
-    <Link href="/ucet/pratele" className="tz-mat-freq">
+    <Link href="/zpravy?pratele" className="tz-mat-freq">
       <span className="tz-acct-count">{requests}</span>
       {requests === 1 ? 'Nová žádost o přátelství' : requests < 5 ? 'Nové žádosti o přátelství' : 'Nových žádostí o přátelství'}
     </Link>

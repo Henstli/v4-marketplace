@@ -16,6 +16,6 @@ export async function friendAction(other: string, op: Op): Promise<FriendStatus 
     : await supabase.rpc('friend_respond', { p_other: other, p_accept: op === 'accept' });
   if (error) return { error: 'Nepovedlo se, zkuste to znovu.' };
   revalidatePath(`/prodejci/${other}`);
-  revalidatePath('/ucet/pratele');
+  revalidatePath('/zpravy', 'layout');
   return data as FriendStatus;
 }

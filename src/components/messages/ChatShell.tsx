@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ShopLogo, shopStyle } from '@/components/trezor';
 import { formatDateTime } from '@/lib/format';
 import { lastConversationChange } from '@/lib/unread-client';
 import type { ConversationItem } from '@/lib/messages';
+import { FriendsPanel, type FriendRow } from './FriendsPanel';
 import styles from './messages.module.css';
 
 /** Dva sloupce; na telefonu buď seznam (/zpravy), nebo otevřená konverzace. */
@@ -50,26 +51,36 @@ export function ChatShell({ list, children }: { list: ReactNode; children: React
 // Hledání bez diakritiky a velikosti písmen.
 const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-export function ConversationList({ items }: { items: ConversationItem[] }) {
+export function ConversationList({ items, friends = [] }: { items: ConversationItem[]; friends?: FriendRow[] }) {
   const pathname = usePathname();
+  const params = useSearchParams();
+  const [tab, setTab] = useState<'conv' | 'friends'>(params.has('pratele') ? 'friends' : 'conv');
   const [q, setQ] = useState('');
   const needle = fold(q.trim());
-  const shown = needle ? items.filter((c) => fold(`${c.other?.name ?? ''} ${c.lastBody}`).includes(needle)) : items;
+  const match = (s: string) => !needle || fold(s).includes(needle);
+  const shown = needle ? items.filter((c) => match(`${c.other?.name ?? ''} ${c.lastBody}`)) : items;
+  const requests = friends.filter((f) => f.status === 'incoming').length;
+  const onFriends = tab === 'friends';
   return (
-    <nav className={styles.list} aria-label="Konverzace">
-      <strong className={styles.listHead}>Konverzace</strong>
-      {items.length ? (
+    <nav className={styles.list} aria-label={onFriends ? 'Přátelé' : 'Konverzace'}>
+      <div className={styles.tabs} role="tablist">
+        <button type="button" role="tab" className={styles.tab} aria-selected={!onFriends} onClick={() => setTab('conv')}>Konverzace</button>
+        <button type="button" role="tab" className={styles.tab} aria-selected={onFriends} onClick={() => setTab('friends')}>
+          Přátelé{requests ? <span className={styles.count} aria-label={`${requests} nové žádosti`}>{requests}</span> : null}
+        </button>
+      </div>
+      {items.length || friends.length ? (
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Hledat v konverzacích"
-          aria-label="Hledat v konverzacích"
+          placeholder={onFriends ? 'Hledat přátele' : 'Hledat v konverzacích'}
+          aria-label={onFriends ? 'Hledat přátele' : 'Hledat v konverzacích'}
           className={styles.search}
         />
       ) : null}
       <div className={styles.convs}>
-      {shown.length ? shown.map((c) => {
+      {onFriends ? <FriendsPanel items={friends} q={match} /> : shown.length ? shown.map((c) => {
         const href = c.other ? `/zpravy/${c.other.id}` : null;
         // Otevřená konverzace je přečtená hned po kliknutí, i než se seznam načte znovu.
         const unread = c.unread && pathname !== href;

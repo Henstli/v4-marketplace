@@ -1,7 +1,7 @@
 'use client';
 
 // Tlačítko přátelství na profilu (DS Trezor › ProfileMat, akce pod kartou):
-// Přidat přítele → Žádost odeslána (klik zruší), Přijmout žádost, Přátelé (klik nabídne odebrání).
+// Přidat přítele → Žádost odeslána (klik nabídne zrušení), Přijmout s křížkem pro odmítnutí, Přátelé (klik nabídne odebrání).
 import { useState, useTransition } from 'react';
 import { friendAction, type FriendStatus } from '@/app/ucet/pratele-actions';
 
@@ -20,11 +20,12 @@ export function FriendButton({ other, initial, signedIn = true, small = false }:
   });
 
   if (!signedIn) return <a href="/prihlaseni" className={`tz-btn ${size} tz-mat-ghost tz-mat-friend`}>{PLUS}Přidat přítele</a>;
+  const X = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>;
   if (ask) {
     return (
       <span className="tz-mat-fask">
-        <button type="button" className={`tz-btn ${size} tz-mat-ghost`} disabled={busy} onClick={() => run('remove')}>{status === 'friends' ? 'Odebrat z přátel' : 'Zrušit žádost'}</button>
-        <button type="button" className={`tz-btn ${size} tz-mat-ghost`} onClick={() => setAsk(false)}>Ne</button>
+        <button type="button" className={`tz-btn ${size} tz-mat-ghost tz-mat-fdanger`} disabled={busy} onClick={() => run('remove')}>{status === 'friends' ? 'Odebrat' : 'Zrušit'}</button>
+        <button type="button" className={`tz-btn ${size} tz-mat-ghost tz-mat-fx`} aria-label="Ponechat" title="Ponechat" onClick={() => setAsk(false)}>{X}</button>
       </span>
     );
   }
@@ -32,7 +33,7 @@ export function FriendButton({ other, initial, signedIn = true, small = false }:
     return (
       <span className="tz-mat-fask">
         <button type="button" className={`tz-btn ${size} tz-btn-primary`} disabled={busy} onClick={() => run('accept')}>{CHECK}Přijmout</button>
-        <button type="button" className={`tz-btn ${size} tz-mat-ghost`} disabled={busy} onClick={() => run('decline')}>Odmítnout</button>
+        <button type="button" className={`tz-btn ${size} tz-mat-ghost tz-mat-fx`} disabled={busy} aria-label="Odmítnout žádost" title="Odmítnout žádost" onClick={() => run('decline')}>{X}</button>
       </span>
     );
   }

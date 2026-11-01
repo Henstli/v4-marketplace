@@ -43,9 +43,11 @@ function ago(iso: string): string {
 
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-export function ProfileMat({ card, show, own, actions, surface, friends = [], signedIn = false, requests = 0 }: {
+export function ProfileMat({ card, show, own, actions, surface, friends = [], signedIn = false, requests = 0, more }: {
   card: ProfileCardData; show: ProfileShowcase; own: boolean; actions: ReactNode; surface?: MatSurface;
   friends?: MatFriend[]; signedIn?: boolean; requests?: number;
+  /** Tři tečky (Nahlásit…) v rohu nad kartou */
+  more?: ReactNode;
 }) {
   const female = card.typeLead === 'Sběratelka';
   const shop = card.kind === 'shop';
@@ -55,6 +57,7 @@ export function ProfileMat({ card, show, own, actions, surface, friends = [], si
     <section className="tz-mat" data-mat={surface ?? card.mat} aria-label={`Profil ${card.name}`}>
       <div className="tz-mat-grid">
         <Zone label={shop ? 'Karta obchodu' : 'Moje karta'} area="card" className="tz-mat-card">
+          {more ? <div className="tz-mat-cmore">{more}</div> : null}
           <ProfileCard data={card} headingLevel={1} />
           <div className="tz-mat-stats">
             <div className="tz-mat-stat"><b>{card.rating != null ? `${formatNumber(card.rating, 0)} %` : '–'}</b><span>Hodnocení</span></div>
