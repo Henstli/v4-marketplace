@@ -162,7 +162,7 @@ export default async function CardDetailPage({ params }: Props) {
                               <div className={styles.sellerName}>
                                 <ProfileLink id={o.seller.id} shopHref={b?.href} className={styles.seller}>{o.seller.name}</ProfileLink>
                                 {b?.badge ? <SellerBadge type="verified" /> : null}
-                                {pro ? <SellerBadge type="pro" /> : null}
+                                {b && b.plan !== 'free' ? <SellerBadge type={b.plan} /> : null}
                               </div>
                               {b?.note ? <div className="t-small">{b.note}</div> : null}
                               <div className="t-small muted">

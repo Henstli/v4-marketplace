@@ -1,6 +1,6 @@
 // Celý profil na hrací podložce (DS Trezor › ProfileMat, deska P5, rozvržení B Karta vlevo):
-// vlevo karta a rychlé statistiky, uprostřed Alba a Chybí do sady, vpravo Poslední obchody a Hodnocení.
-// Společní přátelé přijdou s přáteli, do té doby je na jejich místě Hodnocení.
+// vlevo karta a rychlé statistiky, uprostřed Alba a Chybí do sady, vpravo Poslední obchody a přátelé
+// (Společní přátelé u sběratele, Zkušenosti přátel u obchodu, na vlastním profilu Přátelé).
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AlbumBook } from '@/components/album/AlbumBook';
@@ -10,6 +10,7 @@ import { formatNumber } from '@/lib/format';
 import type { ProfileShowcase } from '@/lib/profile';
 import type { MatSurface, ProfileCardData } from '@/lib/profile-card';
 import { MatAlbums } from './MatAlbums';
+import { MatFriends, type MatFriend } from './MatFriends';
 
 export type { MatSurface } from '@/lib/profile-card';
 
@@ -42,8 +43,9 @@ function ago(iso: string): string {
 
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-export function ProfileMat({ card, show, own, actions, surface }: {
+export function ProfileMat({ card, show, own, actions, surface, friends = [], signedIn = false, requests = 0 }: {
   card: ProfileCardData; show: ProfileShowcase; own: boolean; actions: ReactNode; surface?: MatSurface;
+  friends?: MatFriend[]; signedIn?: boolean; requests?: number;
 }) {
   const female = card.typeLead === 'Sběratelka';
   const shop = card.kind === 'shop';
@@ -109,20 +111,8 @@ export function ProfileMat({ card, show, own, actions, surface }: {
           ) : <p className="tz-mat-empty">{show.albums.length ? 'Všechna alba sad jsou kompletní.' : 'Žádné album sady.'}</p>}
         </Zone>
 
-        <Zone label="Hodnocení" area="d">
-          {card.reviews ? (
-            <div className="tz-mat-rating">
-              <div className="tz-mat-score">
-                <b>{card.rating != null ? `${formatNumber(card.rating, 0)} %` : '–'}</b>
-                <span className="tz-mat-sub">{card.reviews} {card.reviews === 1 ? 'recenze' : card.reviews < 5 ? 'recenze' : 'recenzí'}</span>
-              </div>
-              <div className="tz-mat-quotes">
-                {show.reviews.length ? show.reviews.map((r, k) => (
-                  <figure key={k} className="tz-mat-quote"><b>{r.author ?? 'Kupující'} <span className="tz-mat-stars">{stars(r.rating)}</span></b>{r.comment}</figure>
-                )) : <p className="tz-mat-empty">Recenze zatím bez textu.</p>}
-              </div>
-            </div>
-          ) : <p className="tz-mat-empty">Zatím bez hodnocení.</p>}
+        <Zone label={own ? 'Přátelé' : shop ? 'Zkušenosti přátel' : 'Společní přátelé'} area="d">
+          <MatFriends key={card.id} friends={friends} shop={shop} own={own} signedIn={signedIn} requests={requests} />
         </Zone>
 
         <div className="tz-mat-actions">{actions}</div>

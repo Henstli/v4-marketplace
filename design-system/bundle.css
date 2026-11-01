@@ -651,6 +651,39 @@ a.tz-acct-tile:hover{border-color:var(--line-strong)}
 .tz-mat-quote{margin:0;padding:8px 10px;border-radius:9px;background:rgba(0,0,0,.3);font-size:12px;color:#e6dcd3}
 .tz-mat-quote b{display:block;color:#fff}
 .tz-mat-empty{margin:0;text-align:center;font-size:13px;color:rgba(255,255,255,.62)}
+.tz-mat-friends{display:flex;gap:22px;align-items:stretch;min-width:0}
+.tz-mat-deck{position:relative;width:140px;height:182px;flex:none;margin-top:6px}
+.tz-mat-dcard{position:absolute;left:0;top:6px;transform-origin:50% 100%;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .3s;filter:drop-shadow(0 10px 14px rgba(0,0,0,.55))}
+.tz-mat-dcard .tz-pcard{zoom:.36}
+.tz-mat-dnext{position:absolute;left:0;top:6px;width:122px;height:171px;z-index:20;border:0;background:transparent;border-radius:8px;cursor:pointer}
+.tz-mat-finfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tz-mat-finfo h3{margin:0;font:700 19px/1.15 var(--font-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tz-mat-finfo h3 a{color:#fff;text-decoration:none}
+.tz-mat-finfo h3 a:hover{text-decoration:underline}
+.tz-mat-fexp{margin-top:8px;font:600 12px/1.3 var(--font-sans);color:var(--accent)}
+.tz-mat-fexp[data-none]{color:rgba(255,255,255,.55)}
+.tz-mat-fquote{font:italic 12.5px/1.35 var(--font-sans);color:#e6dcd3;quotes:"„" "“";display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tz-mat-finfo .tz-mat-pager{margin-top:auto;padding-top:8px}
+.tz-mat-freq{position:absolute;right:12px;top:-28px;display:inline-flex;align-items:center;gap:7px;font:600 11.5px/1 var(--font-sans);color:#fff;text-decoration:none}
+.tz-mat-freq .tz-acct-count{margin:0}
+.tz-mat-freq:hover{text-decoration:underline}
+.tz-mat-friend{gap:6px;white-space:nowrap}
+.tz-mat-friend[data-on]{color:var(--accent);border-color:rgba(124,242,200,.45)!important}
+.tz-mat-friend[data-wait]{color:rgba(255,255,255,.7)}
+.tz-mat-fask{display:flex;gap:8px}
+.tz-mat-actions .tz-mat-friend,.tz-mat-actions .tz-mat-fask{flex:1 1 200px}
+.tz-mat-fask>*{flex:1 1 auto;gap:6px}
+.tz-friends{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:22px 18px}
+.tz-friend{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.tz-friend-card{display:block;border-radius:12px;transition:transform .2s;text-decoration:none;color:inherit}
+.tz-friend-act .tz-btn{height:34px;padding:0 12px;font-size:12.5px;border-radius:9px;gap:5px}
+.tz-friend-card:hover{transform:translateY(-3px)}
+.tz-friend-card .tz-pcard{zoom:.46}
+.tz-friend-exp{font:600 12px/1.3 var(--font-sans);color:var(--accent)}
+.tz-friend-exp[data-none]{color:var(--text-muted,#a3adbb)}
+.tz-friend-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.tz-friend-act .tz-mat-ghost{color:var(--text,#e8ecf1);border-color:var(--border,rgba(255,255,255,.3))!important}
+.tz-friend-act .tz-btn-orange{background:#ff8a3d;border-color:#ff8a3d;color:#1a0d09}
 @media (max-width:1080px){.tz-mat-grid{grid-template-columns:286px minmax(0,1fr);grid-template-areas:"card a" "card b" "act c" ". d"}}
 @media (max-width:720px){.tz-mat{padding:40px 14px 44px}.tz-mat-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"card" "act" "a" "b" "c" "d"}.tz-mat-actions{margin-top:0}}
 .tz-pcard-swatch{display:inline-flex;width:170px;padding:6px;border-radius:8px;background:linear-gradient(180deg,#1b212b,#0f1318)}

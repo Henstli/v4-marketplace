@@ -40,6 +40,8 @@ export interface AccountSummary {
   loyalty: { id: string; name: string } | null;
   /** Kolik věcí čeká na tým: otevřené případy podpory a (správce) karty ke schválení */
   teamWaiting: number;
+  /** Žádosti o přátelství, které čekají na odpověď */
+  friendRequests: number;
 }
 
 export const getAccountSummary = cache(async (): Promise<AccountSummary | null> => {
@@ -49,7 +51,7 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
   const count = { count: 'exact' as const, head: true };
   const now = new Date().toISOString();
   const none = Promise.resolve({ count: 0 });
-  const [profile, brands, ship, confirm, offers, draft, alerts, reports, loyal, prof, cases, cards] = await Promise.all([
+  const [profile, brands, ship, confirm, offers, draft, alerts, reports, loyal, prof, cases, cards, freq] = await Promise.all([
     getShopProfile(user.id),
     getSellerBrands([user.id]),
     supabase.from('orders').select('id', count).eq('seller_id', user.id).in('status', ['requested', 'confirmed', 'paid']),
@@ -64,6 +66,7 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
       ? supabase.from('support_cases').select('id', count).eq('status', 'open').or(`snoozed_until.is.null,snoozed_until.lt.${now}`)
       : none,
     user.isAdmin ? supabase.from('card_submissions').select('id', count).eq('status', 'pending') : none,
+    supabase.from('friendships').select('requester', count).eq('addressee', user.id).is('accepted_at', null),
   ]);
   const sub = ((loyal.data ?? []) as { plan: string; since: string }[])[0];
   const plan = profile?.plan ?? 'free';
@@ -94,5 +97,6 @@ export const getAccountSummary = cache(async (): Promise<AccountSummary | null> 
     reports: reports.count ?? 0,
     loyalty: level ? { id: level.id, name: level.name } : null,
     teamWaiting: (cases.count ?? 0) + (cards.count ?? 0),
+    friendRequests: freq.count ?? 0,
   };
 });

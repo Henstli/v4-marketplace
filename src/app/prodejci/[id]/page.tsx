@@ -6,10 +6,13 @@ import { ProfileMat } from '@/components/profile/ProfileMat';
 import { CardSummaryTile } from '@/components/CardSummaryTile';
 import { SellerTrust } from '@/components/shop/SellerTrust';
 import { ReportContent } from '@/components/reports/ReportContent';
+import { FriendButton } from '@/components/profile/FriendButton';
+import { getAccountSummary } from '@/lib/account';
 import { getCurrentUser } from '@/lib/auth';
 import { getSeller, PAGE_SIZE, searchCards } from '@/lib/catalog';
 import { formatNumber, plural } from '@/lib/format';
 import { PLANS } from '@/lib/plans';
+import { getFriendStatus, getProfileFriends } from '@/lib/friends';
 import { getProfileCard, getProfileShowcase } from '@/lib/profile';
 import { shopHref } from '@/lib/shop-config';
 import { getShopProfile } from '@/lib/shop';
@@ -23,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 // Profil každého uživatele na hrací podložce (DS Trezor › ProfileMat, deska P5, rozvržení B Karta vlevo):
-// karta se statistikami, Alba, Chybí do sady, Poslední obchody a Hodnocení; pod podložkou spolehlivost a nabídky.
+// karta se statistikami, Alba, Chybí do sady, Poslední obchody a přátelé; pod podložkou spolehlivost a nabídky.
 export default async function SellerPage({ params, searchParams }: Props) {
   const { id } = await params;
   const [seller, card, show] = await Promise.all([getSeller(id), getProfileCard(id), getProfileShowcase(id)]);
@@ -36,6 +39,7 @@ export default async function SellerPage({ params, searchParams }: Props) {
   const pages = Math.ceil(total / PAGE_SIZE);
   const pageHref = (p: number) => (p <= 1 ? `/prodejci/${seller.id}` : `/prodejci/${seller.id}?strana=${p}`);
   const own = viewer?.id === seller.id;
+  const [friends, status] = viewer ? await Promise.all([getProfileFriends(seller.id), own ? 'none' as const : getFriendStatus(seller.id)]) : [[], 'none' as const];
 
   const actions = own ? (
     <>
@@ -46,13 +50,14 @@ export default async function SellerPage({ params, searchParams }: Props) {
     <>
       {shopLink ? <Link href={shopLink} className="tz-btn tz-btn-md tz-btn-primary">{seller.kind === 'shop' ? 'Obchod' : 'Stránka'}</Link> : null}
       <Link href={`/zpravy/${seller.id}`} className="tz-btn tz-btn-md tz-btn-orange">Napsat</Link>
+      <FriendButton other={seller.id} initial={status} signedIn={!!viewer} />
       <ReportContent kind="seller" target={seller.id} variant="menu" preview={{ title: seller.name }} />
     </>
   );
 
   return (
     <div className={`container ${styles.page}`}>
-      <ProfileMat card={card} show={show} own={own} actions={actions} />
+      <ProfileMat card={card} show={show} own={own} actions={actions} friends={friends} signedIn={!!viewer} requests={own ? (await getAccountSummary())?.friendRequests ?? 0 : 0} />
 
       {seller.rating != null || seller.sales ? (
         <section className="panel" aria-labelledby="spolehlivost">

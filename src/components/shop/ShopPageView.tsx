@@ -833,7 +833,7 @@ export async function ShopPageView({ p, query, preview, edit, baseOverride }: { 
             bannerLive={d.liveBanner}
             meta={sellerMeta(p, total)}
             tagline={c.tagline || undefined}
-            badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan === 'pro' ? <SellerBadge type="pro" /> : null}</>}
+            badges={<>{p.badge ? <SellerBadge type="verified" /> : null}{p.plan !== 'free' ? <SellerBadge type={p.plan} /> : null}</>}
             extra={p.achievements.length ? <Achievements items={p.achievements} /> : undefined}
             actions={<>
               <MessageSeller sellerId={p.seller.id} />

@@ -26,6 +26,7 @@ const ICONS = {
   help: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17.5v.01" /></>,
   box: <><path d="M3 8l9-5 9 5v8l-9 5-9-5z" /><path d="M3 8l9 5 9-5M12 13v8" /></>,
   album: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 3v18M11 8h6M11 12h6" /></>,
+  friends: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c0-3.6 3-5.5 6.5-5.5s6.5 1.9 6.5 5.5" /><circle cx="17" cy="9" r="2.8" /><path d="M17 14.5c2.6 0 4.5 1.6 4.5 4.5" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></>,
   lifebuoy: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6" /></>,
   gauge: <><path d="M3.5 17a9 9 0 1 1 17 0" /><path d="M12 14l4-5" /><circle cx="12" cy="14.5" r="1.3" /></>,
@@ -68,6 +69,7 @@ function navGroups(a: AccountSummary): { title: string; items: NavItem[] }[] {
         { label: 'Obchod', icon: 'shop', href: a.shopPage && a.published ? a.href : '/ucet/stranka' },
         { label: a.kind === 'shop' ? 'Sklad' : 'Sbírka', icon: 'box', href: '/prodat', also: ['/prodat/import'], hint: a.listings ? a.listings.toLocaleString('cs-CZ') : undefined },
         { label: 'Kolekce', icon: 'album', href: '/kolekce' },
+        { label: 'Přátelé', icon: 'friends', href: '/ucet/pratele', count: a.friendRequests || undefined },
       ],
     },
     {
@@ -168,7 +170,7 @@ export function AccountMenu({ a }: { a: AccountSummary }) {
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
-  const pending = a.toShip + a.toConfirm + a.alerts + a.reports;
+  const pending = a.toShip + a.toConfirm + a.alerts + a.reports + a.friendRequests;
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
