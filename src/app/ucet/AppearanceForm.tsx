@@ -413,7 +413,13 @@ export function AppearanceForm({ card, saved, show }: { card: ProfileCardData; s
                 <span className="t-small muted">JPG, PNG nebo WebP do 20 MB.</span>
                 {photoError ? <p className={sell.error} role="alert">{photoError}</p> : null}
               </div>
-              <div className="tz-look-mside"><ProfileCard data={preview} headingLevel={2} /></div>
+              <div className="tz-look-mside">
+                <ProfileCard data={preview} headingLevel={2} />
+                <div className="tz-look-sblock" style={{ width: '100%', maxWidth: 340 }}>
+                  <span className="t-label">PROFILOVKA V MALÉM</span>
+                  <div className="tz-look-circles">{[72, 40, 24, 16].map((s) => <ProfileAvatar key={s} name={card.name} photo={photo} size={s} />)}</div>
+                </div>
+              </div>
             </div>
             <div className="tz-look-mf"><button type="button" className="tz-btn tz-btn-md tz-btn-primary" onClick={() => setPhotoOpen(false)}>Hotovo</button></div>
           </div>
