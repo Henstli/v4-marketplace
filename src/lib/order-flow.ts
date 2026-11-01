@@ -229,6 +229,7 @@ const TRACK: Record<string, (code: string) => string> = {
   cp_doruky: (c) => `https://www.postaonline.cz/trackandtrace/-/zasilka/cislo?parcelNumbers=${c}`,
   letter: (c) => `https://www.postaonline.cz/trackandtrace/-/zasilka/cislo?parcelNumbers=${c}`,
   ppl: (c) => `https://www.ppl.cz/vyhledat-zasilku?shipmentId=${c}`,
+  ppl_point: (c) => `https://www.ppl.cz/vyhledat-zasilku?shipmentId=${c}`,
   dpd: (c) => `https://tracking.dpd.de/status/cs_CZ/parcel/${c}`,
   gls: (c) => `https://gls-group.com/CZ/cs/sledovani-zasilek?match=${c}`,
 };
