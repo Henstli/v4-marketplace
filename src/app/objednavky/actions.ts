@@ -53,6 +53,20 @@ export async function setOrderStatus(form: FormData) {
     revalidatePath('/', 'layout');
     return;
   }
+  // Odmítnutí s důvodem pro kupujícího (DS Orders › Odmítnout); bez nové funkce v databázi jen odmítne.
+  if (op === 'decline') {
+    const reason = String(form.get('reason') ?? '').trim().slice(0, 200);
+    let { error } = await supabase.rpc('decline_order', { target: id, p_reason: reason });
+    if (error?.code === 'PGRST202') ({ error } = await supabase.rpc('set_order_status', { target: id, next_status: 'declined' }));
+    if (!error) {
+      const [user, origin] = await Promise.all([getCurrentUser(), siteOrigin()]);
+      if (user) after(() => sendOrderEmail(supabase, id, 'declined', user.displayName, origin, reason || undefined));
+      await scheduleWatchFlush();
+    }
+    revalidatePath('/objednavky', 'layout');
+    revalidatePath('/', 'layout');
+    return;
+  }
   const status = String(form.get('status'));
   // Kdo smí jaký stav nastavit, hlídá funkce set_order_status v databázi.
   const { error } = await supabase.rpc('set_order_status', { target: id, next_status: status });

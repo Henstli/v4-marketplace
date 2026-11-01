@@ -202,3 +202,8 @@
 .copy { min-height: 32px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: transparent; color: var(--ink); font: 600 12px var(--font-sans); white-space: nowrap; cursor: pointer; }
 .copy:hover { background: var(--surface-sunken); }
 @media (max-width: 520px) { .deliveryRows > div { grid-template-columns: minmax(0, 1fr) auto; } .deliveryRows dt { grid-column: 1 / -1; } }
+
+/* Přestavba 1. 11. (DS Orders): seznam, detail a návrh ceny používají třídy tz-ord-*. */
+.list { display: block; padding-top: var(--space-8); padding-bottom: var(--space-12, 48px); }
+.list :global(.tz-ord-now) { margin-top: 0; }
+.list :global(.tz-ord-head) h1 { margin: 0; }

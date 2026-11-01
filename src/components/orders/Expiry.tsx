@@ -70,3 +70,15 @@ export function ExpiryMeter({ createdAt, expiresAt }: { createdAt: string; expir
     </div>
   );
 }
+
+/** Tenký pruh v rámečku Co teď (DS Orders): kolik času do vypršení zbývá. */
+export function NowMeter({ createdAt, expiresAt }: { createdAt: string; expiresAt: string }) {
+  const left = useLeft(expiresAt);
+  const total = Date.parse(expiresAt) - Date.parse(createdAt);
+  const share = total > 0 ? Math.min(1, Math.max(0, left / total)) : 0;
+  return (
+    <div className="tz-ord-meter" title={`Vyprší ${formatDateTime(expiresAt)}`} suppressHydrationWarning>
+      <i style={{ width: `${(share * 100).toFixed(1)}%` }} />
+    </div>
+  );
+}

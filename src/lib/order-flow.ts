@@ -176,7 +176,8 @@ export function flowActions(o: FlowOrder, role: Role): FlowAction[] {
   if (role === 'buyer') {
     if (o.status === 'requested') out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
     if (o.status === 'confirmed' && p === 'transfer' && !o.buyerPaidAt) out.push({ op: 'mark_paid', label: 'Zaplaceno', variant: 'primary' });
-    if (o.status === 'confirmed' && !o.buyerPaidAt && o.sellerRestricted) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
+    // Dokud kupující neklikl Zaplaceno, smí zrušit i potvrzenou objednávku (Šimon 1. 11.).
+    if (o.status === 'confirmed' && !o.buyerPaidAt) out.push({ op: 'status', status: 'cancelled', label: 'Zrušit objednávku', variant: 'ghost' });
     if (o.status === 'confirmed' && o.cancelRequestAt) {
       out.push({ op: 'cancel_accept', label: 'Souhlasím se zrušením', variant: 'ghost' });
       out.push({ op: 'cancel_reject', label: 'Nesouhlasím', variant: 'ghost' });

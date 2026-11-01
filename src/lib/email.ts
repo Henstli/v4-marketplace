@@ -76,7 +76,7 @@ const ORDER_EMAILS: Record<OrderEmail, { subject: string; title: string; text: (
  * Upozorní druhou stranu objednávky. Volá se po akci přihlášeného uživatele,
  * adresu vrací databáze jen účastníkům objednávky (order_counterpart).
  */
-export async function sendOrderEmail(supabase: Supabase, orderId: string, kind: OrderEmail, actorName: string, siteUrl: string): Promise<void> {
+export async function sendOrderEmail(supabase: Supabase, orderId: string, kind: OrderEmail, actorName: string, siteUrl: string, reason?: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
   const { data } = await supabase.rpc('order_counterpart', { target: orderId });
   const to = (data as Array<{ email: string | null }> | null)?.[0]?.email;
@@ -86,6 +86,7 @@ export async function sendOrderEmail(supabase: Supabase, orderId: string, kind: 
   await send(to, e.subject, layoutHtml(siteUrl, `
     <h1 style="font-size:20px;margin:0 0 12px">${e.title}</h1>
     <p style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 20px">${escapeHtml(e.text(actorName))}</p>
+    ${reason ? `<p style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 20px">Důvod: „${escapeHtml(reason)}“</p>` : ''}
     <a href="${href}" style="display:inline-block;margin-top:4px;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">${e.button}</a>`));
 }
 
