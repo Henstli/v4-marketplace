@@ -211,17 +211,19 @@ export function OrdersListView({ uid, all, offers, names, sp }: { uid: string; a
         </form>
       </div>
 
-      <div className="tz-ord-sub">
+      {/* Úkoly jako tenký řádek textu, vybraný podtržený mátově, nuly zůstávají (Šimon 1. 11.). */}
+      <nav className="tz-ord-sub" aria-label="Úkol">
         {subs.length ? (
           <>
-            <Link href={href({})} aria-current={!ukol ? 'true' : undefined}>Vše <i>{inBucket.length}</i></Link>
-            {subs.map(([k, name]) => (
-              <Link key={k} href={href({ ukol: k })} aria-current={ukol === k ? 'true' : undefined}>{name} <i>{inBucket.filter((r) => r.task === k).length}</i></Link>
-            ))}
+            <Link href={href({})} aria-current={!ukol ? 'true' : undefined}>Vše<i>{inBucket.length}</i></Link>
+            {subs.map(([k, name]) => {
+              const n = inBucket.filter((r) => r.task === k).length;
+              return <Link key={k} href={href({ ukol: k })} aria-current={ukol === k ? 'true' : undefined} data-zero={n ? undefined : ''}>{name}<i>{n}</i></Link>;
+            })}
           </>
         ) : null}
         <ViewToggle target="ord-list" />
-      </div>
+      </nav>
 
       <div className="tz-ord-list" id="ord-list">
         {page.length ? page.map((r) => (
