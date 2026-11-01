@@ -8,10 +8,10 @@ import { MessageSeller } from '@/components/shop/ShopClient';
 import { ProfileCard } from '@/components/trezor';
 import { formatNumber } from '@/lib/format';
 import type { ProfileShowcase } from '@/lib/profile';
-import type { ProfileCardData } from '@/lib/profile-card';
+import type { MatSurface, ProfileCardData } from '@/lib/profile-card';
 import { MatAlbums } from './MatAlbums';
 
-export type MatSurface = 'lava' | 'felt' | 'night' | 'leather';
+export type { MatSurface } from '@/lib/profile-card';
 
 function Zone({ label, area, className = '', children }: { label: string; area: string; className?: string; children: ReactNode }) {
   return (
@@ -42,7 +42,7 @@ function ago(iso: string): string {
 
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
-export function ProfileMat({ card, show, own, actions, surface = 'lava' }: {
+export function ProfileMat({ card, show, own, actions, surface }: {
   card: ProfileCardData; show: ProfileShowcase; own: boolean; actions: ReactNode; surface?: MatSurface;
 }) {
   const female = card.typeLead === 'Sběratelka';
@@ -50,7 +50,7 @@ export function ProfileMat({ card, show, own, actions, surface = 'lava' }: {
   const verb = (sold: boolean) => (sold ? (shop ? 'Prodáno' : female ? 'Prodala' : 'Prodal') : (shop ? 'Koupeno' : female ? 'Koupila' : 'Koupil'));
   const m = show.missing;
   return (
-    <section className="tz-mat" data-mat={surface} aria-label={`Profil ${card.name}`}>
+    <section className="tz-mat" data-mat={surface ?? card.mat} aria-label={`Profil ${card.name}`}>
       <div className="tz-mat-grid">
         <Zone label={shop ? 'Karta obchodu' : 'Moje karta'} area="card" className="tz-mat-card">
           <ProfileCard data={card} headingLevel={1} />

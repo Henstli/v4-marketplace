@@ -79,7 +79,7 @@ export function ProfileCard({ data, headingLevel = 2 }: { data: ProfileCardData;
           {data.about ? <p>{data.about}</p> : <p className="tz-pcard-empty">Zatím bez popisu.</p>}
         </div>
         <div className="tz-pcard-badges" aria-label="Odznaky">
-          {data.loyalty ? <LoyaltyBadge level={data.loyalty.id} name={data.loyalty.name} label={data.loyalty.label} size={34} /> : null}
+          {data.loyalty && !data.loyaltyHidden ? <LoyaltyBadge level={data.loyalty.id} name={data.loyalty.name} label={data.loyalty.label} size={34} /> : null}
         </div>
         <div className="tz-pcard-stats">
           <div className="tz-pcard-stat"><span>Hodnocení</span><b data-good={data.rating != null ? '' : undefined}>{pct(data.rating)}</b></div>
