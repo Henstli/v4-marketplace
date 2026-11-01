@@ -12,7 +12,7 @@ import type { AlbumCard, AlbumDetail } from '@/lib/collection';
 import { formatNumber } from '@/lib/format';
 import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
-import { addCards, cardOffers, deleteAlbum, removeCard, searchForAlbum, updateAlbum, type CheapOffer, type PickCard } from '../actions';
+import { addCards, cardOffers, deleteAlbum, removeCard, searchForAlbum, setAlbumOnProfile, updateAlbum, type CheapOffer, type PickCard } from '../actions';
 import { AlbumLook } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
 import s from '../kolekce.module.css';
@@ -28,6 +28,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
   const [sel, setSel] = useState<number | null>(null);
   const [offers, setOffers] = useState<{ id: string; list: CheapOffer[]; count: number } | null>(null);
   const [drawer, setDrawer] = useState<null | 'add' | 'look'>(null);
+  const [onProfile, setOnProfile] = useState(album.onProfile);
   const [err, setErr] = useState('');
   const [pending, start] = useTransition();
   const cardsRef = useRef(cards);
@@ -114,6 +115,19 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
           </div>
         </div>
         <div className={s.actions}>
+          <Button
+            variant="secondary"
+            aria-pressed={!onProfile}
+            title={onProfile ? 'Album je vidět na tvém profilu' : 'Album na profilu nikdo nevidí'}
+            onClick={async () => {
+              const next = !onProfile;
+              setOnProfile(next);
+              const r = await setAlbumOnProfile(album.id, next);
+              if ('error' in r) setOnProfile(!next);
+            }}
+          >
+            {onProfile ? 'Skrýt z profilu' : 'Ukázat na profilu'}
+          </Button>
           <Button variant="secondary" onClick={() => setDrawer('look')}>Vzhled alba</Button>
           <Button onClick={() => setDrawer('add')}><PlusIcon />Přidat karty</Button>
         </div>
