@@ -145,7 +145,7 @@ export function AppearanceForm({ card, saved, show }: { card: ProfileCardData; s
           <div className="tz-look-circles">{[72, 40, 24, 16].map((s) => <ProfileAvatar key={s} name={card.name} photo={photo} size={s} />)}</div>
         </div>
         <div className="tz-look-sblock"><span className="t-label">HLAVIČKA WEBU</span>
-          <div className="tz-look-hdr"><span className="tz-look-logo">V4</span><span className="tz-look-search">Karta, sada, hráč…</span><ProfileAvatar name={card.name} photo={photo} size={28} /></div>
+          <div className="tz-look-hdr">{/* eslint-disable-next-line @next/next/no-img-element */}<img className="tz-look-logo" src="/logo.svg" alt="" width={26} height={26} /><span className="tz-look-search">Karta, sada, hráč…</span><ProfileAvatar name={card.name} photo={photo} size={28} /></div>
         </div>
         <div className="tz-look-sblock"><span className="t-label">ZPRÁVY</span>
           <div className="tz-look-srow"><ProfileAvatar name={card.name} photo={photo} size={36} /><div><b>{card.name}</b> <span className="t-small muted">14:02</span><p>Zapdos mám, pošlu fotky.</p></div></div>

@@ -727,7 +727,7 @@ a.tz-acct-tile:hover{border-color:var(--line-strong)}
 .tz-look-srow p{margin:2px 0 0;color:var(--ink-muted);font-size:13px}
 .tz-look-srow .tz-look-price{margin-left:auto;font:600 13px var(--font-mono)}
 .tz-look-hdr{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
-.tz-look-hdr .tz-look-logo{width:26px;height:26px;border-radius:7px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font:700 11px var(--font-display)}
+.tz-look-hdr .tz-look-logo{width:26px;height:26px;flex:none;display:block}
 .tz-look-hdr .tz-look-search{flex:1;padding:6px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink-muted);font-size:12px}
 .tz-look-stars{color:#f3c14b;font-size:12px;letter-spacing:1px}
 .tz-look-modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:rgba(5,7,10,.72);backdrop-filter:blur(4px)}
