@@ -34,7 +34,8 @@ export default async function SupportLayout({ children }: { children: ReactNode 
       <div className={styles.app}>
         <aside className={styles.sidebar}>
           <div className={styles.brand}>
-            <span className={styles.monogram} aria-hidden="true">V4</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="" width={30} height={30} className={styles.monogram} />
             <span>V4cards</span>
             <span className={styles.modePill}>PODPORA</span>
           </div>

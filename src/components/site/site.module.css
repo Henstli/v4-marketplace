@@ -74,15 +74,8 @@
 .monogram {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--t-body-size);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  flex: none;
+  display: block;
 }
 
 .wordmark {
