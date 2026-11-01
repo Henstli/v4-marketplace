@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Status } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
+import { SupportTabs } from '@/components/account/PageTabs';
 import { formatDate } from '@/lib/format';
 import { REASON, REPORT_SELECT, reportCode, reportLabel, type ReportRow } from '@/lib/reports';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import styles from '@/components/reports/reports.module.css';
 
-export const metadata: Metadata = { title: 'Hlášení' };
+export const metadata: Metadata = { title: 'Moje hlášení' };
 
 /** Účet › Hlášení (DS Reports, obrazovka 4): hlášení, která jsem podal, nebo která se mě týkají. */
 export default async function ReportsPage() {
@@ -31,7 +32,8 @@ export default async function ReportsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
       <div>
-        <h1 className="t-heading-l">Hlášení</h1>
+        <h1 className="t-heading-l">Podpora</h1>
+        <SupportTabs current="/ucet/hlaseni" reports={sorted.filter((r) => r.status !== 'closed').length || undefined} />
         <p className="muted">Problémy s objednávkami, které jste nahlásili vy, nebo které se týkají vás. Nahlásit jde v detailu objednávky.</p>
       </div>
       {sorted.length ? (

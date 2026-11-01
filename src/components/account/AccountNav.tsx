@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ShopLogo, TierLabel, shopStyle } from '@/components/trezor';
+import { LoyaltyBadge, ShopLogo, TierLabel, shopStyle } from '@/components/trezor';
 import { signOut } from '@/app/prihlaseni/actions';
 import type { AccountSummary } from '@/lib/account';
 import { PLANS } from '@/lib/plans';
@@ -24,6 +24,13 @@ const ICONS = {
   flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   admin: <path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6l-7-3Z" />,
   help: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17.5v.01" /></>,
+  box: <><path d="M3 8l9-5 9 5v8l-9 5-9-5z" /><path d="M3 8l9 5 9-5M12 13v8" /></>,
+  album: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 3v18M11 8h6M11 12h6" /></>,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></>,
+  lifebuoy: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6" /></>,
+  gauge: <><path d="M3.5 17a9 9 0 1 1 17 0" /><path d="M12 14l4-5" /><circle cx="12" cy="14.5" r="1.3" /></>,
+  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   out: <path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />,
   down: <path d="M6 9l6 6 6-6" />,
 };
@@ -44,75 +51,72 @@ interface NavItem {
   href?: string;
   count?: number;
   hint?: string;
-  /** Jen v boční navigaci (v menu je to tlačítko nahoře) */
-  sideOnly?: boolean;
+  /** Hint jako výzva (mátově, např. Vylepšit) */
+  hintUp?: boolean;
+  /** Další cesty, na kterých je položka aktivní (záložky stránky) */
+  also?: string[];
   /** Jen na počítači (přepnutí do režimu podpory) */
   desktopOnly?: boolean;
 }
 
-function navGroups(a: AccountSummary): { title?: string; items: NavItem[] }[] {
+function navGroups(a: AccountSummary): { title: string; items: NavItem[] }[] {
   const pending = a.toShip + a.toConfirm;
   return [
     {
       title: 'Moje',
       items: [
-        { label: 'Přehled', icon: 'home', href: '/ucet', sideOnly: true },
-        { label: a.shopPage ? (a.kind === 'shop' ? 'Můj obchod' : 'Moje stránka') : 'Můj profil', icon: 'shop', href: a.href },
-        ...(a.shopPage ? [{ label: 'Upravit stránku', icon: 'edit' as const, href: '/ucet/stranka', sideOnly: true }] : []),
-        { label: 'Vzhled profilu', icon: 'card', href: '/ucet/vzhled' },
-        { label: 'Moje kolekce', icon: 'coll', href: '/kolekce' },
+        { label: 'Obchod', icon: 'shop', href: a.shopPage && a.published ? a.href : '/ucet/stranka' },
+        { label: a.kind === 'shop' ? 'Sklad' : 'Sbírka', icon: 'box', href: '/prodat', also: ['/prodat/import'], hint: a.listings ? a.listings.toLocaleString('cs-CZ') : undefined },
+        { label: 'Kolekce', icon: 'album', href: '/kolekce' },
       ],
     },
     {
       title: 'Obchodování',
       items: [
-        { label: 'Moje nabídky', icon: 'offers', href: '/prodat', hint: a.listings ? a.listings.toLocaleString('cs-CZ') : undefined },
         { label: 'Objednávky', icon: 'orders', href: '/objednavky', count: pending || undefined },
-        { label: 'Hlídané karty', icon: 'bell', href: '/ucet/hlidane', count: a.alerts || undefined },
-        { label: 'Hlášení', icon: 'flag', href: '/ucet/hlaseni', count: a.reports || undefined },
-        ...(PLANS[a.plan].bulkImport ? [{ label: 'Hromadné nahrávání', icon: 'bulk' as const, href: '/prodat/import' }] : []),
+        { label: 'Hlídání a příkazy', icon: 'bell', href: '/ucet/hlidane', count: a.alerts || undefined },
         { label: 'Návrhy karet', icon: 'card', href: '/prodat/nova-karta' },
       ],
     },
     {
       title: 'Účet',
       items: [
-        { label: 'Předplatné', icon: 'plan', href: '/ucet/predplatne', hint: PLANS[a.plan].name },
+        { label: 'Profil', icon: 'user', href: '/ucet/vzhled' },
+        a.plan === 'free'
+          ? { label: 'Předplatné', icon: 'plan', href: '/ucet/predplatne', hint: 'Vylepšit', hintUp: true }
+          : { label: 'Předplatné', icon: 'plan', href: '/ucet/predplatne', hint: PLANS[a.plan].name },
         { label: 'Nastavení účtu', icon: 'gear', href: '/ucet/nastaveni' },
-        { label: 'Napsat podpoře', icon: 'help', href: '/podpora' },
+        { label: 'Podpora', icon: 'lifebuoy', href: '/podpora', also: ['/ucet/hlaseni'], count: a.reports || undefined },
       ],
     },
     ...(a.isStaff
       ? [{
           title: 'Správa',
           items: [
-            ...(a.isAdmin
-              ? [
-                  { label: 'Schvalování karet', icon: 'admin' as const, href: '/sprava/karty' },
-                  { label: 'Předplatné prodejců', icon: 'admin' as const, href: '/sprava/predplatne' },
-                ]
-              : []),
-            { label: 'Přepnout do podpory', icon: 'flag' as const, href: '/sprava/podpora', desktopOnly: true },
+            ...(a.isAdmin ? [{ label: 'Přehled webu', icon: 'gauge' as const, href: '/sprava/prehled' }] : []),
+            { label: 'Přepnout do podpory', icon: 'flag' as const, href: '/sprava/podpora', count: a.teamWaiting || undefined, desktopOnly: true },
           ],
         }]
       : []),
   ];
 }
 
-function isActive(pathname: string, href: string) {
-  if (href === '/ucet' || href === '/prodat') return pathname === href;
+function isActive(pathname: string, item: NavItem) {
+  const href = item.href!;
+  if ((item.also ?? []).some((x) => pathname === x || pathname.startsWith(`${x}/`))) return true;
+  if (href === '/prodat') return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function Item({ item, pathname, onClick }: { item: NavItem; pathname: string; onClick?: () => void }) {
   const end = item.count ? <span className="tz-acct-count">{item.count}</span>
     : !item.href ? <span className="tz-acct-soon">Brzy</span>
-    : item.hint ? <span className="tz-acct-hint">{item.hint}</span> : null;
+    : item.hint ? <span className={item.hintUp ? 'tz-acct-hint up' : 'tz-acct-hint'}>{item.hint}</span> : null;
   if (!item.href) {
     return <span className="tz-acct-item" aria-disabled="true"><Icon name={item.icon} />{item.label}{end}</span>;
   }
   return (
-    <Link href={item.href} className={item.desktopOnly ? 'tz-acct-item tz-desktop-only' : 'tz-acct-item'} aria-current={isActive(pathname, item.href) ? 'page' : undefined} onClick={onClick}>
+    <Link href={item.href} className={item.desktopOnly ? 'tz-acct-item tz-desktop-only' : 'tz-acct-item'} aria-current={isActive(pathname, item) ? 'page' : undefined} onClick={onClick}>
       <Icon name={item.icon} />{item.label}{end}
     </Link>
   );
@@ -128,9 +132,33 @@ export function AccountWho({ a }: { a: AccountSummary }) {
       <Avatar a={a} size={44} />
       <div>
         <div className="tz-acct-name"><span>{a.name}</span><TierLabel plan={a.plan} /></div>
-        <p className="tz-acct-sub">{a.kind === 'shop' ? 'Obchod' : 'Sběratel'} · {a.email}</p>
+        <p className="tz-acct-sub">
+          {a.loyalty ? (
+            <span className="tz-acct-loy">
+              {a.kind === 'shop' ? 'Obchod' : 'Sběratel'}<span className="tz-acct-loy-sep">·</span>
+              <LoyaltyBadge level={a.loyalty.id} name={a.loyalty.name} size={17} />{a.loyalty.name}
+            </span>
+          ) : a.kind === 'shop' ? 'Obchod' : 'Sběratel'}
+        </p>
       </div>
     </div>
+  );
+}
+
+/** Malé tlačítko vedle Zobrazit profil: zkopíruje odkaz na veřejný profil. */
+function CopyProfileLink({ id }: { id: string }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/prodejci/${id}`);
+      setDone(true);
+      setTimeout(() => setDone(false), 1400);
+    } catch { /* schránka nedostupná */ }
+  };
+  return (
+    <button type="button" className="tz-acct-copy" onClick={copy} title={done ? 'Odkaz zkopírován' : 'Zkopírovat odkaz na profil'} aria-label={done ? 'Odkaz zkopírován' : 'Zkopírovat odkaz na profil'}>
+      <Icon name={done ? 'check' : 'link'} />
+    </button>
   );
 }
 
@@ -183,15 +211,15 @@ export function AccountMenu({ a }: { a: AccountSummary }) {
           <div className="tz-acct-scrim" onClick={close} aria-hidden="true" />
           <div className="tz-acct-menu" role="menu" aria-label="Můj profil">
             <AccountWho a={a} />
-            <div className="tz-acct-cta">
-              <Link href={a.href} className="tz-btn tz-btn-primary" onClick={close}>{a.shopPage ? (a.kind === 'shop' ? 'Zobrazit obchod' : 'Zobrazit stránku') : 'Zobrazit profil'}</Link>
-              <Link href={a.shopPage ? '/ucet/stranka' : '/ucet'} className="tz-btn tz-btn-secondary" onClick={close}>{a.shopPage ? 'Upravit stránku' : 'Přehled účtu'}</Link>
+            <div className="tz-acct-cta one">
+              <Link href={`/prodejci/${a.id}`} className="tz-btn tz-btn-primary" onClick={close}>Zobrazit profil</Link>
+              <CopyProfileLink id={a.id} />
             </div>
             {navGroups(a).map((g, i) => (
               <div key={g.title ?? i}>
                 <div className="tz-acct-sep" />
-                {g.title ? <p className="tz-acct-gh">{g.title}</p> : null}
-                {g.items.filter((x) => !x.sideOnly).map((x) => <Item key={x.label} item={x} pathname={pathname} onClick={close} />)}
+                <p className="tz-acct-gh">{g.title}</p>
+                {g.items.map((x) => <Item key={x.label} item={x} pathname={pathname} onClick={close} />)}
               </div>
             ))}
             <div className="tz-acct-sep" />
@@ -224,7 +252,7 @@ export function AccountSide({ a, children }: { a: AccountSummary; children: Reac
       <div className="tz-acct-main">
         <nav className="tz-acct-tabs" aria-label="Můj profil">
           {linked.map((x) => (
-            <Link key={x.label} href={x.href!} aria-current={isActive(pathname, x.href!) ? 'page' : undefined}>
+            <Link key={x.label} href={x.href!} aria-current={isActive(pathname, x) ? 'page' : undefined}>
               {x.label}{x.count ? <span className="tz-acct-count">{x.count}</span> : null}
             </Link>
           ))}

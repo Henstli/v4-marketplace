@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
 import { getCurrentUser } from '@/lib/auth';
+import { getAccountSummary } from '@/lib/account';
+import { StockTabs } from '@/components/account/PageTabs';
 import { ButtonLink } from '@/components/trezor';
 import { PLANS, toPlan } from '@/lib/plans';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
@@ -21,14 +22,14 @@ export default async function ImportPage() {
   if (!user) redirect('/prihlaseni?dalsi=/prodat/import');
 
   const supabase = await createClient();
-  const [{ data: plan }, ready] = await Promise.all([supabase.rpc('current_plan'), loadReadiness(supabase, user.id)]);
+  const [{ data: plan }, ready, account] = await Promise.all([supabase.rpc('current_plan'), loadReadiness(supabase, user.id), getAccountSummary()]);
 
   return (
     <div className={`container ${styles.page}`}>
       <div>
-        <p className="t-small muted"><Link href="/prodat">Prodat karty</Link> / Hromadné nahrávání</p>
-        <h1 className="t-heading-l">Hromadné nahrávání nabídek</h1>
+        <h1 className="t-heading-l">{account?.kind === 'shop' ? 'Sklad' : 'Sbírka'}</h1>
         <p className="muted">Nahrajte celý sklad z tabulky: karty spárujeme s katalogem, zkontrolujete je a vystavíte jedním tlačítkem.</p>
+        <StockTabs current="/prodat/import" listings={account?.listings ?? 0} />
       </div>
       {PLANS[toPlan(plan)].bulkImport ? (
         ready.ready ? (

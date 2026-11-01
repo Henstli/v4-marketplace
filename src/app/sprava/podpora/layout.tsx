@@ -19,10 +19,13 @@ export default async function SupportLayout({ children }: { children: ReactNode 
   if (!user.isStaff) notFound();
   const supabase = await createClient();
   const now = new Date().toISOString();
-  const [{ count: late }, { data: rooms }] = await Promise.all([
+  const [{ count: late }, { data: rooms }, { count: cards }] = await Promise.all([
     supabase.from('support_cases').select('id', { count: 'exact', head: true })
       .eq('status', 'open').lt('due_at', now).or(`snoozed_until.is.null,snoozed_until.lt.${now}`),
     supabase.rpc('team_rooms'),
+    user.isAdmin
+      ? supabase.from('card_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      : Promise.resolve({ count: 0 }),
   ]);
   const unread = ((rooms ?? []) as Array<{ unread: number }>).reduce((n, r) => n + r.unread, 0);
 
@@ -35,7 +38,7 @@ export default async function SupportLayout({ children }: { children: ReactNode 
             <span>V4cards</span>
             <span className={styles.modePill}>PODPORA</span>
           </div>
-          <SupportNav late={late ?? 0} unread={unread} className={styles.nav} itemClass={styles.navItem} countClass={styles.navCount} unreadClass={styles.navUnread} />
+          <SupportNav late={late ?? 0} unread={unread} admin={user.isAdmin} cards={cards ?? 0} className={styles.nav} itemClass={styles.navItem} countClass={styles.navCount} unreadClass={styles.navUnread} />
           <div className={styles.sideFoot}>
             <span className={styles.small}>Přihlášen: {user.displayName} · {user.isAdmin ? 'správce' : 'podpora'}</span>
             <Link href="/" className={styles.link}>Přejít na web</Link>

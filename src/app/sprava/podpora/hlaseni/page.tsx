@@ -9,7 +9,7 @@ import { loadReportFiles, OUTCOME, REASON, REPORT_SELECT, reportCode, type Repor
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import rs from '@/components/reports/reports.module.css';
-import styles from '../../karty/admin.module.css';
+import styles from '../karty/admin.module.css';
 
 export const metadata: Metadata = { title: 'Hlášení · správa' };
 
