@@ -1,7 +1,7 @@
 // DS Trezor › ProfileCard: profil jako sběratelská karta (kolo 1).
 // Čistá prezentace bez dat ze serveru, jde použít na stránce profilu i v okně po kliku na jméno.
 import type { Plan } from '@/lib/plans';
-import type { Presence, ProfileCardData } from '@/lib/profile-card';
+import { bannerRect, circleRect, cropStyle, type Presence, type ProfileCardData, type ProfilePhoto } from '@/lib/profile-card';
 import { initials } from './Shop';
 
 const PRESENCE_LABEL: Record<Presence, string> = { online: 'Online', offline: 'Offline', dnd: 'Nerušit' };
@@ -38,6 +38,16 @@ export function LoyaltyBadge({ level, name, label, size = 34 }: { level: string;
   );
 }
 
+/** Kulatá profilovka z výřezu fotky (DS Trezor › ProfileCard › Profilovka), jinak iniciály */
+export function ProfileAvatar({ name, photo, size = 40 }: { name: string; photo: ProfilePhoto | null; size?: number }) {
+  return (
+    <span className="tz-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {photo ? <img className="tz-crop" src={photo.src} alt="" style={cropStyle(circleRect(photo.crop))} /> : initials(name)}
+    </span>
+  );
+}
+
 function pct(v: number | null) {
   return v == null ? '–' : `${Number.isInteger(v) ? v : v.toFixed(1).replace('.', ',')} %`;
 }
@@ -60,7 +70,9 @@ export function ProfileCard({ data, headingLevel = 2 }: { data: ProfileCardData;
         </header>
         <div className="tz-pcard-art">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {data.avatar ? <img src={data.avatar} alt="" /> : <span className="tz-pcard-initials" aria-hidden="true">{initials(data.name)}</span>}
+          {data.photo ? <img className="tz-crop" src={data.photo.src} alt="" style={cropStyle(bannerRect(data.photo.crop))} />
+            : data.avatar ? <img src={data.avatar} alt="" />
+            : <span className="tz-pcard-initials" aria-hidden="true">{initials(data.name)}</span>}
         </div>
         <div className="tz-pcard-type"><TypeLine lead={data.typeLead} style={data.typeStyle} city={data.city} frame={data.frame} /></div>
         <div className="tz-pcard-text">

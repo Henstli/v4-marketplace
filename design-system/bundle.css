@@ -596,3 +596,18 @@ a.tz-acct-tile:hover{border-color:var(--line-strong)}
 @media (max-width:860px){.tz-mat{padding:var(--space-4)}.tz-mat::before{display:none}.tz-mat-grid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:380px){.tz-mat-stats,.tz-mat-actions{width:100%}}
 .tz-pcard-swatch{display:inline-flex;width:170px;padding:6px;border-radius:8px;background:linear-gradient(180deg,#1b212b,#0f1318)}
+/* ProfileCard › Profilovka: jedna fotka, z ní banner na kartě a kruh všude v malém (deska AV) */
+.tz-pcard-art img.tz-crop,.tz-crop{position:absolute;max-width:none;padding:0;object-fit:fill;inset:auto}
+.tz-avatar{position:relative;display:inline-grid;place-items:center;flex:none;overflow:hidden;border-radius:50%;background:var(--surface-sunken);border:1px solid var(--line-strong);color:var(--ink-muted);font-family:var(--font-display);font-weight:700}
+.tz-photo-stage{position:relative;width:100%;max-width:400px;border-radius:var(--radius-md);overflow:hidden;background:var(--surface-sunken);touch-action:none;user-select:none}
+.tz-photo-stage>img{display:block;width:100%;height:auto;pointer-events:none}
+.tz-photo-dim{position:absolute;inset:0;pointer-events:none}
+.tz-photo-rect{position:absolute;box-shadow:0 0 0 2px #fff,0 0 0 9999px rgba(5,7,10,.55);cursor:grab}
+.tz-photo-rect>span{position:absolute;left:8px;top:-26px;padding:3px 7px;border-radius:4px;background:#05070a;color:#fff;font:700 10px/1 var(--font-sans);letter-spacing:.08em;white-space:nowrap;pointer-events:none}
+.tz-photo-circle{position:absolute;border-radius:50%;border:2px dashed #fff;cursor:grab;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.tz-photo-handle{position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5);cursor:nwse-resize;display:grid;place-items:center;color:#05070a}
+.tz-photo-stage[data-drag] *{cursor:grabbing}
+.tz-photo-editor{display:flex;flex-direction:column;gap:var(--space-4)}
+.tz-photo-sliders{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);max-width:400px}
+.tz-photo-sliders label{display:flex;flex-direction:column;gap:var(--space-2)}
+.tz-photo-sliders input{accent-color:var(--accent);width:100%}

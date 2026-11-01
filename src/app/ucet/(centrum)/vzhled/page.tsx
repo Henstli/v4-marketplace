@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { getProfileCard } from '@/lib/profile';
+import { sanitizeCrop } from '@/lib/profile-card';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { AppearanceForm } from '../../AppearanceForm';
@@ -18,7 +19,7 @@ export default async function AppearancePage() {
   const supabase = await createClient();
   const [card, { data: prof }] = await Promise.all([
     getProfileCard(user.id),
-    supabase.from('profiles').select('card_style, card_form, card_frame, card_city, status_text, presence_mode').eq('id', user.id).single(),
+    supabase.from('profiles').select('card_style, card_form, card_frame, card_city, status_text, presence_mode, avatar_path, avatar_crop').eq('id', user.id).single(),
   ]);
   if (!card) redirect('/ucet');
   return (
@@ -36,6 +37,8 @@ export default async function AppearancePage() {
           city: (prof?.card_city as string | null) ?? '',
           status: (prof?.status_text as string | null) ?? '',
           presence: (prof?.presence_mode as 'auto' | 'dnd' | 'hidden' | null) ?? 'auto',
+          photoPath: (prof?.avatar_path as string | null) ?? '',
+          crop: sanitizeCrop(prof?.avatar_crop),
         }}
       />
     </div>
