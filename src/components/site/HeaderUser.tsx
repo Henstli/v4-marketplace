@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/browser';
 import type { AccountSummary } from '@/lib/account';
 import { loadAccountSummary } from './header-actions';
 import { HeaderAccountPlaceholder } from './HeaderAccountPlaceholder';
+import { PresencePing } from '@/components/profile/PresencePing';
 
 /** Souhrn účtu se znovu načte nejdřív po minutě (počty v menu), přihlášení se kontroluje při každém přechodu. */
 const SUMMARY_TTL = 60_000;
@@ -57,6 +58,7 @@ export function HeaderUser() {
 
   return (
     <>
+      {state.kind === 'in' ? <PresencePing /> : null}
       {state.kind === 'in' ? <HeaderIcon href="/kolekce" icon="album" label="Moje kolekce" count={0} current={pathname.startsWith('/kolekce')} /> : null}
       {state.kind === 'in' ? <MessagesLink initial={0} /> : null}
       <CartLink />

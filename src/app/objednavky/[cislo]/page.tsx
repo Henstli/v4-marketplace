@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ProfileLink } from '@/components/profile/ProfileLink';
 import { notFound, redirect } from 'next/navigation';
 import { ExpiryMeter, ExpiryStatus } from '@/components/orders/Expiry';
 import { Button, ButtonLink, CardThumb, Price, Status } from '@/components/trezor';
@@ -176,7 +177,7 @@ export default async function OrderDetailPage({ params }: Props) {
         <aside className={styles.detailCol}>
           <section className={styles.box} aria-labelledby="strana">
             <h2 id="strana" className={styles.boxTitle}>{role === 'buyer' ? 'Prodejce' : 'Kupující'}</h2>
-            {otherId && role === 'buyer' ? <Link href={`/prodejci/${otherId}`} className={styles.party}>{otherName}</Link> : <strong>{otherName}</strong>}
+            {otherId && role === 'buyer' ? <ProfileLink id={otherId} className={styles.party}>{otherName}</ProfileLink> : <strong>{otherName}</strong>}
             {contact ? <p className="t-small">E-mail: <a href={`mailto:${contact}`}>{contact}</a></p> : null}
             {otherId ? (
               <ButtonLink href={`/zpravy/${otherId}`} variant="secondary" className={styles.wideBtn}>
