@@ -42,6 +42,25 @@ export function effectiveFrame(frame: string | null | undefined, plan: Plan): st
   return frame && frameAllowed(frame, plan) ? frame : 'sklo';
 }
 
+export type MatSurface = 'lava' | 'felt' | 'night' | 'leather';
+
+/** Podložky celého profilu (DS Trezor › ProfileMat): Láva pro všechny, ostatní s tarifem. */
+export const MAT_SURFACES: { id: MatSurface; label: string; plans: Plan[] }[] = [
+  { id: 'lava', label: 'Láva', plans: ['free', 'plus', 'pro'] },
+  { id: 'felt', label: 'Zelené sukno', plans: ['plus', 'pro'] },
+  { id: 'night', label: 'Noční nebe', plans: ['plus', 'pro'] },
+  { id: 'leather', label: 'Kůže', plans: ['pro'] },
+];
+
+export function matAllowed(mat: string, plan: Plan): boolean {
+  return !!MAT_SURFACES.find((m) => m.id === mat)?.plans.includes(plan);
+}
+
+/** Podložka, která se opravdu ukáže (po snížení tarifu Láva, uložená volba zůstane) */
+export function effectiveMat(mat: string | null | undefined, plan: Plan): MatSurface {
+  return mat && matAllowed(mat, plan) ? (mat as MatSurface) : 'lava';
+}
+
 export function typeLineLabel(kind: SellerKind, style: string | null | undefined, form: CardForm): { lead: string; style: string | null } {
   if (kind === 'shop') return { lead: 'Obchod', style: SHOP_STYLES.find((s) => s.id === style)?.label ?? null };
   const s = COLLECTOR_STYLES.find((c) => c.id === style);
@@ -166,6 +185,10 @@ export interface ProfileCardData {
   /** Profilovka z jedné fotky: banner na kartě a kruh v malém */
   photo: ProfilePhoto | null;
   loyalty: { id: string; name: string; label: string; months: number } | null;
+  /** Majitel odznak věrnosti skryl (odznak se nepočítá jinak, jen se neukáže) */
+  loyaltyHidden: boolean;
+  /** Podložka celého profilu */
+  mat: MatSurface;
   rating: number | null;
   reviews: number;
   listings: number;

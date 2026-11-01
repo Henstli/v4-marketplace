@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
-import { getProfileCard } from '@/lib/profile';
+import { getProfileCard, getProfileShowcase } from '@/lib/profile';
 import { sanitizeCrop } from '@/lib/profile-card';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -10,15 +10,16 @@ import { AppearanceForm } from '../../AppearanceForm';
 
 export const metadata: Metadata = { title: 'Vzhled profilu' };
 
-// Vzhled profilu: tady si každý vybírá, jak vypadá jeho karta. Kolo 1 = typová řádka, rámeček, status a stav;
-// další kosmetika (rámečky karty, ilustrace, styl jména, povrchy, podložky, efekty, odznaky úspěchů) přibude v kole 2.
+// Vzhled profilu, varianta Discord: záložky Profil, Kosmetika a Odznaky, náhled Karta / V malém / Celý profil.
+// Kosmetika kola 2 (rámeček karty, povrch, efekt, styl jména, rámeček profilovky, ilustrace, úspěchy) je zatím se štítkem Brzy.
 export default async function AppearancePage() {
   if (!isSupabaseConfigured()) redirect('/');
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/ucet/vzhled');
   const supabase = await createClient();
-  const [card, { data: prof }] = await Promise.all([
+  const [card, show, { data: prof }] = await Promise.all([
     getProfileCard(user.id),
+    getProfileShowcase(user.id),
     supabase.from('profiles').select('card_style, card_form, card_frame, card_city, status_text, presence_mode, avatar_path, avatar_crop').eq('id', user.id).single(),
   ]);
   if (!card) redirect('/ucet');
@@ -39,7 +40,10 @@ export default async function AppearancePage() {
           presence: (prof?.presence_mode as 'auto' | 'dnd' | 'hidden' | null) ?? 'auto',
           photoPath: (prof?.avatar_path as string | null) ?? '',
           crop: sanitizeCrop(prof?.avatar_crop),
+          mat: card.mat,
+          loyalty: card.loyaltyHidden ? 'hide' : 'show',
         }}
+        show={show}
       />
     </div>
   );
