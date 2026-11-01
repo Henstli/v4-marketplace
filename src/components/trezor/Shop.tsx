@@ -2,8 +2,11 @@ import type { CSSProperties, ReactNode } from 'react';
 import { cx } from './cx';
 
 /** Štítek u jména prodejce: „Ověřený prodejce“ nebo PRO (tarif Pro). */
-export function SellerBadge({ type, className }: { type: 'verified' | 'pro'; className?: string }) {
-  if (type === 'pro') return <span className={cx('tz-badge', 'tz-badge-pro', className)} title="Tarif Pro">PRO</span>;
+/** Ověřený prodejce, nebo štítek tarifu jako fólie (PRO mátová, PLUS zlatá; DS Trezor › SellerBadge, stejné jako TierLabel). */
+export function SellerBadge({ type, className }: { type: 'verified' | 'pro' | 'plus'; className?: string }) {
+  if (type !== 'verified') {
+    return <span className={cx('tz-tierlabel', `tz-tierlabel-${type}`, className)} title={type === 'pro' ? 'Tarif Pro' : 'Tarif Plus'}>{type.toUpperCase()}</span>;
+  }
   return (
     <span className={cx('tz-badge', 'tz-badge-verified', className)}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
