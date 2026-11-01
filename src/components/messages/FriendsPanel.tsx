@@ -1,13 +1,14 @@
 'use client';
 
-// Přátelé ve Zprávách (záložka vedle Konverzací): žádosti, přátelé (nejdřív online) a odeslané žádosti.
-// Klik na přítele otevře konverzaci s ním. Přidávají se na profilu tlačítkem Přidat přítele.
+// Záložka Přátelé ve Zprávách: nahoře žádosti, pod nimi přátelé seřazení podle posledního chatu (klik otevře chat),
+// přátelé bez chatu za nimi (nejdřív online) a dole odeslané žádosti. Přidávají se na profilu tlačítkem Přidat přítele.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { ConversationItem } from '@/lib/messages';
+import { ConvRow } from './ChatShell';
 import { useTransition } from 'react';
 import { ShopLogo, shopStyle } from '@/components/trezor';
 import { friendAction } from '@/app/ucet/pratele-actions';
-import { plural } from '@/lib/format';
 import type { Presence } from '@/lib/profile-card';
 import styles from './messages.module.css';
 
@@ -44,13 +45,16 @@ function Act({ id, op, label, children, primary }: { id: string; op: Parameters<
   );
 }
 
-export function FriendsPanel({ items, q }: { items: FriendRow[]; q: (s: string) => boolean }) {
+export function FriendsPanel({ items, convs, q }: { items: FriendRow[]; convs: ConversationItem[]; q: (s: string) => boolean }) {
   const pathname = usePathname();
   const shown = items.filter((f) => q(`${f.name} ${f.sub}`));
   const incoming = shown.filter((f) => f.status === 'incoming');
   const outgoing = shown.filter((f) => f.status === 'outgoing');
   const rank = { online: 0, dnd: 1, offline: 2 };
-  const friends = shown.filter((f) => f.status === 'friends').sort((a, b) => rank[a.presence] - rank[b.presence] || a.name.localeCompare(b.name, 'cs'));
+  const byId = new Map(shown.map((f) => [f.id, f]));
+  const chats = convs.filter((c) => c.other && byId.has(c.other.id));
+  const chatted = new Set(chats.map((c) => c.other!.id));
+  const friends = shown.filter((f) => f.status === 'friends' && !chatted.has(f.id)).sort((a, b) => rank[a.presence] - rank[b.presence] || a.name.localeCompare(b.name, 'cs'));
   if (!items.length) {
     return <p className={`muted t-small ${styles.listEmpty}`}>Zatím žádní přátelé. Přidáš je na jejich profilu tlačítkem Přidat přítele.</p>;
   }
@@ -71,7 +75,8 @@ export function FriendsPanel({ items, q }: { items: FriendRow[]; q: (s: string) 
           </span>
         </div>
       ))}
-      {friends.length ? <p className={styles.fhead}>Přátelé · {friends.length}</p> : null}
+      {chats.length + friends.length ? <p className={styles.fhead}>Přátelé · {chats.length + friends.length}</p> : null}
+      {chats.map((c) => <ConvRow key={c.id} c={c} presence={byId.get(c.other!.id)?.presence} />)}
       {friends.map((f) => {
         const href = `/zpravy/${f.id}`;
         return (
@@ -79,7 +84,7 @@ export function FriendsPanel({ items, q }: { items: FriendRow[]; q: (s: string) 
             <Ava f={f} />
             <Link href={href} className={`${styles.convText} ${styles.fmain}`} aria-label={`Napsat ${f.name}`}>
               <span className={styles.convName}>{f.name}</span>
-              <span className={styles.convLast}>{f.trades ? plural(f.trades, ['společný obchod', 'společné obchody', 'společných obchodů']) : f.sub}</span>
+              <span className={styles.convLast}>Napsat zprávu</span>
             </Link>
             <span className={styles.facts}><Link href={`/prodejci/${f.id}`} className={styles.fbtn} aria-label={`Profil ${f.name}`} title="Profil">{USER}</Link></span>
           </div>
