@@ -77,6 +77,20 @@ export function AppearanceForm({ card, saved }: { card: ProfileCardData; saved: 
     <div className={styles.layout}>
       <div className={styles.preview}>
         <ProfileCard data={preview} headingLevel={2} />
+        <section className={styles.small} aria-label="Profilovka v malém">
+          <span className="t-label muted">PROFILOVKA V MALÉM</span>
+          <div className={styles.circles}>
+            {[72, 40, 24, 16].map((s) => <ProfileAvatar key={s} name={card.name} photo={photo} size={s} />)}
+          </div>
+          <div className={styles.sampleRow}>
+            <ProfileAvatar name={card.name} photo={photo} size={32} />
+            <span><b>{card.name}</b><br /><span className="t-small muted">Zpráva: Zapdos mám, pošlu fotky.</span></span>
+          </div>
+          <div className={styles.sampleRow}>
+            <ProfileAvatar name={card.name} photo={photo} size={24} />
+            <span className="t-small muted">Hlavička webu, recenze, přátelé</span>
+          </div>
+        </section>
         <p className="t-small muted" style={{ margin: 0, textAlign: 'center' }}>Náhled se mění hned, uloží se tlačítkem.</p>
       </div>
 
@@ -89,9 +103,6 @@ export function AppearanceForm({ card, saved }: { card: ProfileCardData; saved: 
           {photo ? (
             <div className={styles.photoRow}>
               <PhotoEditor src={photo.src} crop={photo.crop} onCrop={(c) => set('crop', c)} />
-              <div className={styles.circles} aria-label="Kruh v malém">
-                {[72, 40, 24, 16].map((s) => <ProfileAvatar key={s} name={card.name} photo={photo} size={s} />)}
-              </div>
             </div>
           ) : null}
           <div className={styles.photoActions}>
