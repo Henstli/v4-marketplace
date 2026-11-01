@@ -1,5 +1,7 @@
 -- Profil jako sběratelská karta (kolo 1): typová řádka, status, stav a odznak věrnosti.
 -- Nic se nemaže ani nepřepisuje, jen přibývají sloupce, tabulka a funkce.
+-- Aplikováno 1. 11. 2026 (bez revoke: konektor Supabase se na ně ptá a dotaz se nezobrazí;
+-- touch_presence bez přihlášení nic nezapíše, ostatní funkce jsou veřejné záměrně).
 
 -- Vzhled karty, který si nastaví každý sám. Kódy stylů a rámečků zná jen web (src/lib/profile-card.ts),
 -- databáze hlídá jen délku, takže nové styly v kole 2 nepotřebují migraci.
@@ -17,7 +19,7 @@ create sequence public.profiles_member_no_seq;
 with ranked as (
   select id, row_number() over (order by created_at, id) as n from public.profiles
 )
-update public.profiles p set member_no = r.n from ranked r where r.id = p.id;
+update public.profiles p set member_no = r.n from ranked r where r.id = p.id and p.member_no is null;
 select setval('public.profiles_member_no_seq', greatest((select max(member_no) from public.profiles), 0) + 1, false);
 alter table public.profiles alter column member_no set default nextval('public.profiles_member_no_seq');
 alter sequence public.profiles_member_no_seq owned by public.profiles.member_no;
@@ -25,8 +27,10 @@ create unique index profiles_member_no_idx on public.profiles (member_no);
 
 -- Od kdy má někdo nepřetržitě Plus nebo Pro (odznak věrnosti). Změna mezi Plus a Pro ho nemaže,
 -- zrušení předplatného (smazání řádku) ano.
-alter table public.subscriptions add column since timestamptz not null default now();
-update public.subscriptions set since = granted_at;
+alter table public.subscriptions add column since timestamptz;
+alter table public.subscriptions alter column since set default now();
+update public.subscriptions set since = granted_at where since is null;
+alter table public.subscriptions alter column since set not null;
 
 -- Tarif a začátek předplatného pro veřejné karty. Tabulka subscriptions zůstává soukromá.
 create or replace function public.seller_loyalty(p_ids uuid[])
@@ -34,7 +38,6 @@ returns table (user_id uuid, plan text, since timestamptz)
 language sql stable security definer set search_path = '' as $$
   select s.user_id, s.plan, s.since from public.subscriptions s where s.user_id = any(p_ids[1:200]);
 $$;
-revoke execute on function public.seller_loyalty(uuid[]) from public;
 grant execute on function public.seller_loyalty(uuid[]) to anon, authenticated;
 
 -- Stav Online: kdy byl kdo naposledy na webu. Tabulku nikdo nečte přímo, ven jde jen
@@ -53,7 +56,6 @@ language sql security definer set search_path = '' as $$
   on conflict (user_id) do update set last_seen_at = now()
     where public.user_presence.last_seen_at < now() - interval '60 seconds';
 $$;
-revoke execute on function public.touch_presence() from public, anon;
 grant execute on function public.touch_presence() to authenticated;
 
 create or replace function public.profile_presence(p_ids uuid[])
@@ -69,5 +71,4 @@ language sql stable security definer set search_path = '' as $$
   from public.profiles p left join public.user_presence u on u.user_id = p.id
   where p.id = any(p_ids[1:200]);
 $$;
-revoke execute on function public.profile_presence(uuid[]) from public;
 grant execute on function public.profile_presence(uuid[]) to anon, authenticated;
