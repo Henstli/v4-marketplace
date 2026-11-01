@@ -601,13 +601,34 @@ a.tz-acct-tile:hover{border-color:var(--line-strong)}
 .tz-avatar{position:relative;display:inline-grid;place-items:center;flex:none;overflow:hidden;border-radius:50%;background:var(--surface-sunken);border:1px solid var(--line-strong);color:var(--ink-muted);font-family:var(--font-display);font-weight:700}
 .tz-photo-stage{position:relative;width:100%;max-width:400px;border-radius:var(--radius-md);overflow:hidden;background:var(--surface-sunken);touch-action:none;user-select:none}
 .tz-photo-stage>img{display:block;width:100%;height:auto;pointer-events:none}
-.tz-photo-dim{position:absolute;inset:0;pointer-events:none}
-.tz-photo-rect{position:absolute;box-shadow:0 0 0 2px #fff,0 0 0 9999px rgba(5,7,10,.55);cursor:grab}
-.tz-photo-rect>span{position:absolute;left:8px;top:-26px;padding:3px 7px;border-radius:4px;background:#05070a;color:#fff;font:700 10px/1 var(--font-sans);letter-spacing:.08em;white-space:nowrap;pointer-events:none}
-.tz-photo-circle{position:absolute;border-radius:50%;border:2px dashed #fff;cursor:grab;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
-.tz-photo-handle{position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5);cursor:nwse-resize;display:grid;place-items:center;color:#05070a}
+/* Editor profilovky, varianta 1 „Rohové značky“: tenká linka, silné rohy jako ořez ve fotoaparátu, mřížka třetin při tažení */
+.tz-photo-rect{position:absolute;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.7),0 0 0 9999px rgba(5,7,10,.55);cursor:grab}
+.tz-photo-inner{position:absolute;inset:0;overflow:hidden;border-radius:inherit}
+.tz-photo-grid{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .15s;background:linear-gradient(90deg,transparent calc(33.33% - .5px),rgba(255,255,255,.3) 0 calc(33.33% + .5px),transparent 0 calc(66.66% - .5px),rgba(255,255,255,.3) 0 calc(66.66% + .5px),transparent 0),linear-gradient(180deg,transparent calc(33.33% - .5px),rgba(255,255,255,.3) 0 calc(33.33% + .5px),transparent 0 calc(66.66% - .5px),rgba(255,255,255,.3) 0 calc(66.66% + .5px),transparent 0)}
+.tz-photo-stage[data-drag] .tz-photo-grid{opacity:1}
+.tz-photo-tag{position:absolute;left:10px;top:10px;padding:4px 8px;border-radius:999px;background:rgba(5,7,10,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font:600 11px/1 var(--font-sans);letter-spacing:.04em;white-space:nowrap;pointer-events:none}
+.tz-photo-corner{position:absolute;width:22px;height:22px;border:3px solid #fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.tz-photo-corner::after{content:"";position:absolute;inset:-10px}
+.tz-photo-corner[data-c="tl"]{left:-3px;top:-3px;border-right:0;border-bottom:0;border-top-left-radius:6px;cursor:nwse-resize}
+.tz-photo-corner[data-c="tr"]{right:-3px;top:-3px;border-left:0;border-bottom:0;border-top-right-radius:6px;cursor:nesw-resize}
+.tz-photo-corner[data-c="bl"]{left:-3px;bottom:-3px;border-right:0;border-top:0;border-bottom-left-radius:6px;cursor:nesw-resize}
+.tz-photo-corner[data-c="br"]{right:-3px;bottom:-3px;border-left:0;border-top:0;border-bottom-right-radius:6px;cursor:nwse-resize}
+.tz-photo-circle{position:absolute;border-radius:50%;border:2px solid #fff;cursor:grab;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 0 0 9999px rgba(5,7,10,.28)}
 .tz-photo-stage[data-drag] *{cursor:grabbing}
+.tz-photo-stage[data-edge] .tz-photo-rect,.tz-photo-stage[data-edge] .tz-photo-circle{cursor:nwse-resize}
+.tz-photo-stage[data-drag="edge"] *,.tz-photo-stage[data-drag="tl"] *,.tz-photo-stage[data-drag="br"] *{cursor:nwse-resize}
+.tz-photo-stage[data-drag="tr"] *,.tz-photo-stage[data-drag="bl"] *{cursor:nesw-resize}
 .tz-photo-editor{display:flex;flex-direction:column;gap:var(--space-4)}
-.tz-photo-sliders{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);max-width:400px}
-.tz-photo-sliders label{display:flex;flex-direction:column;gap:var(--space-2)}
-.tz-photo-sliders input{accent-color:var(--accent);width:100%}
+.tz-photo-sliders{display:flex;flex-direction:column;gap:var(--space-3);max-width:400px}
+.tz-photo-slider{display:flex;flex-direction:column;gap:var(--space-2)}
+.tz-photo-slider-row{display:flex;align-items:center;gap:var(--space-3)}
+.tz-photo-slider-ico{display:grid;place-items:center;width:18px;color:var(--ink-muted)}
+.tz-photo-slider input{flex:1;min-width:0;height:18px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer}
+.tz-photo-slider input::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--accent) var(--p,50%),var(--surface-sunken) 0);box-shadow:inset 0 0 0 1px var(--line)}
+.tz-photo-slider input::-moz-range-track{height:6px;border-radius:999px;background:var(--surface-sunken);box-shadow:inset 0 0 0 1px var(--line)}
+.tz-photo-slider input::-moz-range-progress{height:6px;border-radius:999px;background:var(--accent)}
+.tz-photo-slider input::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;background:#fff;border:0;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent),0 2px 6px rgba(0,0,0,.4)}
+.tz-photo-slider input::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:0;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent),0 2px 6px rgba(0,0,0,.4)}
+.tz-photo-slider input:focus-visible{outline:none}
+.tz-photo-slider input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px var(--accent)}
+.tz-photo-slider input:focus-visible::-moz-range-thumb{box-shadow:0 0 0 4px var(--accent)}
