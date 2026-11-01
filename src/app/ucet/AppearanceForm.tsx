@@ -2,18 +2,20 @@
 
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
-import { Button, LoyaltyBadge, ProfileCard } from '@/components/trezor';
+import { Button, LoyaltyBadge, ProfileAvatar, ProfileCard } from '@/components/trezor';
+import { PhotoEditor } from '@/components/profile/PhotoEditor';
+import { mediaUrl, uploadImage } from './stranka/editorParts';
 import { keepForm } from '@/lib/form';
 import { PLANS } from '@/lib/plans';
 import {
-  COLLECTOR_STYLES, LOYALTY_LEVELS, SHOP_STYLES, TYPE_FRAMES, frameAllowed, typeLineLabel,
-  type CardForm, type PresenceMode, type ProfileCardData,
+  COLLECTOR_STYLES, LOYALTY_LEVELS, SHOP_STYLES, TYPE_FRAMES, defaultCrop, frameAllowed, typeLineLabel,
+  type CardForm, type PhotoCrop, type PresenceMode, type ProfileCardData,
 } from '@/lib/profile-card';
 import { updateAppearance, type AppearanceState } from './vzhled-actions';
 import sell from '../prodat/sell.module.css';
 import styles from './vzhled.module.css';
 
-interface Saved { style: string; form: CardForm; frame: string; city: string; status: string; presence: PresenceMode }
+interface Saved { style: string; form: CardForm; frame: string; city: string; status: string; presence: PresenceMode; photoPath: string; crop: PhotoCrop | null }
 
 const PRESENCE: { id: PresenceMode; label: string; hint: string }[] = [
   { id: 'auto', label: 'Automaticky', hint: 'Online, když jste na V4cards, jinak Offline.' },
@@ -24,7 +26,7 @@ const PRESENCE: { id: PresenceMode; label: string; hint: string }[] = [
 // Kolo 2: kosmetika, kterou si tu později vybere každý sám.
 const NEXT: { title: string; text: string }[] = [
   { title: 'Rámeček karty', text: 'Okraj celé karty profilu.' },
-  { title: 'Ilustrace a banner', text: 'Obrázek uprostřed karty.' },
+  { title: 'Ilustrace karty', text: 'Hotové ilustrace místo vlastní fotky.' },
   { title: 'Styl jména', text: 'Barva a písmo jména.' },
   { title: 'Povrch karty', text: 'Matný, lesklý, holo a další.' },
   { title: 'Podložka profilu', text: 'Pozadí celého profilu.' },
@@ -47,6 +49,28 @@ export function AppearanceForm({ card, saved }: { card: ProfileCardData; saved: 
     frame: frameAllowed(v.frame, card.plan) ? v.frame : 'sklo',
     presence: v.presence === 'dnd' ? 'dnd' : v.presence === 'hidden' ? 'offline' : 'online',
   };
+  const [busy, setBusy] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const photoSrc = v.photoPath ? mediaUrl(v.photoPath) : null;
+  const photo = photoSrc && v.crop ? { src: photoSrc, crop: v.crop } : null;
+  preview.photo = photo;
+
+  const upload = async (file: File) => {
+    setBusy(true);
+    setPhotoError('');
+    try {
+      const bmp = await createImageBitmap(file);
+      const a = bmp.height / bmp.width;
+      bmp.close();
+      const path = await uploadImage(card.id, 'avatar', file);
+      setV((o) => ({ ...o, photoPath: path, crop: defaultCrop(a) }));
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Fotku se nepodařilo nahrát.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const next = LOYALTY_LEVELS.find((l) => !card.loyalty || l.months > card.loyalty.months);
 
   return (
@@ -58,7 +82,30 @@ export function AppearanceForm({ card, saved }: { card: ProfileCardData; saved: 
 
       <div className={styles.sections}>
         <form onSubmit={keepForm(action)} className={styles.section}>
-          <h2 className="t-heading-m">Typová řádka</h2>
+          <h2 className="t-heading-m">Profilovka</h2>
+          <p className="muted" style={{ margin: 0 }}>Nahrajte jednu fotku. Bílý obdélník je banner na kartě: posunete ho tažením a zvětšíte rohem nebo posuvníkem. Čárkovaný kruh je kulatá profilovka, dá se přesunout kamkoli v banneru a zvětšit.</p>
+          <input type="hidden" name="photoPath" value={v.photoPath} />
+          <input type="hidden" name="photoCrop" value={v.crop ? JSON.stringify(v.crop) : ''} />
+          {photo ? (
+            <div className={styles.photoRow}>
+              <PhotoEditor src={photo.src} crop={photo.crop} onCrop={(c) => set('crop', c)} />
+              <div className={styles.circles} aria-label="Kruh v malém">
+                {[72, 40, 24, 16].map((s) => <ProfileAvatar key={s} name={card.name} photo={photo} size={s} />)}
+              </div>
+            </div>
+          ) : null}
+          <div className={styles.photoActions}>
+            <label className="tz-btn tz-btn-md tz-btn-secondary" aria-disabled={busy || undefined}>
+              <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f); }} />
+              {busy ? 'Nahrávám…' : photo ? 'Nahrát jinou fotku' : 'Nahrát fotku'}
+            </label>
+            {photo ? <button type="button" className="tz-btn tz-btn-md tz-btn-ghost" onClick={() => set('crop', defaultCrop(photo.crop.a))}>Vrátit výřez</button> : null}
+            {photo ? <button type="button" className="tz-btn tz-btn-md tz-btn-ghost" onClick={() => setV((o) => ({ ...o, photoPath: '', crop: null }))}>Odebrat fotku</button> : null}
+            <span className="t-small muted">JPG, PNG nebo WebP do 20 MB.</span>
+          </div>
+          {photoError ? <p className={sell.error} role="alert">{photoError}</p> : null}
+
+          <h2 className="t-heading-m" style={{ marginTop: 'var(--space-4)' }}>Typová řádka</h2>
           <div className={styles.grid}>
             {!shop ? (
               <label className={sell.field}>
@@ -119,7 +166,7 @@ export function AppearanceForm({ card, saved }: { card: ProfileCardData; saved: 
             {state.error ? <p className={sell.error} role="alert">{state.error}</p> : null}
             {state.ok ? <p className={sell.ok} role="status">Uloženo.</p> : null}
           </div>
-          <p className="t-small muted" style={{ margin: 0 }}>Obrázek a text O mně upravíte v <Link href="/ucet/stranka">úpravě stránky</Link>.</p>
+          <p className="t-small muted" style={{ margin: 0 }}>Text O mně upravíte v <Link href="/ucet/stranka">úpravě stránky</Link>.</p>
         </form>
 
         <section className={styles.section} aria-labelledby="vernost">

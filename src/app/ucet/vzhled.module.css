@@ -20,3 +20,7 @@
 .next li :global(.tz-acct-soon) { position: absolute; top: var(--space-3); right: var(--space-3); }
 @media (max-width: 1100px) { .levels { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } .preview { position: static; } .grid { grid-template-columns: minmax(0, 1fr); } }
+.photoRow { display: flex; gap: var(--space-6); align-items: flex-start; flex-wrap: wrap; }
+.circles { display: flex; gap: var(--space-4); align-items: center; padding-top: var(--space-2); }
+.photoActions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.photoActions label { cursor: pointer; }

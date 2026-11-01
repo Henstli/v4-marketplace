@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { getSeller } from './catalog';
 import { toPlan } from './plans';
 import {
-  effectiveFrame, loyaltyLevel, monthsSince, typeLineLabel,
+  effectiveFrame, loyaltyLevel, monthsSince, sanitizeCrop, typeLineLabel,
   type CardForm, type Presence, type ProfileCardData,
 } from './profile-card';
 import { mediaImage } from './shop';
@@ -18,6 +18,8 @@ interface CardRow {
   status_text: string | null;
   member_no: number | null;
   created_at: string | null;
+  avatar_path?: string | null;
+  avatar_crop?: unknown;
 }
 
 export const getProfileCard = cache(async (id: string): Promise<ProfileCardData | null> => {
@@ -26,13 +28,13 @@ export const getProfileCard = cache(async (id: string): Promise<ProfileCardData 
   const base: ProfileCardData = {
     id: seller.id, name: seller.name, kind: seller.kind, plan: 'free', memberNo: null, memberYear: null,
     status: null, presence: 'offline', typeLead: seller.kind === 'shop' ? 'Obchod' : 'Sběratel', typeStyle: null,
-    city: null, frame: 'sklo', about: null, avatar: null, loyalty: null,
+    city: null, frame: 'sklo', about: null, avatar: null, photo: null, loyalty: null,
     rating: seller.rating, reviews: seller.sales, listings: 0,
   };
   if (!isSupabaseConfigured()) return base;
   const db = createPublicClient();
   const [prof, page, loyal, pres, offers] = await Promise.all([
-    db.from('profiles').select('card_style, card_form, card_frame, card_city, status_text, member_no, created_at').eq('id', id).maybeSingle(),
+    db.from('profiles').select('card_style, card_form, card_frame, card_city, status_text, member_no, created_at, avatar_path, avatar_crop').eq('id', id).maybeSingle(),
     db.from('shop_pages').select('logo_path, about').eq('user_id', id).maybeSingle(),
     db.rpc('seller_loyalty', { p_ids: [id] }),
     db.rpc('profile_presence', { p_ids: [id] }),
@@ -45,6 +47,8 @@ export const getProfileCard = cache(async (id: string): Promise<ProfileCardData 
   const level = loyaltyLevel(plan, sub?.since ?? null);
   const form: CardForm = row?.card_form === 'f' ? 'f' : 'm';
   const type = typeLineLabel(seller.kind, row?.card_style, form);
+  const crop = sanitizeCrop(row?.avatar_crop);
+  const photoSrc = row?.avatar_path?.startsWith(`${id}/`) ? mediaImage(row.avatar_path, 1080) : null;
   return {
     ...base,
     plan,
@@ -58,6 +62,7 @@ export const getProfileCard = cache(async (id: string): Promise<ProfileCardData 
     frame: effectiveFrame(row?.card_frame, plan),
     about: (page.data?.about as string | null | undefined)?.trim() || null,
     avatar: mediaImage(page.data?.logo_path as string | null | undefined, 256),
+    photo: photoSrc && crop ? { src: photoSrc, crop } : null,
     loyalty: level ? { id: level.id, name: level.name, label: level.label, months: monthsSince(sub!.since) } : null,
     listings: offers.count ?? 0,
   };

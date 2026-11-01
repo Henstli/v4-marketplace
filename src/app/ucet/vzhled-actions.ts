@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { toPlan } from '@/lib/plans';
-import { COLLECTOR_STYLES, frameAllowed, SHOP_STYLES } from '@/lib/profile-card';
+import { COLLECTOR_STYLES, frameAllowed, sanitizeCrop, SHOP_STYLES } from '@/lib/profile-card';
 import { createClient } from '@/lib/supabase/server';
 
 export interface AppearanceState {
@@ -32,7 +32,15 @@ export async function updateAppearance(_prev: AppearanceState, form: FormData): 
   const { data: plan } = await supabase.rpc('current_plan');
   if (!frameAllowed(frame, toPlan(plan))) return { error: 'Tento rámeček je pro Plus a Pro.' };
 
+  const photoPath = String(form.get('photoPath') ?? '');
+  if (photoPath && !new RegExp(`^${auth.user.id}/avatar-[a-z0-9]+\\.(jpg|png|webp)$`).test(photoPath)) return { error: 'Fotku se nepodařilo uložit, nahrajte ji znovu.' };
+  let crop = null;
+  try { crop = photoPath ? sanitizeCrop(JSON.parse(String(form.get('photoCrop') ?? ''))) : null; } catch { crop = null; }
+  if (photoPath && !crop) return { error: 'Výřez fotky se nepodařilo uložit, zkuste ho posunout znovu.' };
+
   const { error } = await supabase.from('profiles').update({
+    avatar_path: photoPath || null,
+    avatar_crop: crop,
     card_style: style || null,
     card_form: cardForm,
     card_city: city || null,

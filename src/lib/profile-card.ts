@@ -78,6 +78,75 @@ export function loyaltyLevel(plan: Plan, since: string | null): LoyaltyLevel | n
   return lvl;
 }
 
+/**
+ * Výřez profilovky z jedné fotky (deska AV). a = výška / šířka fotky.
+ * Banner: x, w jako podíl šířky fotky, y jako podíl výšky; poměr stran banneru je pevný (ilustrace karty 304 × 168).
+ * Kruh: cx, cy jako podíl šířky a výšky banneru, r jako podíl výšky banneru (0,15 až 0,5).
+ */
+export interface PhotoCrop { a: number; x: number; y: number; w: number; cx: number; cy: number; r: number }
+export const BANNER_AR = 168 / 304;
+export type Rect = [x: number, y: number, w: number, h: number];
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+/** Výška banneru jako podíl výšky fotky */
+export function bannerH(c: Pick<PhotoCrop, 'a' | 'w'>): number {
+  return (c.w * BANNER_AR) / c.a;
+}
+
+/** Nejširší banner, který se do fotky vejde */
+export function maxBannerW(a: number): number {
+  return Math.min(1, a / BANNER_AR);
+}
+
+export function defaultCrop(a: number): PhotoCrop {
+  const w = maxBannerW(a) * 0.9;
+  const h = bannerH({ a, w });
+  return { a, x: (1 - w) / 2, y: (1 - h) / 2, w, cx: 0.5, cy: 0.5, r: 0.4 };
+}
+
+/** Uložený výřez z databáze nebo formuláře, opravený do platných mezí */
+export function sanitizeCrop(v: unknown): PhotoCrop | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const n = (k: string) => (typeof o[k] === 'number' && Number.isFinite(o[k]) ? (o[k] as number) : NaN);
+  const a = n('a');
+  if (!(a > 0.05 && a < 20)) return null;
+  const w = clamp(n('w'), 0.05, maxBannerW(a));
+  if (Number.isNaN(w)) return null;
+  const h = bannerH({ a, w });
+  const r = clamp(Number.isNaN(n('r')) ? 0.4 : n('r'), 0.15, 0.5);
+  const rx = r * BANNER_AR; // poloměr jako podíl šířky banneru
+  return {
+    a, w,
+    x: clamp(Number.isNaN(n('x')) ? 0 : n('x'), 0, 1 - w),
+    y: clamp(Number.isNaN(n('y')) ? 0 : n('y'), 0, 1 - h),
+    r,
+    cx: clamp(Number.isNaN(n('cx')) ? 0.5 : n('cx'), Math.min(0.5, rx), Math.max(0.5, 1 - rx)),
+    cy: clamp(Number.isNaN(n('cy')) ? 0.5 : n('cy'), r, 1 - r),
+  };
+}
+
+export function bannerRect(c: PhotoCrop): Rect {
+  return [c.x, c.y, c.w, bannerH(c)];
+}
+
+export function circleRect(c: PhotoCrop): Rect {
+  const h = bannerH(c);
+  const d = 2 * c.r * h; // průměr jako podíl výšky fotky
+  const dw = d * c.a; // a jako podíl šířky fotky
+  const px = c.x + c.cx * c.w, py = c.y + c.cy * h;
+  return [px - dw / 2, py - d / 2, dw, d];
+}
+
+/** Styl obrázku, který v rámečku ukáže jen daný výřez fotky (rámeček musí mít position: relative a overflow: hidden) */
+export function cropStyle([x, y, w, h]: Rect): { width: string; height: string; left: string; top: string } {
+  const p = (v: number) => `${Math.round(v * 1e4) / 1e4}%`;
+  return { width: p(100 / w), height: p(100 / h), left: p((-x / w) * 100), top: p((-y / h) * 100) };
+}
+
+export interface ProfilePhoto { src: string; crop: PhotoCrop }
+
 /** Vše, co potřebuje karta profilu (bez serverových závislostí, jde poslat i do prohlížeče) */
 export interface ProfileCardData {
   id: string;
@@ -94,6 +163,8 @@ export interface ProfileCardData {
   frame: string;
   about: string | null;
   avatar: string | null;
+  /** Profilovka z jedné fotky: banner na kartě a kruh v malém */
+  photo: ProfilePhoto | null;
   loyalty: { id: string; name: string; label: string; months: number } | null;
   rating: number | null;
   reviews: number;
