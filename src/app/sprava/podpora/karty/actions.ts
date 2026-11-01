@@ -13,8 +13,8 @@ async function review(form: FormData, approve: boolean) {
     approve,
     reason: String(form.get('reason') ?? '').trim().slice(0, 300) || null,
   });
-  revalidatePath('/sprava/karty');
-  if (error) redirect(`/sprava/karty?chyba=${encodeURIComponent(error.message)}`);
+  revalidatePath('/sprava/podpora/karty');
+  if (error) redirect(`/sprava/podpora/karty?chyba=${encodeURIComponent(error.message)}`);
   refreshCatalog();
 }
 

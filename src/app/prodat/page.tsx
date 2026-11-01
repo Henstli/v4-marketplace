@@ -5,6 +5,8 @@ import { ComingSoon } from '@/components/ComingSoon';
 import { ButtonLink, CardThumb } from '@/components/trezor';
 import { SearchBox } from '@/components/search/SearchBox';
 import { getCurrentUser } from '@/lib/auth';
+import { getAccountSummary } from '@/lib/account';
+import { StockTabs } from '@/components/account/PageTabs';
 import { getCardBySlug, searchCards } from '@/lib/catalog';
 import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
@@ -40,7 +42,8 @@ export default async function SellPage({ searchParams }: Props) {
   ]);
 
   const supabase = await createClient();
-  const [ready, { data: restriction }] = await Promise.all([
+  const [account, ready, { data: restriction }] = await Promise.all([
+    getAccountSummary(),
     loadReadiness(supabase, user.id),
     supabase.from('account_restrictions').select('kind, until').eq('user_id', user.id).is('ended_at', null).maybeSingle(),
   ]);
@@ -78,8 +81,9 @@ export default async function SellPage({ searchParams }: Props) {
   return (
     <div className={`container ${styles.page}`}>
       <div>
-        <h1 className="t-heading-l">Prodat karty</h1>
+        <h1 className="t-heading-l">{account?.kind === 'shop' ? 'Sklad' : 'Sbírka'}</h1>
         <p className="muted">Vystavujete jako {user.displayName}. Profil upravíte v <Link href="/ucet/nastaveni">nastavení účtu</Link>.</p>
+        <StockTabs current="/prodat" listings={account?.listings ?? 0} />
       </div>
 
       {restriction ? (

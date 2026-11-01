@@ -14,9 +14,9 @@ export async function setPlan(form: FormData) {
     p_plan: plan,
     p_note: String(form.get('note') ?? '').trim().slice(0, 200) || null,
   });
-  revalidatePath('/sprava/predplatne');
-  if (error) redirect(`/sprava/predplatne?chyba=${encodeURIComponent(error.message)}`);
-  redirect(`/sprava/predplatne?ok=${encodeURIComponent(`${data ?? 'Prodejce'}: tarif ${PLANS[plan].name}`)}`);
+  revalidatePath('/sprava/podpora/predplatne');
+  if (error) redirect(`/sprava/podpora/predplatne?chyba=${encodeURIComponent(error.message)}`);
+  redirect(`/sprava/podpora/predplatne?ok=${encodeURIComponent(`${data ?? 'Prodejce'}: tarif ${PLANS[plan].name}`)}`);
 }
 
 // Ověření prodejce (totožnost nebo IČO). Oprávnění hlídá funkce admin_set_verified, „none“ ověření odebere.
@@ -28,8 +28,8 @@ export async function setVerified(form: FormData) {
     p_method: ['identity', 'ico'].includes(method) ? method : 'none',
     p_ico: String(form.get('ico') ?? '').trim().slice(0, 20) || null,
   });
-  revalidatePath('/sprava/predplatne');
-  if (error) redirect(`/sprava/predplatne?chyba=${encodeURIComponent(error.message)}`);
+  revalidatePath('/sprava/podpora/predplatne');
+  if (error) redirect(`/sprava/podpora/predplatne?chyba=${encodeURIComponent(error.message)}`);
   const label = method === 'ico' ? 'ověřeno podle IČO' : method === 'identity' ? 'ověřená totožnost' : 'ověření odebráno';
-  redirect(`/sprava/predplatne?ok=${encodeURIComponent(`${data ?? 'Prodejce'}: ${label}`)}`);
+  redirect(`/sprava/podpora/predplatne?ok=${encodeURIComponent(`${data ?? 'Prodejce'}: ${label}`)}`);
 }

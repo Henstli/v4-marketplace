@@ -1,18 +1,20 @@
 import type { Metadata } from 'next';
 import { ContactForm, type OrderOption } from '@/components/support/ContactForm';
 import { getCurrentUser } from '@/lib/auth';
+import { getAccountSummary } from '@/lib/account';
+import { SupportTabs } from '@/components/account/PageTabs';
 import { formatPrice } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
 import { SUPPORT_TOPICS, type SupportTopic } from '@/lib/support';
 import styles from './contact.module.css';
 
-export const metadata: Metadata = { title: 'Napsat podpoře' };
+export const metadata: Metadata = { title: 'Podpora' };
 
 type Props = { searchParams: Promise<{ objednavka?: string; tema?: string }> };
 
 // Napsat podpoře (DS Support › Napsat podpoře, DSA čl. 12): zpráva sama založí případ ve frontě podpory.
 export default async function ContactPage({ searchParams }: Props) {
-  const [{ objednavka, tema }, user] = await Promise.all([searchParams, getCurrentUser()]);
+  const [{ objednavka, tema }, user, account] = await Promise.all([searchParams, getCurrentUser(), getAccountSummary()]);
   let orders: OrderOption[] = [];
   if (user) {
     const supabase = await createClient();
@@ -32,7 +34,8 @@ export default async function ContactPage({ searchParams }: Props) {
 
   return (
     <div className={`container ${styles.page}`}>
-      <h1 className="t-heading-l">Napsat podpoře</h1>
+      <h1 className="t-heading-l">{user ? 'Podpora' : 'Napsat podpoře'}</h1>
+      {user ? <SupportTabs current="/podpora" reports={account?.reports} /> : null}
       <p className="muted">
         Odpovídáme do 2 dnů, i o víkendu. S problémem u objednávky (karta nepřišla, prodejce nereaguje) je rychlejší
         „Nahlásit problém“ přímo u objednávky.

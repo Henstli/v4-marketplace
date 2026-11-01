@@ -4,12 +4,13 @@ import { redirect } from 'next/navigation';
 import { Button, CardThumb } from '@/components/trezor';
 import { unwatchCard } from '@/app/hlidani/actions';
 import { getCurrentUser } from '@/lib/auth';
+import { PageTabs } from '@/components/account/PageTabs';
 import { formatDate } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 
-export const metadata: Metadata = { title: 'Hlídané karty' };
+export const metadata: Metadata = { title: 'Hlídání a příkazy' };
 
 interface CardRef { id: string; name: string; slug: string; image_url: string | null; game_id: string | null }
 
@@ -34,7 +35,8 @@ export default async function WatchedPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <div>
-        <h1 className="t-heading-l">Hlídané karty</h1>
+        <h1 className="t-heading-l">Hlídání a příkazy</h1>
+        <PageTabs label="Hlídání a příkazy" current="/ucet/hlidane" tabs={[{ label: 'Hlídané karty', href: '/ucet/hlidane' }, { label: 'Příkazy' }]} />
         <p className="muted">
           Když karta nemá nabídku, klikněte u ní na „Dát vědět, až se objeví nabídka“, u rezervované nabídky na „Čekat“.
           Jakmile ji někdo vystaví nebo se uvolní rezervace, pošleme e-mail všem, kdo ji hlídají. Kdo objedná dřív, ten ji má.

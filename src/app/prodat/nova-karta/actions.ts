@@ -44,6 +44,6 @@ export async function submitCard(form: FormData): Promise<SubmissionState> {
   if (error) return { error: 'Návrh se nepodařilo uložit. Zkuste to prosím znovu.' };
 
   revalidatePath('/prodat/nova-karta');
-  revalidatePath('/sprava/karty');
+  revalidatePath('/sprava/podpora/karty');
   return { ok: true };
 }
