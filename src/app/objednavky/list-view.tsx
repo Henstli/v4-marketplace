@@ -7,7 +7,7 @@ import { methodName } from '@/lib/delivery';
 import { formatNumber, plural } from '@/lib/format';
 import { thumbUrl } from '@/lib/images';
 import { orderLabel } from '@/lib/order-flow';
-import { orderTask, SUBS, unpaidDays, type Bucket, type Role } from '@/lib/order-tasks';
+import { orderTask, unpaidDays, type Bucket, type Role } from '@/lib/order-tasks';
 import { flowOf, type OrderRow } from './parts';
 import styles from './orders.module.css';
 
@@ -18,7 +18,7 @@ export interface OfferRow {
 }
 type CardRef = { name: string; image_url: string | null; game_id: string | null };
 
-export type ListParams = { nova?: string; tab?: string; stav?: string; ukol?: string; q?: string; n?: string };
+export type ListParams = { nova?: string; tab?: string; stav?: string; q?: string; n?: string };
 
 /** Jeden řádek seznamu: objednávka nebo návrh ceny (DS Orders › Seznam). */
 interface Row {
@@ -137,24 +137,21 @@ export function OrdersListView({ uid, all, offers, names, sp }: { uid: string; a
   const tab: Role = sp.tab === 'prodeje' ? 'seller' : sp.tab === 'nakupy' ? 'buyer'
     : (count('seller', 'ja') && !count('buyer', 'ja')) || (!byRole.buyer.length && byRole.seller.length) ? 'seller' : 'buyer';
   const rows = byRole[tab];
-  const stav: Bucket = STAV.includes(sp.stav as Bucket) ? (sp.stav as Bucket)
-    : count(tab, 'ja') ? 'ja' : count(tab, 'druha') ? 'druha' : count(tab, 'hotove') ? 'hotove' : 'ja';
-  const inBucket = rows.filter((r) => r.bucket === stav);
-  const subs = stav === 'ja' || stav === 'druha' ? SUBS[tab][stav].filter(([k]) => k !== 'predat' || inBucket.some((r) => r.task === 'predat')) : [];
-  const ukol = subs.some(([k]) => k === sp.ukol) ? sp.ukol! : '';
+  // Vše = skupiny pod sebou (Šimon 1. 11.), čip vybere jednu skupinu.
+  const stav: Bucket | '' = STAV.includes(sp.stav as Bucket) ? (sp.stav as Bucket) : '';
   const q = (sp.q ?? '').trim().toLowerCase();
-  const shown = inBucket
-    .filter((r) => !ukol || r.task === ukol)
-    .filter((r) => !q || r.search.includes(q))
-    .sort((a, b) => a.sort - b.sort);
+  const groupRows = (g: Bucket) => rows
+    .filter((r) => r.bucket === g && (!q || r.search.includes(q)))
+    .sort((x, y) => x.sort - y.sort);
+  // Ve Vše se dlouhé skupiny zkrátí, celý seznam je pod čipem dané skupiny.
+  const ALL_CAP = 10;
   const limit = Math.max(PAGE, Math.min(1000, Number(sp.n) || PAGE));
-  const page = shown.slice(0, limit);
 
   const tabKey = tab === 'buyer' ? 'nakupy' : 'prodeje';
-  const href = (p: { tab?: string; stav?: string; ukol?: string; n?: number }) => {
+  const href = (p: { tab?: string; stav?: string; n?: number }) => {
     const s = new URLSearchParams({ tab: p.tab ?? tabKey });
-    if (p.stav ?? (p.tab ? undefined : stav)) s.set('stav', p.stav ?? stav);
-    if (p.ukol) s.set('ukol', p.ukol);
+    const st = p.stav !== undefined ? p.stav : p.tab ? '' : stav;
+    if (st) s.set('stav', st);
     if (q && !p.tab) s.set('q', sp.q!.trim());
     if (p.n) s.set('n', String(p.n));
     return `/objednavky?${s}`;
@@ -171,7 +168,71 @@ export function OrdersListView({ uid, all, offers, names, sp }: { uid: string; a
   const recentSum = recent.reduce((s, o) => s + o.total_czk, 0);
 
   const other = tab === 'buyer' ? 'prodejce' : 'kupujícího';
-  const empty = q ? 'Nic nenalezeno.' : stav === 'ja' ? 'Nic na vás nečeká.' : stav === 'druha' ? `Nic nečeká na ${other}.` : stav === 'hotove' ? 'Zatím žádné dokončené objednávky.' : 'Žádné zrušené objednávky.';
+  const GROUP: Record<Bucket, string> = { ja: 'Čeká na vás', druha: 'Probíhá', hotove: 'Dokončené', zrusene: 'Zrušené a vypršelé' };
+  const CHIP: Record<Bucket, string> = { ja: 'Čeká na mě', druha: 'Probíhá', hotove: 'Dokončené', zrusene: 'Zrušené' };
+  const groups = (stav ? [stav] : STAV).map((g) => ({ g, list: groupRows(g) })).filter((x) => stav || x.list.length);
+  const empty = q ? 'Nic nenalezeno.' : stav === 'ja' ? 'Nic na vás nečeká.' : stav === 'druha' ? `Nic nečeká na ${other}.` : stav === 'hotove' ? 'Zatím žádné dokončené objednávky.' : stav === 'zrusene' ? 'Žádné zrušené objednávky.' : 'Zatím tu nemáte žádné objednávky.';
+
+  const rowEl = (r: Row) => (
+    <Link key={r.key} href={r.href} className="tz-ord-row">
+      <div className="tz-ord-thumbs" aria-hidden="true">
+        {r.thumbs.map((t, i) => t.img
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img key={i} src={t.img} alt="" loading="lazy" decoding="async" />
+          : <span key={i} style={{ background: t.color ?? 'var(--surface-sunken)' }} />)}
+      </div>
+      <div className="tz-ord-main">
+        <b>{r.title}{r.more ? <> <span>{r.more}</span></> : null}</b>
+        <div className="tz-ord-meta">
+          <span className="tz-ord-num">{r.code}</span>·<Ava id={r.otherId} name={r.otherName} />{r.otherName}<span>· {r.meta}</span>
+        </div>
+      </div>
+      <div className="tz-ord-state">
+        {r.state}
+        {r.next ? <span className="tz-ord-next">{r.next}</span> : null}
+      </div>
+      <div className="tz-ord-price">{formatNumber(r.price)} Kč</div>
+      <svg className="tz-ord-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+    </Link>
+  );
+
+  const groupEl = ({ g, list }: { g: Bucket; list: Row[] }) => {
+    const cap = stav ? limit : ALL_CAP;
+    const page = list.slice(0, cap);
+    const box = (
+      <div className="tz-ord-list" data-hot={g === 'ja' ? '' : undefined}>
+        {page.length ? page.map(rowEl) : (
+          <p className="tz-ord-empty">
+            {empty}{' '}
+            {!rows.length ? (tab === 'buyer' ? <Link href="/karty">Procházet karty</Link> : <Link href="/prodat">Vystavit kartu</Link>) : null}
+          </p>
+        )}
+        {page.length < list.length ? (
+          <div className="tz-ord-pager">
+            <span>{`${formatNumber(page.length)} z ${formatNumber(list.length)}`}</span>
+            {stav
+              ? <Link href={href({ n: limit + PAGE })} className="tz-btn tz-btn-secondary tz-btn-md" scroll={false}>Zobrazit dalších</Link>
+              : <Link href={href({ stav: g })} className="tz-btn tz-btn-secondary tz-btn-md">Zobrazit všechny</Link>}
+          </div>
+        ) : null}
+      </div>
+    );
+    const head = <>{GROUP[g]} · {formatNumber(list.length)}</>;
+    if (g === 'zrusene' && !stav) {
+      return (
+        <details key={g} className="tz-ord-grp">
+          <summary className="tz-ord-gh">{head}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></summary>
+          {box}
+        </details>
+      );
+    }
+    return (
+      <section key={g} className="tz-ord-grp" aria-label={GROUP[g]}>
+        {stav ? null : <h2 className="tz-ord-gh" data-hot={g === 'ja' ? '' : undefined}>{head}</h2>}
+        {box}
+      </section>
+    );
+  };
 
   return (
     <div className={`container ${styles.list}`}>
@@ -193,72 +254,22 @@ export function OrdersListView({ uid, all, offers, names, sp }: { uid: string; a
       </nav>
 
       <div className="tz-ord-bar">
-        {STAV.map((b) => {
-          const n = count(tab, b);
-          const name = b === 'ja' ? 'Čeká na mě' : b === 'druha' ? `Čeká na ${other}` : b === 'hotove' ? 'Dokončené' : 'Zrušené';
-          return (
-            <Link key={b} href={href({ stav: b })} className="tz-ord-chip" aria-current={stav === b ? 'true' : undefined}>
-              {name}
-              {b === 'ja' ? (n ? <span className="tz-ord-n" data-hot="">{n}</span> : null) : <span className="k">{formatNumber(n)}</span>}
-            </Link>
-          );
-        })}
+        <Link href={href({ stav: '' })} className="tz-ord-chip" aria-current={!stav ? 'true' : undefined}>Vše</Link>
+        {STAV.map((b) => (
+          <Link key={b} href={href({ stav: b })} className="tz-ord-chip" aria-current={stav === b ? 'true' : undefined}>{CHIP[b]}</Link>
+        ))}
         <form className="tz-ord-search" action="/objednavky" role="search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
           <input type="hidden" name="tab" value={tabKey} />
-          <input type="hidden" name="stav" value={stav} />
+          {stav ? <input type="hidden" name="stav" value={stav} /> : null}
           <input name="q" defaultValue={sp.q ?? ''} placeholder={`Číslo, karta nebo ${tab === 'buyer' ? 'prodejce' : 'kupující'}`} aria-label="Hledat v objednávkách" />
         </form>
+        <ViewToggle target="ord-list" />
       </div>
 
-      {/* Úkoly jako tenký řádek textu, vybraný podtržený mátově, nuly zůstávají (Šimon 1. 11.). */}
-      <nav className="tz-ord-sub" aria-label="Úkol">
-        {subs.length ? (
-          <>
-            <Link href={href({})} aria-current={!ukol ? 'true' : undefined}>Vše<i>{inBucket.length}</i></Link>
-            {subs.map(([k, name]) => {
-              const n = inBucket.filter((r) => r.task === k).length;
-              return <Link key={k} href={href({ ukol: k })} aria-current={ukol === k ? 'true' : undefined} data-zero={n ? undefined : ''}>{name}<i>{n}</i></Link>;
-            })}
-          </>
-        ) : null}
-        <ViewToggle target="ord-list" />
-      </nav>
-
-      <div className="tz-ord-list" id="ord-list">
-        {page.length ? page.map((r) => (
-          <Link key={r.key} href={r.href} className="tz-ord-row">
-            <div className="tz-ord-thumbs" aria-hidden="true">
-              {r.thumbs.map((t, i) => t.img
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img key={i} src={t.img} alt="" loading="lazy" decoding="async" />
-                : <span key={i} style={{ background: t.color ?? 'var(--surface-sunken)' }} />)}
-            </div>
-            <div className="tz-ord-main">
-              <b>{r.title}{r.more ? <> <span>{r.more}</span></> : null}</b>
-              <div className="tz-ord-meta">
-                <span className="tz-ord-num">{r.code}</span>·<Ava id={r.otherId} name={r.otherName} />{r.otherName}<span>· {r.meta}</span>
-              </div>
-            </div>
-            <div className="tz-ord-state">
-              {r.state}
-              {r.next ? <span className="tz-ord-next">{r.next}</span> : null}
-            </div>
-            <div className="tz-ord-price">{formatNumber(r.price)} Kč</div>
-            <svg className="tz-ord-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
-          </Link>
-        )) : (
-          <p className="tz-ord-empty">
-            {empty}{' '}
-            {!rows.length ? (tab === 'buyer' ? <Link href="/karty">Procházet karty</Link> : <Link href="/prodat">Vystavit kartu</Link>) : null}
-          </p>
-        )}
-        {shown.length > 0 ? (
-          <div className="tz-ord-pager">
-            <span>{page.length < shown.length ? `1–${page.length} z ${formatNumber(shown.length)}` : plural(shown.length, ['objednávka', 'objednávky', 'objednávek'])}{stav === 'ja' || stav === 'druha' ? ' · seřazeno podle toho, co hoří nejdřív' : ''}</span>
-            {page.length < shown.length ? <Link href={href({ ukol, n: limit + PAGE })} className="tz-btn tz-btn-secondary tz-btn-md" scroll={false}>Zobrazit dalších</Link> : null}
-          </div>
-        ) : null}
+      {/* Skupiny pod sebou, Zrušené sbalené (Šimon 1. 11.). */}
+      <div className="tz-ord-groups" id="ord-list">
+        {groups.length ? groups.map(groupEl) : <div className="tz-ord-list"><p className="tz-ord-empty">{empty}{' '}{!rows.length ? (tab === 'buyer' ? <Link href="/karty">Procházet karty</Link> : <Link href="/prodat">Vystavit kartu</Link>) : null}</p></div>}
       </div>
     </div>
   );
