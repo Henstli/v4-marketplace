@@ -3,14 +3,15 @@
 import { DashBorder } from './DashBorder';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { fold } from '@/lib/import/columns';
 import { GAMES, getGame } from '@/lib/games';
-import { thumbUrl } from '@/lib/images';
 import { CONDITIONS } from '@/lib/types';
 import { stockChange, stockSet } from './actions';
 import { cardInfo, stockBulkSet, type BulkRow, type CardInfo } from './sk-actions';
-import { owned, type StockRow } from './data';
 import { ExportModal } from './StockModals';
+import {
+  applyDelta, countsId, fetchAll, fetchCard, fetchIds, fetchPage, fetchPatch, liveCounts, SLOW,
+  type Item, type StockPage, type StockParams, type StockSummary,
+} from './stock-view';
 import {
   CARD_LANGS, COND_FULL, COND_ORDER, Ico, kc, LANG_FULL, langCode, Modal, nf, pl1, plA, plw, Seg, SRC,
 } from './sk';
@@ -29,31 +30,13 @@ export interface StripStats {
   riser: { name: string; pct: number; cardId: string; from: number; to: number } | null;
 }
 
-type Item = {
-  r: StockRow; id: string; key: string; name: string; set: string; game: string; gameId: string; img: string | null;
-  cond: string; lang: string; have: number; sale: number; keep: number; trade: number; price: number | null; market: number | null;
-  loc: string; src: string; listed: number; buy: number | null; locked: boolean; upd: string;
-};
 type Sort = 'chg' | 'name' | 'have' | 'price';
 type F = { g: Set<string>; c: Set<string>; l: Set<string>; s: Set<string>; p: Set<string> };
 type BulkModal = 'sell' | 'price' | 'attr' | 'loc' | 'del' | 'export' | 'bmore' | null;
 
-const SLOW = 60;
-const SO: Record<Sort, (x: Item, y: Item) => number> = {
-  chg: (x, y) => y.upd.localeCompare(x.upd),
-  name: (x, y) => x.name.localeCompare(y.name, 'cs'),
-  have: (x, y) => y.have - x.have,
-  price: (x, y) => (y.price ?? y.market ?? 0) - (x.price ?? x.market ?? 0),
-};
-const rankOf = (list: Item[], s: Sort) => new Map(list.slice().sort(SO[s]).map((i, n) => [i.id, n]));
-const days = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 0);
-const toItem = (r: StockRow): Item => ({
-  r, id: r.id, key: r.cardId, name: r.card?.name ?? 'Karta', set: `${r.card?.setCode ?? ''} ${r.card?.number ?? ''}`.trim(),
-  game: getGame(r.card?.game ?? '')?.name ?? '', gameId: r.card?.game ?? '', img: thumbUrl(r.card?.image ?? undefined) ?? null,
-  cond: r.condition, lang: r.language, have: owned(r), sale: r.quantity, keep: r.keep, trade: Math.min(r.trade, owned(r)),
-  price: r.price, market: r.market, loc: r.location ?? '', src: r.source, listed: r.quantity > 0 ? days(r.listedAt) : 0,
-  buy: r.buyPrice, locked: r.removed || r.hidden != null, upd: r.updatedAt,
-});
+/** Hodnota, podle které se řádek řadí (pro zamrznutí pořadí po úpravě). */
+const sortKey = (i: Item, s: Sort): string | number | null =>
+  s === 'chg' ? i.upd : s === 'have' ? i.have : s === 'price' ? (i.price ?? i.market ?? 0) : null;
 
 function issues(i: Item, shop: boolean): string[] {
   const o: string[] = [];
@@ -67,15 +50,13 @@ function issues(i: Item, shop: boolean): string[] {
   if (i.sale > 0 && i.listed >= SLOW) o.push(`Leží ${i.listed} dní`);
   return o;
 }
-const locOf = (i: Item) => (i.loc ? i.loc.split(' · ')[0] : '—');
-const locIn = (i: Item, v: string) => (v === '—' ? !i.loc : !!i.loc && (i.loc === v || i.loc.startsWith(`${v} ·`)));
 
-export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, stats, unmatched, napojeni, ordersHref, demandHref }: {
-  items: StockRow[]; mode: 'all' | 'sale'; shop: boolean; ready: boolean; canPrice: boolean; canAdd: boolean;
+export function StockTable({ owner, initial, summary, mode, shop, ready, canPrice, canAdd, stats, unmatched, napojeni, ordersHref, demandHref }: {
+  owner: string; initial: StockPage; summary: StockSummary; mode: 'all' | 'sale'; shop: boolean; ready: boolean; canPrice: boolean; canAdd: boolean;
   stats: StripStats; unmatched: number; napojeni: string | null; ordersHref: string; demandHref: string | null;
 }) {
-  const all = useMemo(() => rows.map(toItem).filter((i) => i.have > 0 || i.locked), [rows]);
   const [q, setQ] = useState('');
+  const [qd, setQd] = useState('');
   const [f, setF] = useState<F>({ g: new Set(), c: new Set(), l: new Set(), s: new Set(), p: new Set() });
   const [forSale, setForSale] = useState<'' | 'on' | 'off'>('');
   const [attn, setAttn] = useState(false);
@@ -87,8 +68,10 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   const [locOpen, setLocOpen] = useState(false);
   const [view, setView] = useState<'list' | 'text'>('list');
   const [sort, setSortRaw] = useState<Sort>('chg');
-  const [rank, setRank] = useState(() => rankOf(rows.map(toItem), 'chg'));
-  const setSort = (s: Sort) => { setSortRaw(s); setRank(rankOf(all, s)); };
+  // Pořadí je zamrzlé od chvíle, kdy se zvolilo řazení: upravená karta se dál řadí podle hodnoty před úpravou
+  // (fz posílá databázi), takže zůstane na svém místě; nová karta jde nahoru.
+  const fz = useRef<Record<string, string | number>>({});
+  const setSort = (s: Sort) => { fz.current = {}; setSortRaw(s); };
   const [page, setPage] = useState(1);
   const [more, setMore] = useState(0);
   const [exp, setExp] = useState<Set<string>>(new Set());
@@ -101,6 +84,18 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   const [pending, start] = useTransition();
   const fwrap = useRef<HTMLSpanElement>(null);
 
+  // ---- data: zobrazená stránka a souhrny ze serveru, známé řádky (stránky, výběr, detail)
+  const [sum, setSum] = useState(summary);
+  const [pg_, setPg] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const known = useRef(new Map<string, Item>());
+  const remember = (list: Item[]) => list.forEach((i) => known.current.set(i.id, i));
+  remember(pg_.items);
+  const [, bump] = useState(0);
+  // Výběr všech podle filtru: platí pro filtr, pro který se vybíralo.
+  const [selKey, setSelKey] = useState<string | null>(null);
+  const [exportIds, setExportIds] = useState<string[]>([]);
+
   useEffect(() => {
     if (!fp) return;
     const h = (e: MouseEvent) => { if (fwrap.current && !fwrap.current.contains(e.target as Node)) setFp(false); };
@@ -112,58 +107,106 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     const t = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(t);
   }, [toast]);
-  useEffect(() => setPage(1), [q, f, forSale, attn, dup, old, sort, view]);
+  // Hledání se pošle až po krátké pauze v psaní.
+  useEffect(() => { const t = setTimeout(() => setQd(q), q ? 250 : 0); return () => clearTimeout(t); }, [q]);
 
   const sale = mode === 'sale';
-  const base = useMemo(() => (sale ? all.filter((i) => i.sale > 0) : all), [all, sale]);
   const nF = f.g.size + f.c.size + f.l.size + f.s.size + f.p.size + (forSale ? 1 : 0) + (attn ? 1 : 0) + (dup ? 1 : 0) + (old ? 1 : 0);
   const fAny = !!q || nF > 0;
+  const PG = view === 'text' ? 15 : 10;
+  const params = (over: Partial<StockParams> = {}): StockParams => ({
+    mode, shop, q: qd.trim(), g: [...f.g], c: [...f.c], l: [...f.l], s: [...f.s], p: [...f.p], forSale, attn, dup, old, sort,
+    page, size: PG, more, ...(Object.keys(fz.current).length ? { fz: fz.current } : {}), ...over,
+  });
+  // Klíč filtru (bez stránky): pro výběr všech podle filtru; s velikostí stránky pro návrat na první stránku.
+  const fkey = JSON.stringify({ ...params(), page: 0, more: 0, size: 0, fz: 0 });
+  const rkey = `${fkey}:${PG}`;
 
-  const visible = useMemo(() => {
-    let a = base.filter((i) => (!f.g.size || f.g.has(i.gameId)) && (!f.c.size || f.c.has(i.cond)) && (!f.l.size || f.l.has(i.lang))
-      && (!f.s.size || f.s.has(i.src)) && (!f.p.size || [...f.p].some((v) => locIn(i, v))));
-    if (attn) a = a.filter((i) => issues(i, shop).length);
-    if (dup) a = a.filter((i) => i.have > 1);
-    if (old) a = a.filter((i) => i.sale > 0 && i.listed >= SLOW);
-    if (forSale === 'on') a = a.filter((i) => i.sale > 0);
-    if (forSale === 'off') a = a.filter((i) => !i.sale);
-    if (q) { const t = fold(q); a = a.filter((i) => fold(`${i.name} ${i.set} ${i.loc}`).includes(t)); }
-    // Pořadí je zamrzlé od chvíle, kdy se zvolilo řazení: upravená karta zůstane na svém místě a nová jde nahoru.
-    const live = SO[sort];
-    return a.slice().sort((x, y) => {
-      const rx = rank.get(x.id), ry = rank.get(y.id);
-      if (rx == null || ry == null) return rx == null && ry == null ? live(x, y) : rx == null ? -1 : 1;
-      return rx - ry;
-    });
-  }, [base, f, attn, dup, old, forSale, q, sort, shop, rank]);
+  // Načtení stránky po změně filtru, řazení nebo stránky. Starší odpověď nepřepíše novější.
+  const seq = useRef(0);
+  const load = (p: StockParams, append = false) => {
+    const n = ++seq.current;
+    setBusy(true);
+    fetchPage(owner, p).then((d) => {
+      if (n !== seq.current) return;
+      remember(d.items);
+      setPg((o) => (append ? { ...d, page: o.page, items: [...o.items, ...d.items.filter((i) => !o.items.some((x) => x.id === i.id))] } : d));
+    }).catch(() => { if (n === seq.current) setToast({ t: 'Karty se nepodařilo načíst. Zkuste to prosím znovu.', err: true }); })
+      .finally(() => { if (n === seq.current) setBusy(false); });
+  };
+  const pkey = JSON.stringify(params({ fz: undefined }));
+  const done_ = useRef(pkey);
+  const lastR = useRef(rkey);
+  const appended = useRef<number | null>(null);
+  useEffect(() => {
+    // Stejný dotaz jako naposledy (první vykreslení má stránku ze serveru): nic nenačítat.
+    if (done_.current === pkey) return;
+    done_.current = pkey;
+    // Jiný filtr, řazení nebo zobrazení: zpět na první stránku (načte se v dalším kroku).
+    if (lastR.current !== rkey) { lastR.current = rkey; if (page !== 1) { setPage(1); return; } }
+    // „Zobrazit dalších“ už si další karty načetlo samo.
+    if (appended.current === more) { appended.current = null; return; }
+    load(params());
+  }, [pkey]);
+  const showMore = () => { const m = more + 1; appended.current = m; setMore(m); load(params({ page: pg + m, more: 0 }), true); };
+  // Nová data ze serveru (např. po přidání karet): souhrny a stránka se načtou znovu se stejným filtrem.
+  const seen = useRef(summary);
+  useEffect(() => {
+    if (seen.current === summary) return;
+    seen.current = summary;
+    setSum(summary);
+    load(params());
+  }, [summary]);
+  useEffect(() => { liveCounts.set({ id: countsId(owner, summary), vse: sum.kindsAll, prodej: sum.kindsSale }); }, [owner, summary, sum]);
 
   const groups = useMemo(() => {
     const m = new Map<string, Item[]>();
-    for (const i of visible) { const g = m.get(i.key); if (g) g.push(i); else m.set(i.key, [i]); }
+    for (const i of pg_.items) { const g = m.get(i.key); if (g) g.push(i); else m.set(i.key, [i]); }
     return [...m.values()].map((g) => g.sort((a, b) => (COND_ORDER[a.cond] - COND_ORDER[b.cond]) || a.lang.localeCompare(b.lang)));
-  }, [visible]);
+  }, [pg_.items]);
 
-  const PG = view === 'text' ? 15 : 10;
-  const NP = Math.max(1, Math.ceil(groups.length / PG));
-  const pg = Math.min(page, NP);
+  const nG = pg_.nGroups;
+  const NP = Math.max(1, Math.ceil(nG / PG));
+  const pg = Math.min(pg_.page, NP);
   const st = (pg - 1) * PG;
-  const en = Math.min(st + PG * (more + 1), groups.length);
-  const shown = groups.slice(st, en);
-  const byId = useMemo(() => new Map(all.map((i) => [i.id, i])), [all]);
-  const selItems = [...sel].map((id) => byId.get(id)).filter((i): i is Item => !!i && !i.locked);
+  const en = Math.min(st + groups.length, nG);
+  const shown = groups;
+  const selItems = [...sel].map((id) => known.current.get(id)).filter((i): i is Item => !!i && !i.locked);
 
   // ---- akce
   function done(r: { error?: string; count?: number }, text: string, undo = true) {
     if (r.error) setToast({ t: r.error, err: true });
     else setToast({ t: text, undo });
   }
-  const run = (fn: () => Promise<{ error?: string; count?: number }>, text: string, after?: () => void) => start(async () => {
+  // Po úpravě se z databáze načtou jen upravené řádky: nahradí se na svém místě, souhrny se dopočítají.
+  async function patch(ids: string[]) {
+    const before = ids.map((id) => known.current.get(id)).filter((i): i is Item => !!i);
+    if (sort !== 'name') for (const i of before) if (!(i.id in fz.current)) fz.current[i.id] = sortKey(i, sort)!;
+    try {
+      const { items, cards } = await fetchPatch(owner, ids, [...new Set(before.map((i) => i.key))]);
+      const now = new Map(items.map((i) => [i.id, i]));
+      ids.forEach((id) => { const i = now.get(id); if (i) known.current.set(id, i); else known.current.delete(id); });
+      setSum((s) => applyDelta(s, before, items, cards, mode, shop));
+      setPg((o) => {
+        const list = o.items.flatMap((i) => (ids.includes(i.id) ? (now.has(i.id) ? [now.get(i.id)!] : []) : [i]));
+        const gone = o.items.length - list.length;
+        const groupsGone = new Set(o.items.map((i) => i.key)).size - new Set(list.map((i) => i.key)).size;
+        const lockedGone = o.items.filter((i) => ids.includes(i.id) && !now.has(i.id) && i.locked).length;
+        return { ...o, items: list, nRows: o.nRows - gone, nIds: o.nIds - (gone - lockedGone), nGroups: o.nGroups - groupsGone };
+      });
+      setSel((s) => { if (ids.every((id) => !s.has(id) || now.has(id))) return s; const n = new Set(s); ids.forEach((id) => { if (!now.has(id)) n.delete(id); }); return n; });
+      bump((x) => x + 1);
+    } catch {
+      load(params());
+    }
+  }
+  const run = (fn: () => Promise<{ error?: string; count?: number }>, text: string, ids: string[], after?: () => void) => start(async () => {
     const r = await fn();
     done(r, text);
-    if (!r.error) after?.();
+    if (!r.error) { after?.(); await patch(ids); }
   });
   const bulk = (list: BulkRow[], title: string, text: string, kind: 'stock' | 'price' = 'stock', after?: () => void) =>
-    run(() => stockBulkSet(list, title, kind), text, after);
+    run(() => stockBulkSet(list, title, kind, true), text, list.map((x) => x.id), after);
   const needReady = (more: boolean) => {
     if (more && !ready) { setToast({ t: 'Prodávat jde až s dopravou a platbou. Doplňte je v nastavení účtu.', err: true }); return false; }
     if (!canPrice) { setToast({ t: 'Na prodej a ceny nemáte právo.', err: true }); return false; }
@@ -181,30 +224,45 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   };
   const stop = (list: Item[]) => {
     if (!needReady(false)) return;
-    run(() => stockChange(list.map((x) => x.id), 'unsell'), `${list[0].name}: staženo z prodeje`);
+    run(() => stockChange(list.map((x) => x.id), 'unsell', undefined, true), `${list[0].name}: staženo z prodeje`, list.map((x) => x.id));
   };
   const savePrice = (list: Item[], v: number) => {
     setEdit(null);
     if (!needReady(false) || !Number.isInteger(v) || v <= 0) return;
-    run(() => stockChange(list.map((x) => x.id), 'price', v), `Cena ${kc(v)} · ${list.length > 1 ? `${list.length} varianty` : list[0].name}`);
+    run(() => stockChange(list.map((x) => x.id), 'price', v, true), `Cena ${kc(v)} · ${list.length > 1 ? `${list.length} varianty` : list[0].name}`, list.map((x) => x.id));
   };
 
   const toggle = (ids: string[], on: boolean) => setSel((s) => { const n = new Set(s); ids.forEach((id) => (on ? n.add(id) : n.delete(id))); return n; });
-  // Hlavní zaškrtávátko vybírá všechny karty podle filtru, ne jen stránku.
-  const filterIds = visible.filter((i) => !i.locked).map((i) => i.id);
-  const allSel = filterIds.length > 0 && filterIds.every((id) => sel.has(id));
-  const someSel = !allSel && filterIds.some((id) => sel.has(id));
+  // Hlavní zaškrtávátko vybírá všechny karty podle filtru, ne jen stránku (řádky se načtou z databáze kvůli hromadným úpravám).
+  const pageIds = pg_.items.filter((i) => !i.locked).map((i) => i.id);
+  const allSel = pg_.nIds > 0 && pageIds.every((id) => sel.has(id))
+    && ((selKey === fkey && sel.size >= pg_.nIds) || pageIds.length === pg_.nIds);
+  const someSel = !allSel && (pageIds.some((id) => sel.has(id)) || (selKey === fkey && sel.size > 0));
+  const selectAll = () => {
+    if (allSel) { setSel(new Set()); setSelKey(null); return; }
+    const k = fkey;
+    start(async () => {
+      try {
+        const list = await fetchAll(owner, params());
+        remember(list);
+        setSel(new Set(list.filter((i) => !i.locked).map((i) => i.id)));
+        setSelKey(k);
+      } catch { setToast({ t: 'Karty se nepodařilo načíst. Zkuste to prosím znovu.', err: true }); }
+    });
+  };
+  // Detail karty z pruhu (Nejvíc zdražila): když karta není na stránce, načte se.
+  const openCard = (cardId: string) => {
+    const i = [...known.current.values()].find((x) => x.key === cardId);
+    if (i) { setOpen(i.id); return; }
+    fetchCard(owner, cardId).then((list) => { remember(list); if (list[0]) setOpen(list[0].id); }).catch(() => undefined);
+  };
+  const openExport = () => start(async () => {
+    try { setExportIds(await fetchIds(owner, params())); setModal('export'); }
+    catch { setToast({ t: 'Karty se nepodařilo načíst. Zkuste to prosím znovu.', err: true }); }
+  });
 
-  // ---- pruh
-  const t = useMemo(() => {
-    const pcs = all.reduce((s, i) => s + i.have, 0), kinds = new Set(all.map((i) => i.key)).size;
-    const onSale = all.reduce((s, i) => s + i.sale, 0), val = all.reduce((s, i) => s + i.have * (i.market ?? i.price ?? 0), 0);
-    const offer = all.reduce((s, i) => s + i.sale * (i.price ?? i.market ?? 0), 0);
-    const oldN = all.filter((i) => i.sale > 0 && i.listed >= SLOW).length;
-    const dups = new Map<string, number>(); all.forEach((i) => dups.set(i.key, (dups.get(i.key) ?? 0) + i.have));
-    const tradeN = all.filter((i) => i.trade > 0).length;
-    return { pcs, kinds, onSale, val, offer, oldN, dups: [...dups.values()].filter((n) => n > 1).length, tradeN };
-  }, [all]);
+  // ---- pruh (součty celého skladu počítá databáze)
+  const t = sum;
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
   const sgn = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('cs-CZ')}`;
   const resetF = () => { setF({ g: new Set(), c: new Set(), l: new Set(), s: new Set(), p: new Set() }); setForSale(''); setAttn(false); setDup(false); setOld(false); setQ(''); };
@@ -243,7 +301,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <div className="stc"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
       <div className="stc"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
       {stats.riser ? (
-        <div className="stc" onClick={() => { const i = all.find((x) => x.key === stats.riser!.cardId); if (i) setOpen(i.id); }}
+        <div className="stc" onClick={() => openCard(stats.riser!.cardId)}
           title={`${stats.riser.name}: ${kc(stats.riser.from)} → ${kc(stats.riser.to)} za 30 dní`}>
           <small>Nejvíc zdražila<em>+{nf(stats.riser.to - stats.riser.from)} Kč · +{stats.riser.pct} %</em></small>
           <b style={{ fontSize: 15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stats.riser.name}</b>
@@ -260,16 +318,9 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   );
 
   // ---- upozornění (obchod)
-  // Počítá se jen při změně dat, ne při každém psaní do hledání nebo otevření detailu.
-  const { nAttn, attnParts } = useMemo(() => {
-    const isList = all.map((i) => issues(i, shop));
-    const cnt = (k: string) => isList.filter((r) => r.some((x) => x.includes(k))).length;
-    return {
-      nAttn: isList.filter((r) => r.length).length,
-      attnParts: ([[cnt('Bez ceny'), 'bez ceny'], [cnt('trhem'), 'mimo trh'], [cnt('umístění'), 'bez umístění'], [cnt('Leží'), 'leží přes 60 dní']] as [number, string][])
-        .filter((p) => p[0]),
-    };
-  }, [all, shop]);
+  const a_ = shop ? sum.attn : null;
+  const nAttn = a_?.n ?? 0;
+  const attnParts = a_ ? ([[a_.noPrice, 'bez ceny'], [a_.mkt, 'mimo trh'], [a_.noLoc, 'bez umístění'], [a_.old, 'leží přes 60 dní']] as [number, string][]).filter((p) => p[0]) : [];
   const attnNote = shop && !attnHide && !attn && nAttn ? (
     <div className="attn">
       <i className="adot" />
@@ -281,19 +332,12 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   ) : null;
 
   // ---- filtry
-  const { games, langs, srcs, LOCG, LOCF } = useMemo(() => {
-    const LOCG = new Map<string, number>(), LOCF = new Map<string, number>();
-    base.forEach((i) => {
-      if (!i.loc) { LOCG.set('—', (LOCG.get('—') ?? 0) + i.have); return; }
-      const g = locOf(i); LOCG.set(g, (LOCG.get(g) ?? 0) + i.have); LOCF.set(i.loc, (LOCF.get(i.loc) ?? 0) + i.have);
-    });
-    return {
-      games: GAMES.filter((g) => base.some((i) => i.gameId === g.id)),
-      langs: [...new Set(base.map((i) => i.lang))].sort((a, b) => CARD_LANGS.indexOf(a) - CARD_LANGS.indexOf(b)),
-      srcs: shop ? [...new Set(base.map((i) => i.src))] : [],
-      LOCG, LOCF,
-    };
-  }, [base, shop]);
+  const { games, langs, srcs, LOCG, LOCF } = useMemo(() => ({
+    games: GAMES.filter((g) => sum.games.includes(g.id)),
+    langs: [...sum.langs].sort((a, b) => CARD_LANGS.indexOf(a) - CARD_LANGS.indexOf(b)),
+    srcs: shop ? sum.srcs : [],
+    LOCG: new Map(Object.entries(sum.locg)), LOCF: new Map(Object.entries(sum.locf)),
+  }), [sum, shop]);
   const flip = (k: keyof F, v: string) => setF((x) => { const s = new Set(x[k]); if (s.has(v)) s.delete(v); else s.add(v); return { ...x, [k]: s }; });
   const op = (k: keyof F, v: string, l: React.ReactNode) => (
     <button key={v} type="button" className={`fop${f[k].has(v) ? ' on' : ''}`} onClick={() => flip(k, v)}>{l}</button>
@@ -354,7 +398,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
             ) : null}
             <div className="ffoot">
               <button type="button" className="btn sm g" disabled={!nF} onClick={resetF}>Vymazat vše</button>
-              <button type="button" className="btn sm p" onClick={() => setFp(false)}>Zobrazit {plA(visible.length)}</button>
+              <button type="button" className="btn sm p" onClick={() => setFp(false)}>Zobrazit {plA(pg_.nRows)}</button>
             </div>
           </div>
         ) : null}
@@ -508,31 +552,32 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     <th className={`${cls} ${k ? 'sort' : ''} ${sort === k ? 'sorted' : ''}`} onClick={k ? () => setSort(sort === k ? 'chg' : k) : undefined}>{label}</th>
   );
 
-  const table = !visible.length ? (
-    <div className="tbl"><div className="none">{all.length ? <>Nic tomu neodpovídá. <button type="button" className="btn sm" style={{ marginLeft: 8 }} onClick={resetF}>Zrušit filtry</button></> : `Ve ${shop ? 'skladu' : 'sbírce'} zatím nic není.`}</div></div>
+  const table = !pg_.nRows ? (
+    <div className="tbl"><div className="none">{sum.total ? <>Nic tomu neodpovídá. <button type="button" className="btn sm" style={{ marginLeft: 8 }} onClick={resetF}>Zrušit filtry</button></> : `Ve ${shop ? 'skladu' : 'sbírce'} zatím nic není.`}</div></div>
   ) : (
-    <div className={`tbl${view === 'text' ? ' txt' : ''}`}>
+    <div className={`tbl${view === 'text' ? ' txt' : ''}`} aria-busy={busy || undefined}>
       <table>
         <thead><tr>
-          <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(filterIds, !allSel), `Vybrat všech ${filterIds.length} podle filtru`)}</th>
+          <th style={{ width: 40 }}>{cb(allSel, someSel, selectAll, `Vybrat všech ${pg_.nIds} podle filtru`)}</th>
           {th('Karta', 'name')}{th('Stav', '', 'c')}{th('Jazyk', '', 'c')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'c')}
           {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '', 'c')}<th />
         </tr></thead>
         <tbody>{shown.flatMap((g) => (g.length === 1 ? [trow(g[0])] : grow(g)))}</tbody>
       </table>
       <div className="foot">
-        <span className="fl">{groups.length ? nf(st + 1) : 0}–{nf(en)} z {nf(groups.length)} {fAny ? '(filtrováno)' : ''} · {{ chg: 'naposledy změněné', name: 'podle názvu', have: 'podle počtu', price: 'podle ceny' }[sort]}</span>
+        <span className="fl">{nG ? nf(st + 1) : 0}–{nf(en)} z {nf(nG)} {fAny ? '(filtrováno)' : ''} · {{ chg: 'naposledy změněné', name: 'podle názvu', have: 'podle počtu', price: 'podle ceny' }[sort]}</span>
         {pager}
-        <span className="fr">{en < groups.length ? <button type="button" className="btn sm" onClick={() => setMore(more + 1)}>Zobrazit dalších {Math.min(PG, groups.length - en)}</button> : null}</span>
+        <span className="fr">{en < nG ? <button type="button" className="btn sm" disabled={busy} onClick={showMore}>Zobrazit dalších {Math.min(PG, nG - en)}</button> : null}</span>
       </div>
     </div>
   );
 
   // ---- popover Prodávat
-  const popList = pop ? (pop.k.startsWith('g:') ? groups.find((g) => g[0].key === pop.k.slice(2)) ?? [] : [byId.get(pop.k)!].filter(Boolean)) : [];
+  const popList = pop ? (pop.k.startsWith('g:') ? groups.find((g) => g[0].key === pop.k.slice(2)) ?? [] : [known.current.get(pop.k)!].filter(Boolean)) : [];
 
   const n = selItems.length;
-  const current = open ? byId.get(open) ?? null : null;
+  const current = open ? known.current.get(open) ?? null : null;
+  const places = [...LOCG].filter(([k]) => k !== '—').sort((a, b) => b[1] - a[1]).map(([k]) => k);
 
   return (
     <>
@@ -546,20 +591,20 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
 
       {n ? (
         <div className="bulk">
-          <button type="button" className="cb on" onClick={() => setSel(new Set())} title="Zrušit výběr" />
+          <button type="button" className="cb on" onClick={() => { setSel(new Set()); setSelKey(null); }} title="Zrušit výběr" />
           <span className="cnt">{nf(n)} {n === 1 ? 'vybraná' : n < 5 ? 'vybrané' : 'vybraných'}</span>
           <div className="bm">
             {canPrice ? <button type="button" className="btn sm p keep" onClick={() => setModal('sell')}>{shop ? 'Dát do prodeje' : 'Nabídnout'}</button> : null}
             {shop && canPrice ? <button type="button" className="btn sm keep" onClick={() => setModal('price')}>Upravit ceny</button> : null}
-            {shop ? null : <button type="button" className="btn sm keep" disabled={pending} onClick={() => run(() => stockChange(selItems.map((x) => x.id), 'trade_all'), `Na výměnu: ${pl1(n)}`)}>Na výměnu</button>}
+            {shop ? null : <button type="button" className="btn sm keep" disabled={pending} onClick={() => run(() => stockChange(selItems.map((x) => x.id), 'trade_all', undefined, true), `Na výměnu: ${pl1(n)}`, selItems.map((x) => x.id))}>Na výměnu</button>}
             <button type="button" className="btn sm" onClick={() => setModal('attr')}>Stav a jazyk</button>
             <button type="button" className="btn sm" onClick={() => setModal('loc')}>Umístění</button>
             {shop ? <a className="btn sm" href={`/prodat/stitky?ids=${selItems.slice(0, 200).map((x) => x.id).join(',')}`} target="_blank" rel="noreferrer">Štítky</a> : null}
-            <button type="button" className="btn sm" onClick={() => setModal('export')}>Exportovat</button>
+            <button type="button" className="btn sm" disabled={pending} onClick={openExport}>Exportovat</button>
             {canAdd ? <button type="button" className="btn sm g d" onClick={() => setModal('del')}>Odebrat</button> : null}
           </div>
           <button type="button" className="btn sm bo" onClick={() => setModal('bmore')}>{Ico.dots}</button>
-          <button type="button" className="x" onClick={() => setSel(new Set())} title="Zavřít">{Ico.x}</button>
+          <button type="button" className="x" onClick={() => { setSel(new Set()); setSelKey(null); }} title="Zavřít">{Ico.x}</button>
         </div>
       ) : null}
 
@@ -569,29 +614,29 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         onOk={(list, text) => { setModal(null); bulk(list, text, text, 'price'); }} /> : null}
       {modal === 'attr' ? <AttrModal n={n} onClose={() => setModal(null)}
         onOk={(c, l) => { setModal(null); bulk(selItems.map((x) => ({ id: x.id, ...(c ? { condition: c } : {}), ...(l ? { language: l } : {}) })), `Stav a jazyk · ${pl1(n)}`, 'Stav a jazyk uloženy'); }} /> : null}
-      {modal === 'loc' ? <LocModal n={n} places={[...LOCG].filter(([k]) => k !== '—').sort((a, b) => b[1] - a[1]).map(([k]) => k)} onClose={() => setModal(null)}
-        onOk={(v) => { setModal(null); run(() => stockChange(selItems.map((x) => x.id), 'location', v), 'Umístění uloženo'); }} /> : null}
+      {modal === 'loc' ? <LocModal n={n} places={places} onClose={() => setModal(null)}
+        onOk={(v) => { setModal(null); run(() => stockChange(selItems.map((x) => x.id), 'location', v, true), 'Umístění uloženo', selItems.map((x) => x.id)); }} /> : null}
       {modal === 'del' ? (
         <Modal title={`Odebrat ${plA(n)}?`} onClose={() => setModal(null)} foot={<>
           <button type="button" className="btn" onClick={() => setModal(null)}>Zrušit</button>
           <button type="button" className="btn p" style={{ background: 'var(--danger)', borderColor: 'var(--danger)', color: '#2a0b09' }}
-            onClick={() => { setModal(null); run(() => stockChange(selItems.map((x) => x.id), 'remove'), `Odebráno: ${pl1(n)}`, () => setSel(new Set())); }}>Odebrat</button>
+            onClick={() => { setModal(null); run(() => stockChange(selItems.map((x) => x.id), 'remove', undefined, true), `Odebráno: ${pl1(n)}`, selItems.map((x) => x.id), () => setSel(new Set())); }}>Odebrat</button>
         </>}>
           <p style={{ margin: 0, color: 'var(--ink-muted)' }}>Karty zmizí ze {shop ? 'skladu i z prodeje' : 'sbírky i z nabídky'}. Odebrání už vrátit nejde.</p>
         </Modal>
       ) : null}
-      {modal === 'export' ? <ExportModal shop={shop} selected={selItems.map((x) => x.id)} filtered={visible.map((x) => x.id)} total={all.length} onClose={() => setModal(null)} /> : null}
+      {modal === 'export' ? <ExportModal shop={shop} selected={selItems.map((x) => x.id)} filtered={exportIds} total={sum.total} onClose={() => setModal(null)} /> : null}
       {modal === 'bmore' ? (
         <Modal title="Další akce" onClose={() => setModal(null)} foot={<button type="button" className="btn" onClick={() => setModal(null)}>Zavřít</button>}>
           <div className="opt">
             {((shop ? [['price', 'Upravit ceny'], ['attr', 'Stav a jazyk'], ['loc', 'Umístění'], ['export', 'Exportovat'], ['del', 'Odebrat']] : [['attr', 'Stav a jazyk'], ['loc', 'Umístění'], ['export', 'Exportovat'], ['del', 'Odebrat']]) as [BulkModal, string][])
-              .map(([k, l]) => <label key={k} onClick={() => setModal(k)} style={k === 'del' ? { color: 'var(--danger)' } : undefined}><span>{l}</span></label>)}
+              .map(([k, l]) => <label key={k} onClick={() => (k === 'export' ? openExport() : setModal(k))} style={k === 'del' ? { color: 'var(--danger)' } : undefined}><span>{l}</span></label>)}
           </div>
         </Modal>
       ) : null}
 
-      {current ? <Drawer key={current.id} i={current} places={[...LOCG].filter(([k]) => k !== '—').sort((a, b) => b[1] - a[1]).map(([k]) => k)} shop={shop} canPrice={canPrice} canAdd={canAdd} onClose={() => setOpen(null)}
-        onDone={(r, text) => { done(r, text); if (!r.error) setOpen(null); }} /> : null}
+      {current ? <Drawer key={current.id} i={current} places={places} shop={shop} canPrice={canPrice} canAdd={canAdd} onClose={() => setOpen(null)}
+        onDone={(r, text) => { done(r, text); if (!r.error) setOpen(null); start(() => patch([current.id])); }} /> : null}
 
       {toast ? <div className={`toast${toast.err ? ' err' : ''}`} role="status">{toast.t}{toast.undo ? <> · Vrátit to jde v Historii</> : null}</div> : null}
     </>
@@ -853,14 +898,14 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
     const r = await stockSet(i.id, i.name, {
       quantity: s, keep: have - s, trade: Math.min(trade, have), price: p,
       location: loc, buyPrice: buy ? Number(buy.replace(/\D/g, '')) : null,
-    });
+    }, true);
     if (!r.error && (cond !== i.cond || lang !== i.lang)) {
-      const r2 = await stockBulkSet([{ id: i.id, condition: cond, language: lang }], `${i.name}: stav a jazyk`);
+      const r2 = await stockBulkSet([{ id: i.id, condition: cond, language: lang }], `${i.name}: stav a jazyk`, 'stock', true);
       if (r2.error) { onDone(r2, ''); return; }
     }
     onDone(r, `Uloženo: ${i.name}`);
   });
-  const remove = () => start(async () => onDone(await stockChange([i.id], 'remove'), `Odebráno: ${i.name}`));
+  const remove = () => start(async () => onDone(await stockChange([i.id], 'remove', undefined, true), `Odebráno: ${i.name}`));
   const tr = info?.change;
   const lk = (k: string) => (k === i.lang || CARD_LANGS.slice(0, 4).includes(k));
   const langOpts = CARD_LANGS.filter(lk).slice(0, 5);

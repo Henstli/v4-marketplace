@@ -32,8 +32,8 @@ export interface StockRow {
   card: { slug: string; name: string; setName: string; setCode: string; number: string; image: string | null; game: string | null } | null;
 }
 
-/** Řádek z funkce stock_load (krátké klíče kvůli velikosti odpovědi). */
-type LoadRow = {
+/** Řádek z funkcí stock_load / stock_query / stock_rows (krátké klíče kvůli velikosti odpovědi). */
+export type LoadRow = {
   id: string; cid: string; p: number | null; co: string; la: string; q: number; h: number | null; rm: boolean; ca: string;
   k: number | null; t: number | null; lo: string | null; b: number | null; li: string | null; so: string | null; u: string | null;
   c: { slug: string; name: string; number: string; image: string | null; game: string | null; code: string | null; set: string | null } | null;
@@ -56,29 +56,32 @@ const stockMemo = cache((_owner: string): { p: Promise<StockRow[]> | null } => (
 async function fetchStock(supabase: SupabaseClient, userId: string): Promise<StockRow[]> {
   const { data, error } = await supabase.rpc('stock_load', { p_owner: userId });
   if (error) console.error('stock_load', error.message);
-  return ((data ?? []) as LoadRow[]).map((l) => ({
-    id: l.id,
-    cardId: l.cid,
-    price: l.p,
-    condition: l.co,
-    language: l.la,
-    quantity: l.q,
-    keep: l.k ?? 0,
-    trade: l.t ?? 0,
-    location: l.lo ?? null,
-    buyPrice: l.b ?? null,
-    listedAt: l.li ?? null,
-    createdAt: l.ca,
-    updatedAt: l.u ?? l.ca,
-    source: l.so ?? 'manual',
-    hidden: l.h,
-    removed: l.rm,
-    market: l.m ?? null,
-    card: l.c
-      ? { slug: l.c.slug, name: l.c.name, number: l.c.number, image: l.c.image, game: l.c.game, setCode: l.c.code ?? '', setName: l.c.set ?? '' }
-      : null,
-  }));
+  return ((data ?? []) as LoadRow[]).map(mapRow);
 }
+
+/** Řádek z databáze → řádek skladu. */
+export const mapRow = (l: LoadRow): StockRow => ({
+  id: l.id,
+  cardId: l.cid,
+  price: l.p,
+  condition: l.co,
+  language: l.la,
+  quantity: l.q,
+  keep: l.k ?? 0,
+  trade: l.t ?? 0,
+  location: l.lo ?? null,
+  buyPrice: l.b ?? null,
+  listedAt: l.li ?? null,
+  createdAt: l.ca,
+  updatedAt: l.u ?? l.ca,
+  source: l.so ?? 'manual',
+  hidden: l.h,
+  removed: l.rm,
+  market: l.m ?? null,
+  card: l.c
+    ? { slug: l.c.slug, name: l.c.name, number: l.c.number, image: l.c.image, game: l.c.game, setCode: l.c.code ?? '', setName: l.c.set ?? '' }
+    : null,
+});
 
 /** Mám = na prodej + mimo prodej (u skryté podporou i odložené kusy). */
 export const owned = (r: Pick<StockRow, 'quantity' | 'keep' | 'hidden'>) => r.quantity + r.keep + (r.hidden ?? 0);

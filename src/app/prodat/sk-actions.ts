@@ -23,8 +23,8 @@ function dbError(error: { code?: string; message?: string }) {
 
 export interface BulkRow { id: string; quantity?: number; keep_qty?: number; price_czk?: number | null; condition?: string; language?: string }
 
-/** Hromadné nastavení řádků skladu jednou změnou v Historii (jde vrátit). */
-export async function stockBulkSet(rows: BulkRow[], title: string, kind: 'stock' | 'price' = 'stock'): Promise<SkResult> {
+/** Hromadné nastavení řádků skladu jednou změnou v Historii (jde vrátit). quiet: z tabulky skladu, ta si řádky obnoví sama. */
+export async function stockBulkSet(rows: BulkRow[], title: string, kind: 'stock' | 'price' = 'stock', quiet = false): Promise<SkResult> {
   const clean = (Array.isArray(rows) ? rows : []).filter((r) => UUID.test(String(r.id))).slice(0, 5000).map((r) => {
     const o: BulkRow = { id: String(r.id) };
     if (r.quantity !== undefined) { if (!Number.isInteger(r.quantity) || r.quantity < 0) throw new Error('qty'); o.quantity = r.quantity; }
@@ -38,7 +38,7 @@ export async function stockBulkSet(rows: BulkRow[], title: string, kind: 'stock'
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('stock_bulk_set', { p_rows: clean, p_title: String(title).slice(0, 200), p_kind: kind });
   if (error) return { error: dbError(error) };
-  revalidatePath('/prodat');
+  if (quiet !== true) revalidatePath('/prodat');
   // Jen kusy mimo prodej: veřejný katalog se nemění, nemusí se přegenerovat.
   if (clean.some((r) => r.quantity !== undefined || r.price_czk !== undefined || r.condition !== undefined || r.language !== undefined)) {
     refreshCatalog();

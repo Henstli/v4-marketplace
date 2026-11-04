@@ -19,6 +19,8 @@ import { StockHistory, type HistoryEntry } from './StockHistory';
 import { WantsView, type Want } from './Wants';
 import { SetsView } from './SetsView';
 import { loadStock, owned } from './data';
+import { EMPTY_SUMMARY, countsId, toPage, type StockPageRaw, type StockSummary } from './stock-view';
+import { LiveCount } from './LiveCount';
 import { loadStrip } from './strip';
 import { loadShipping } from './ship';
 import { ShipManager } from './ShipManager';
@@ -55,8 +57,19 @@ export default async function StockPage({ searchParams }: Props) {
   const accountP = getAccountSummary();
   // Vlastní sklad, nebo sklad obchodu, kde je přihlášený v týmu (?obchod=…).
   const ctx = await loadCtx(supabase, user, sp.obchod);
-  // Sklad se načítá souběžně s účtem: skoro každá záložka ho potřebuje (počty v záložkách), práva hlídá databáze.
-  if (!sp.karta && (ctx.isOwner || ctx.perms.has('view') || ctx.perms.has('price'))) void loadStock(supabase, ctx.owner);
+  // Souhrny skladu (počty v záložkách, pruh, filtry) a první stránka tabulky počítá databáze; práva hlídá ona.
+  const tab0 = sp.zalozka === 'prodej' ? 'sale' : 'all';
+  const canStock = !sp.karta && (ctx.isOwner || ctx.perms.has('view') || ctx.perms.has('price'));
+  const accountShop = accountP.then((a) => (ctx.isOwner ? a?.kind === 'shop' : true));
+  const getSummary = (mode: 'all' | 'sale') => accountShop
+    .then((shop) => supabase.rpc('stock_summary', { p_owner: ctx.owner, p_mode: mode, p_shop: shop }))
+    .then(({ data, error }) => { if (error) console.error('stock_summary', error.message); return (data as StockSummary | null) ?? EMPTY_SUMMARY; });
+  const getPage = (mode: 'all' | 'sale') => accountShop
+    .then((shop) => supabase.rpc('stock_query', { p_owner: ctx.owner, p: { mode, shop, page: 1, size: 10 } }))
+    .then(({ data, error }) => { if (error) console.error('stock_query', error.message); return toPage(data as StockPageRaw | null); });
+  const summaryP = canStock ? getSummary(tab0) : Promise.resolve(EMPTY_SUMMARY);
+  const pageP = canStock && (!sp.zalozka || sp.zalozka === 'vse' || sp.zalozka === 'prodej') ? getPage(tab0) : Promise.resolve(toPage(null));
+  summaryP.catch(() => undefined); pageP.catch(() => undefined);
   const [account, ready, { data: restriction }] = await Promise.all([
     accountP,
     ctx.isOwner ? loadReadiness(supabase, user.id) : Promise.resolve({ ready: true } as Awaited<ReturnType<typeof loadReadiness>>),
@@ -95,7 +108,11 @@ export default async function StockPage({ searchParams }: Props) {
   if (!shop && tab === 'odeslat') redirect('/objednavky?tab=prodeje');
   if (!can[tab]) tab = tabs[0];
 
-  const items = tab === 'vse' || tab === 'prodej' || can.vse ? await loadStock(supabase, ctx.owner) : [];
+  // Záložka se mohla kvůli právům změnit: souhrny a první stránka musí být pro tu, která se ukáže.
+  const tabMode = tab === 'prodej' ? 'sale' : 'all';
+  const same = tabMode === tab0 && (tab !== 'vse' || !sp.zalozka || sp.zalozka === 'vse');
+  const summary = tab === 'vse' || tab === 'prodej' || can.vse ? await (same ? summaryP : getSummary(tabMode)) : EMPTY_SUMMARY;
+  const firstPage = tab === 'vse' || tab === 'prodej' ? await (same ? pageP : getPage(tabMode)) : toPage(null);
   const ship = tab === 'odeslat' ? await loadShipping(supabase, ctx.owner) : null;
   const [toShip, demandN, wantsN, team, auto, strip, unm] = await Promise.all([
     ship ? ship.orders.filter((o) => o.ready).length : can.odeslat ? supabase.from('orders').select('id', { count: 'exact', head: true })
@@ -104,17 +121,17 @@ export default async function StockPage({ searchParams }: Props) {
     shop ? 0 : supabase.from('stock_wants').select('card_id', { count: 'exact', head: true }).eq('user_id', user.id).then((r) => r.count ?? 0),
     shop && has('staff') ? loadTeam(supabase, ctx.owner) : null,
     shop && has('conn') ? loadAuto(supabase, ctx.owner) : null,
-    tab === 'vse' || tab === 'prodej' ? loadStrip(supabase, ctx.owner, items, { watchers: shop && tab === 'prodej' }) : null,
+    tab === 'vse' || tab === 'prodej' ? loadStrip(supabase, ctx.owner, summary.total > 0, { watchers: shop && tab === 'prodej' }) : null,
     can.nesparovane ? loadUnmatched(supabase, tab === 'nesparovane') : { items: [] as Unm[], waiting: 0 },
   ]);
-  const places = [...new Set(items.map((r) => r.location?.split(' · ')[0]).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
-  const gameNames = GAMES.filter((g) => items.some((r) => r.card?.game === g.id)).map((g) => g.name);
-  const kinds = (onSale: boolean) => new Set(items.filter((r) => owned(r) > 0 && (!onSale || r.quantity > 0)).map((r) => r.cardId)).size;
+  const places = [...summary.places].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
+  const gameNames = GAMES.filter((g) => summary.gameIds.includes(g.id)).map((g) => g.name);
+  const cid = countsId(ctx.owner, summary);
   const label: Record<Tab, string> = {
     vse: 'Všechny karty', prodej: 'Na prodej', odeslat: 'K odeslání', trh: 'Trh', nesparovane: 'Nespárované', inventura: 'Inventura', historie: 'Historie',
     hledam: 'Hledám', sady: 'Chybí do sad', napojeni: 'Napojení',
   };
-  const count: Partial<Record<Tab, number>> = { vse: kinds(false), prodej: kinds(true), odeslat: toShip, trh: demandN, hledam: wantsN, nesparovane: unm.waiting };
+  const count: Partial<Record<Tab, number>> = { vse: summary.kindsAll, prodej: summary.kindsSale, odeslat: toShip, trh: demandN, hledam: wantsN, nesparovane: unm.waiting };
   const view = (VIEWS.includes(sp.pohled as InvView) ? sp.pohled : sp.inventura ? 'pocitani' : 'mista') as InvView;
   const title = shop ? 'Sklad' : 'Sbírka';
 
@@ -147,12 +164,13 @@ export default async function StockPage({ searchParams }: Props) {
         <StockActions shop={shop} owner={ctx.owner} ownerName={ctx.ownerName} me={user.id} meName={user.displayName} isOwner={ctx.isOwner}
           role={ctx.role} roleLabel={ROLE_NAMES[ctx.role] ?? ''} canStaff={has('staff')} canConn={has('conn')} canAdd={has('add')}
           napojeni={href('napojeni')} team={team} auto={auto} places={places} gameNames={gameNames} obchod={ctx.isOwner ? null : ctx.owner}
-          total={items.filter((r) => owned(r) > 0).length} />
+          total={summary.owned} />
       </div>
       <div className="tabs" role="tablist">
         {tabs.map((t) => (
           <Link key={t} href={href(t === 'vse' ? undefined : t)} className={tab === t ? 'on' : ''} role="tab" aria-selected={tab === t}>
-            {label[t]}{t === 'nesparovane' && !count[t] ? null : count[t] != null ? <span className={`n${t === 'nesparovane' ? ' hot' : ''}`}>{nf(count[t]!)}</span> : null}
+            {label[t]}{t === 'vse' || t === 'prodej' ? <LiveCount k={t} n={count[t]!} id={cid} />
+              : t === 'nesparovane' && !count[t] ? null : count[t] != null ? <span className={`n${t === 'nesparovane' ? ' hot' : ''}`}>{nf(count[t]!)}</span> : null}
           </Link>
         ))}
       </div>
@@ -167,7 +185,7 @@ export default async function StockPage({ searchParams }: Props) {
       {(tab === 'vse' || tab === 'prodej') && strip ? (
         <>
           {ready.ready || !ctx.isOwner ? null : <SellGate r={ready} back="prodat" />}
-          <StockTable key={tab} items={items} mode={tab === 'prodej' ? 'sale' : 'all'} shop={shop} ready={ready.ready}
+          <StockTable key={`${ctx.owner}:${tab}`} owner={ctx.owner} initial={firstPage} summary={summary} mode={tab === 'prodej' ? 'sale' : 'all'} shop={shop} ready={ready.ready}
             canPrice={has('price')} canAdd={has('add')} stats={strip} unmatched={unm.waiting}
             napojeni={has('conn') ? href('napojeni') : null} ordersHref={shop && can.odeslat ? href('odeslat') : '/objednavky?tab=prodeje'}
             demandHref={can.trh ? href('trh') : null} />
