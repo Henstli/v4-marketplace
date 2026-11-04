@@ -37,8 +37,8 @@ function dayLabel(iso: string) {
 }
 
 /** Historie podle prototypu: štítky typů s počty, hledání, dny, Detail, Otevřít a Vrátit. */
-export function StockHistory({ entries, shop }: { entries: HistoryEntry[]; shop: boolean }) {
-  const [kind, setKind] = useState<HistoryEntry['kind'] | 'all'>('all');
+export function StockHistory({ entries, shop, initialKind = 'all' }: { entries: HistoryEntry[]; shop: boolean; initialKind?: HistoryEntry['kind'] | 'all' }) {
+  const [kind, setKind] = useState<HistoryEntry['kind'] | 'all'>(initialKind);
   const [q, setQ] = useState('');
   const [who, setWho] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
