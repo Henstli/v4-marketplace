@@ -68,7 +68,7 @@
 .tz-sk .cb{display:inline-block;width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line-strong);vertical-align:middle;position:relative;flex:none}
 .tz-sk .cb:hover{border-color:var(--ink-muted)}
 .tz-sk .cb.on{background:var(--accent);border-color:var(--accent)}
-.tz-sk .cb.on::after{content:"";position:absolute;left:5px;top:1.5px;width:4px;height:8px;border:solid var(--on-accent);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.tz-sk .cb.on::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:9px;border:solid var(--on-accent);border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
 .tz-sk .cb.mid{background:var(--accent);border-color:var(--accent)}
 .tz-sk .cb.mid::after{content:"";position:absolute;left:3px;right:3px;top:6.5px;height:2px;background:var(--on-accent)}
 .tz-sk .cond{font:700 11px var(--fm);padding:2px 6px;border-radius:5px;background:var(--up-tint);color:var(--accent)}
@@ -459,9 +459,11 @@
 .tz-sk .cb.rd{border-radius:50%}.tz-sk .cb.rd.on::after{left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border:0;border-radius:50%;background:var(--on-accent);transform:none}
 .tz-sk .flist>button.on{color:var(--accent);font-weight:600}.tz-sk .flist>button.on em{color:var(--accent)}
 .tz-sk .ftags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.tz-sk .fsel{display:flex;align-items:center;justify-content:space-between;width:100%;height:36px;padding:0 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface-sunken);color:var(--ink-muted);font:500 13px var(--fs);cursor:pointer}
-.tz-sk .fsel:hover{color:var(--ink)}.tz-sk .fsel.open{border-color:var(--accent);color:var(--ink)}.tz-sk .fsel svg{flex:none;transition:transform .15s}.tz-sk .fsel.open svg{transform:rotate(180deg)}
-.tz-sk .fsdd{margin-top:6px;padding:8px;border:1px solid var(--line-strong);border-radius:10px;background:var(--raised);box-shadow:0 12px 30px rgba(0,0,0,.35)}.tz-sk .fsdd .flist{border:0;padding:0;background:none}
+.tz-sk .fcombo{border:1px solid var(--line-strong);border-radius:9px;background:var(--surface-sunken);overflow:hidden}.tz-sk .fcombo.open{border-color:var(--accent)}
+.tz-sk .fch{display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 6px 0 12px;border:0;background:none;color:var(--ink-muted);font:500 13px var(--fs);cursor:pointer;text-align:left}
+.tz-sk .fch>span{flex:1}.tz-sk button.fch:hover{color:var(--ink)}.tz-sk .fch>svg{flex:none;width:14px;height:14px;margin-right:4px}.tz-sk .fch input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--ink);font:500 13px var(--fs)}
+.tz-sk .fcx{width:26px;height:26px;display:grid;place-items:center;border:0;background:none;color:var(--ink-muted);border-radius:6px;cursor:pointer}.tz-sk .fcx:hover{color:var(--ink)}.tz-sk .fcx svg{transform:rotate(180deg)}
+.tz-sk .fcombo .flist{border:0;border-top:1px solid var(--line);border-radius:0;background:none}
 .tz-sk .fhint{margin:8px 0 0;font-size:12px;color:var(--ink-muted)}.tz-sk .fnone{font-size:12.5px;color:var(--ink-muted);padding:6px 0}
 .tz-sk .fpop{max-height:min(640px,calc(100vh - 140px));overflow:auto}
 .tz-sk .ffoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:12px}
