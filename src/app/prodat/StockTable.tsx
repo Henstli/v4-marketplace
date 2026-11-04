@@ -267,19 +267,23 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const sgn = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('cs-CZ')}`;
   const resetF = () => { setF({ g: new Set(), c: new Set(), l: new Set(), s: new Set(), p: new Set() }); setForSale(''); setAttn(false); setDup(false); setOld(false); setQ(''); };
 
+  // Dlaždice v pruhu: počty ukážou celý sklad, hodnota seřadí od nejdražší karty.
+  const showAll = () => { resetF(); setSort('chg'); };
+  const byValue = () => { resetF(); setSort('price'); };
+
   let strip: React.ReactNode;
   if (!shop && sale) strip = (
     <div className="strip">
-      <div className="stc"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % sbírky</em></small><b>{nf(t.onSale)} ks</b></div>
-      <div className="stc"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
-      <div className="stc"><small>Prodáno<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b>{pl1(stats.sold30.pcs)} · {kc(stats.sold30.sum)}</b></div>
+      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % sbírky</em></small><b>{nf(t.onSale)} ks</b></div>
+      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
+      <div className="stc" onClick={() => (location.href = ordersHref)} title="Objednávky"><small>Prodáno<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b>{pl1(stats.sold30.pcs)} · {kc(stats.sold30.sum)}</b></div>
       <Link className="stc" href={ordersHref} style={{ display: 'block', padding: '12px 18px', borderLeft: '1px solid var(--line)' }}><small>Objednávky{stats.ordersWaiting ? <em>{stats.ordersWaiting} čeká na vás</em> : null}</small><b>{nf(stats.orders)}</b></Link>
     </div>
   );
   else if (shop && sale) strip = (
     <div className="strip">
-      <div className="stc"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % skladu</em></small><b>{nf(t.onSale)} ks</b></div>
-      <div className="stc"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
+      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % skladu</em></small><b>{nf(t.onSale)} ks</b></div>
+      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
       {stats.watchers != null ? (
         <div className="stc" onClick={() => demandHref && (location.href = demandHref)} title="Kdo co hledá"><small>Hlídá vaše karty</small><b>{plw(stats.watchers, ['člověk', 'lidé', 'lidí'])}</b></div>
       ) : null}
@@ -289,17 +293,17 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   );
   else if (shop) strip = (
     <div className="strip">
-      <div className="stc"><small>Kusů celkem</small><b>{nf(t.pcs)}</b></div>
-      <div className="stc"><small>Druhů</small><b>{nf(t.kinds)}</b></div>
+      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Kusů celkem</small><b>{nf(t.pcs)}</b></div>
+      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Druhů</small><b>{nf(t.kinds)}</b></div>
       <div className="stc" onClick={() => { resetF(); setForSale('on'); }}><small>Na prodej<em>{pct(t.onSale, t.pcs)} %</em></small><b>{nf(t.onSale)}</b></div>
-      <div className="stc"><small>Hodnota podle trhu{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} %</em> : null}</small><b>{kc(t.val)}</b></div>
+      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota podle trhu{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} %</em> : null}</small><b>{kc(t.val)}</b></div>
       <div className="sync"><span>Žádný e-shop nenapojen</span>{napojeni ? <Link className="btn sm" href={napojeni}>Napojit</Link> : null}</div>
     </div>
   );
   else strip = (
     <div className="strip">
-      <div className="stc"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
-      <div className="stc"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
+      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
+      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
       {stats.riser ? (
         <div className="stc" onClick={() => openCard(stats.riser!.cardId)}
           title={`${stats.riser.name}: ${kc(stats.riser.from)} → ${kc(stats.riser.to)} za 30 dní`}>
@@ -307,7 +311,8 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
           <b style={{ fontSize: 15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stats.riser.name}</b>
         </div>
       ) : (
-        <div className="stc" title="Tržní ceny se zapisují každou noc, první porovnání bude zítra">
+        // Bez dat není kam prokliknout: dlaždice nesmí vypadat jako tlačítko.
+        <div className="stc" style={{ cursor: 'default', background: 'none' }} title="Tržní ceny se zapisují každou noc, první porovnání bude zítra">
           <small>Nejvíc zdražila<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b style={{ fontSize: 15, color: 'var(--ink-muted)' }}>Zatím málo dat</b>
         </div>
       )}
