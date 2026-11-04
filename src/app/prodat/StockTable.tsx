@@ -409,8 +409,8 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
           </div>
         )}
       </td>
-      <td><span className={`cond ${i.cond}`}>{i.cond}</span></td>
-      <td><span className="lang">{langCode(i.lang)}</span></td>
+      <td className="c"><span className={`cond ${i.cond}`}>{i.cond}</span></td>
+      <td className="c"><span className="lang">{langCode(i.lang)}</span></td>
       <td className="c mono">{nf(i.have)}</td>
       <td className="sc">{saleCell([i], i.id)}</td>
       <td className="c pcell">{priceCell(i)}</td>
@@ -445,8 +445,8 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
             <span className="gtag"><i className={`adot${g.some((x) => issues(x, shop).length) ? '' : ' off'}`} />{g.length} {g.length < 5 ? 'varianty' : 'variant'} {Ico.chev}</span>
           </div>
         </td>
-        <td><span className="conds">{conds.map((c) => <span key={c} className={`cond ${c}`}>{c}</span>)}</span></td>
-        <td><span className="lang">{langs_}</span></td>
+        <td className="c"><span className="conds">{conds.map((c) => <span key={c} className={`cond ${c}`}>{c}</span>)}</span></td>
+        <td className="c"><span className="lang">{langs_}</span></td>
         <td className="c mono">{nf(have)}</td>
         <td className="sc">{saleCell(g, `g:${k}`)}</td>
         <td className="c pcell">{pr}</td>
@@ -489,7 +489,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <table>
         <thead><tr>
           <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(filterIds, !allSel), `Vybrat všech ${filterIds.length} podle filtru`)}</th>
-          {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'c')}
+          {th('Karta', 'name')}{th('Stav', '', 'c')}{th('Jazyk', '', 'c')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'c')}
           {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '', 'c')}<th />
         </tr></thead>
         <tbody>{shown.flatMap((g) => (g.length === 1 ? [trow(g[0])] : grow(g)))}</tbody>
