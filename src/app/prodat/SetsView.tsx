@@ -87,7 +87,7 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
   const router = useRouter();
   const [v, setV] = useState<SetView | null>(null);
   const [tab, setTab] = useState<Tab>('cards');
-  const [f, setF] = useState<'miss' | 'have' | 'all'>(s.owned >= s.total ? 'all' : 'miss');
+  const [f, setF] = useState<'miss' | 'have' | 'all'>('all');
   const [cheap, setCheap] = useState(false);
   // Hlídání
   const [won, setWon] = useState(isWatched(s));
@@ -160,7 +160,7 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
 
       {v && tab === 'cards' ? <>
         <div className="bar" style={{ margin: 0 }}>
-          {([['miss', 'Chybí', miss.length], ['have', 'Mám', have.length], ['all', 'Celá sada', cards.length]] as const).map(([k, t, c]) => (
+          {([['all', 'Celá sada', cards.length], ['miss', 'Chybí', miss.length], ['have', 'Mám', have.length]] as const).map(([k, t, c]) => (
             <button key={k} type="button" className={`chip${f === k ? ' on' : ''}`} onClick={() => setF(k)}>{t} <span className="mono" style={{ opacity: 0.7 }}>{c}</span></button>
           ))}
           {f !== 'have' ? <button type="button" className={`chip${cheap ? ' on' : ''}`} style={{ marginLeft: 'auto' }} onClick={() => setCheap(!cheap)}>Do 200 Kč</button> : null}

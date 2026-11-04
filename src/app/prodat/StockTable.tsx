@@ -90,7 +90,6 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<string | null>(null);
   const [edit, setEdit] = useState<string | null>(null);
-  const [pop, setPop] = useState<{ k: string; x: number; y: number } | null>(null);
   const [warn, setWarn] = useState<{ list: Item[]; k: string; x: number; y: number; more: boolean } | null>(null);
   const [modal, setModal] = useState<BulkModal>(null);
   const [stripModal, setStripModal] = useState<0 | 1 | 2 | 'val' | 'sold' | 'ord' | null>(null);
@@ -243,8 +242,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
         const t = w.list.find((x) => x.sale < x.have && !x.locked);
         if (t) bulk([{ id: t.id, quantity: t.sale + 1, keep_qty: t.have - t.sale - 1 }], `${t.name}: na prodej ${t.sale + 1} z ${t.have}`, `${t.name}: vyjmuto z alba a na prodej`);
       } else {
-        setToast({ t: `${w.list[0].name}: vyjmuto z alba` });
-        setPop({ k: w.k, x: w.x, y: w.y });
+        sellAll(w.list, true, `${w.list[0].name}: vyjmuto z alba a na prodej`);
       }
     });
   };
@@ -460,11 +458,16 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
     return <>{tb}<span className="iss">{first}</span>{rest.length ? <span className="iss more" title={rest.join(' · ')}>+{rest.length}</span> : null}
       {lz && canPrice ? <button type="button" className="disb" onClick={(e) => { e.stopPropagation(); setSel(new Set([i.id])); setModal('price'); }}><span className="dl">Nabídnout slevu</span><span className="ds">Sleva</span></button> : null}</>;
   };
-  const openPop = (k: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!needReady(true)) return;
-    const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setPop({ k, x: Math.max(8, Math.min(window.innerWidth - 308, b.left + b.width / 2 - 150)), y: b.bottom + 6 });
+  // Jako v prototypu: „+ Prodávat“ hned nabídne všechny volné kusy (počet se pak upraví − / +, jde vrátit).
+  const sellAll = (list: Item[], released = false, text?: string) => {
+    let n = 0;
+    const rows: BulkRow[] = list.filter((i) => !i.locked).map((i) => {
+      const q = released ? i.have : i.have - i.held; n += q;
+      return { id: i.id, quantity: q, keep_qty: i.have - q, ...(i.price == null ? { price_czk: i.market ?? null } : {}) };
+    });
+    const p = list.find((i) => i.price != null)?.price ?? list[0].market;
+    const t = `${list[0].name}: ${n} ks na prodej${p != null ? ` za ${kc(p)}` : ''}`;
+    bulk(rows, t, text ?? t);
   };
   const saleCell = (list: Item[], k: string) => {
     const have = list.reduce((s, x) => s + x.have, 0), s = list.reduce((a, x) => a + x.sale, 0);
@@ -474,7 +477,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       const al = list.find((x) => x.held)?.album ?? 'albu';
       return <button type="button" className="spill alb" title={`Poslední kus je v albu ${al}`} onClick={(e) => { e.stopPropagation(); if (needReady(true)) askAlbum(list, k, e); }}>{AlbIco}V albu</button>;
     }
-    if (!s) return <button type="button" className="spill add" onClick={(e) => openPop(k, e)}><DashBorder />+ Prodávat</button>;
+    if (!s) return <button type="button" className="spill add" onClick={(e) => { e.stopPropagation(); if (needReady(true)) sellAll(list); }}><DashBorder />+ Prodávat</button>;
     return (
       <span className="spill" onClick={(e) => e.stopPropagation()}>
         <button type="button" title="Méně" disabled={pending} onClick={() => (list.length > 1 ? gstep(list, -1) : step(list[0], -1))}>−</button>
@@ -621,7 +624,6 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   );
 
   // ---- popover Prodávat
-  const popList = pop ? (pop.k.startsWith('g:') ? groups.find((g) => g[0].key === pop.k.slice(2)) ?? [] : [known.current.get(pop.k)!].filter(Boolean)) : [];
 
   const n = selItems.length;
   const current = open ? known.current.get(open) ?? null : null;
@@ -634,8 +636,6 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       {filters}
       {table}
 
-      {pop && popList.length ? <SellPop list={popList} shop={shop} x={pop.x} y={pop.y} onClose={() => setPop(null)}
-        onOk={(rowsSet, text) => { setPop(null); bulk(rowsSet, text, text); }} /> : null}
 
       {warn ? (() => {
         const h = warn.list.find((x) => x.held)!;
@@ -719,57 +719,6 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
 }
 
 /** Popover u „+ Prodávat“: kolik kusů a za kolik. */
-function SellPop({ list, shop, x, y, onClose, onOk }: {
-  list: Item[]; shop: boolean; x: number; y: number; onClose: () => void; onOk: (rows: BulkRow[], text: string) => void;
-}) {
-  // Kus, který drží album, se nenabízí (prodávat jde nejvýš všechny bez něj).
-  const have = list.reduce((s, i) => s + i.have - i.held, 0);
-  const held = list.reduce((s, i) => s + i.held, 0);
-  const first = list.find((i) => i.price != null) ?? list[0];
-  const [qty, setQty] = useState(String(have));
-  const [price, setPrice] = useState(String(first.price ?? first.market ?? ''));
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    setTimeout(() => document.addEventListener('mousedown', h));
-    document.addEventListener('keydown', k);
-    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
-  }, [onClose]);
-  const ok = () => {
-    let left = Math.max(0, Math.min(have, Number(qty.replace(/\D/g, '')) || 0));
-    const p = Number(price.replace(/\D/g, '')) || null;
-    const rows: BulkRow[] = list.filter((i) => !i.locked).map((i) => {
-      const s = Math.min(i.have - i.held, left); left -= s;
-      return { id: i.id, quantity: s, keep_qty: i.have - s, ...(shop ? { price_czk: p } : i.price == null ? { price_czk: i.market ?? null } : {}) };
-    });
-    onOk(rows, `${list[0].name}: na prodej ${qty} z ${have}`);
-  };
-  return (
-    <>
-      <div className="pop" ref={ref} style={{ left: x, top: Math.min(y, window.innerHeight - 260) }} onClick={(e) => e.stopPropagation()}>
-        <p className="lbl" style={{ margin: 0 }}>Kolik kusů prodat</p>
-        <div className="inp"><input className="pin" value={qty} inputMode="numeric" autoFocus onChange={(e) => setQty(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok()} /><em>z {have}</em></div>
-        {held ? <small className="wsm" style={{ margin: 0 }}>{held === 1 ? '1 kus drží album, ten se nenabízí.' : `${held} kusy drží alba, ty se nenabízí.`}</small> : null}
-        <div className="qk">
-          <button type="button" onClick={() => setQty('1')}>1</button>
-          {have > 3 ? <button type="button" onClick={() => setQty(String(Math.ceil(have / 2)))}>Polovinu</button> : null}
-          <button type="button" onClick={() => setQty(String(Math.max(0, have - 1)))}>Nechat si 1</button>
-          <button type="button" onClick={() => setQty(String(have))}>Všechny</button>
-        </div>
-        {shop ? <>
-          <p className="lbl" style={{ margin: '4px 0 0' }}>Cena za kus</p>
-          <div className="inp"><input className="pin" value={price} inputMode="numeric" onChange={(e) => setPrice(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok()} /><em>Kč · trh {kc(first.market)}</em></div>
-        </> : null}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" className="btn sm g" onClick={onClose}>Zrušit</button>
-          <button type="button" className="btn sm p" onClick={ok}>{shop ? 'Prodávat' : 'Nabídnout'}</button>
-        </div>
-      </div>
-    </>
-  );
-}
-
 function SellModal({ items, shop, onClose, onOk }: { items: Item[]; shop: boolean; onClose: () => void; onOk: (rows: BulkRow[], text: string, release: string[]) => void }) {
   const [ms, setMs] = useState<'all' | 'keep' | 'n'>('all');
   // Karty, jejichž jediný kus drží album: prodat jen volné kusy, nebo je z alb vyjmout.
