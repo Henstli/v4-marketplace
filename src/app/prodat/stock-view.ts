@@ -49,7 +49,7 @@ export const toPage = (d: StockPageRaw | null): StockPage => ({
 /** Filtr a řazení tabulky tak, jak je chápe stock_query. */
 export interface StockParams {
   mode: 'all' | 'sale'; shop: boolean; q: string; g: string[]; c: string[]; l: string[]; s: string[]; p: string[];
-  forSale: '' | 'on' | 'off'; attn: boolean; dup: boolean; old: boolean; sort: 'chg' | 'name' | 'have' | 'price';
+  forSale: '' | 'on' | 'off'; attn: boolean; dup: boolean; old: boolean; sort: 'chg' | 'name' | 'cond' | 'lang' | 'have' | 'sale' | 'price' | 'loc'; dir?: 'asc' | 'desc';
   page: number; size: number; more: number; fz?: Record<string, string | number>;
 }
 
