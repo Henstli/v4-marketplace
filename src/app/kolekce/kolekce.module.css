@@ -175,7 +175,7 @@
 .miss small{font:500 11.5px var(--font-mono);color:var(--ink-muted)}
 .saleNote{font-size:12.5px;color:var(--down);margin:var(--space-2) 0 0}
 /* Hromádka karet ze skladu vedle alba (album bez automatického doplňování) */
-.stockPile{position:absolute;left:calc(var(--space-4) + 8px);top:calc(var(--space-4) + 40px);z-index:5;width:108px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 8px 12px;border-radius:14px;border:1px solid transparent;background:none;color:var(--ink);cursor:pointer;transition:border-color .2s,background .2s}
+.stockPile{position:absolute;left:calc(var(--space-4) + 8px);top:calc(var(--space-4) + 43px);z-index:5;width:108px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 8px 12px;border-radius:14px;border:1px solid transparent;background:none;color:var(--ink);cursor:pointer;transition:border-color .2s,background .2s}
 .stockPile:hover{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .stockPile:disabled{opacity:.5;cursor:default}
 .spCards{position:relative;width:84px;height:117px;margin-bottom:10px}
