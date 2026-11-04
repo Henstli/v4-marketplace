@@ -356,7 +356,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   const saleCell = (list: Item[], k: string) => {
     const have = list.reduce((s, x) => s + x.have, 0), s = list.reduce((a, x) => a + x.sale, 0);
     if (list.every((x) => x.locked)) return <span className="spill add" style={{ cursor: 'default' }}>Skryto podporou</span>;
-    if (!s) return <button type="button" className="spill add" onClick={(e) => openPop(k, e)}>+ {shop ? 'Prodávat' : 'Nabídnout'}</button>;
+    if (!s) return <button type="button" className="spill add" onClick={(e) => openPop(k, e)}>+ Prodávat</button>;
     return (
       <span className="spill" onClick={(e) => e.stopPropagation()}>
         <button type="button" title="Méně" disabled={pending} onClick={() => (list.length > 1 ? gstep(list, -1) : step(list[0], -1))}>−</button>
