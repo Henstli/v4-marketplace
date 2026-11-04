@@ -369,6 +369,12 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
                 ))}
               </div></div>
             )}
+            {shop ? null : (
+              <div className="fsec"><h6>Duplicity</h6><div className="fops">
+                <button type="button" className={`fop${!dup ? ' on' : ''}`} onClick={() => setDup(false)}>Vše</button>
+                <button type="button" className={`fop${dup ? ' on' : ''}`} onClick={() => setDup(true)}>Jen duplicity <span className="fcnt">{nf(t.dups)}</span></button>
+              </div></div>
+            )}
             {langs.length ? <div className="fsec"><h6>Jazyk</h6><div className="fops">{langs.map((l) => op('l', l, langCode(l)))}</div></div> : null}
             {srcs.length ? <div className="fsec"><h6>Zdroj</h6><div className="fops">{srcs.map((k) => op('s', k, SRC[k]?.[1] ?? k))}</div></div> : null}
             <div className="fsec"><h6>Umístění</h6>
@@ -390,11 +396,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
               <button type="button" className="frow" onClick={() => setAttn(!attn)}>
                 <span><i className="adot" />Jen co potřebuje pozornost <em>{nAttn}</em></span><span className={`fsw${attn ? ' on' : ''}`} />
               </button>
-            ) : (
-              <button type="button" className="frow" onClick={() => setDup(!dup)}>
-                <span>Jen duplicity <em>{nf(t.dups)}</em></span><span className={`fsw${dup ? ' on' : ''}`} />
-              </button>
-            )}
+            ) : null}
             <div className="ffoot">
               <button type="button" className="btn sm g" disabled={!nF} onClick={resetF}>Vymazat vše</button>
               <button type="button" className="btn sm p" onClick={() => setFp(false)}>Zobrazit {plA(pg_.nRows)}</button>
