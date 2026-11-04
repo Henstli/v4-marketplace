@@ -46,6 +46,16 @@ export async function createAlbum(a: NewAlbum): Promise<Result<{ id: string }>> 
   if (!name) return { error: 'Zadejte název alba' };
   if (a.kind === 'set' && !isId(a.setId)) return { error: 'Vyberte sadu' };
   const ids = a.cardIds.filter(isId).slice(0, 2000);
+  // dvě naprosto stejná alba nejdou: album sady jen jednou, vlastní album ne se stejnými kartami jako jiné
+  if (a.kind === 'set' && (await setAlbums(supabase, uid, [a.setId as string])).size) return { error: 'Album této sady už máte' };
+  if (a.kind === 'custom' && ids.length) {
+    const { data: own } = await supabase.from('collection_albums').select('id, collection_album_cards(card_id)').eq('user_id', uid).eq('kind', 'custom')
+      .returns<Array<{ id: string; collection_album_cards: Array<{ card_id: string }> }>>();
+    const want = [...new Set(ids)].sort().join();
+    if ((own ?? []).some((o) => [...new Set(o.collection_album_cards.map((c) => c.card_id))].sort().join() === want)) {
+      return { error: 'Album se stejnými kartami už máte' };
+    }
+  }
   const { data, error } = await supabase.from('collection_albums').insert({
     user_id: uid, name, kind: a.kind, set_id: a.kind === 'set' ? a.setId : null,
     design: Math.min(20, Math.max(1, Math.round(a.design))), sleeve: Math.min(20, Math.max(1, Math.round(a.sleeve))),
@@ -177,7 +187,7 @@ export async function markAlbumSeen(id: string): Promise<Result> {
 export async function setAlbumAutoFill(id: string, on: boolean): Promise<Result> {
   const { supabase, uid } = await user();
   if (!uid || !isId(id)) return { error: 'login' };
-  const { error } = await supabase.from('collection_albums').update({ auto_fill: on }).eq('id', id);
+  const { error } = await supabase.rpc('collection_album_autofill', { p_album: id, p_on: on });
   if (error) return { error: 'Změnu se nepodařilo uložit' };
   refresh(id);
   return { ok: true };
@@ -201,6 +211,18 @@ export interface SetOption {
   game: GameId;
   cards: number;
   owned: number;
+  /** Album této sady, které uživatel už má (druhé stejné album založit nejde) */
+  album?: string | null;
+}
+
+/** Alba sad, která uživatel už má: sada → id alba. */
+async function setAlbums(supabase: Awaited<ReturnType<typeof user>>['supabase'], uid: string | null, setIds: string[]): Promise<Map<string, string>> {
+  const m = new Map<string, string>();
+  if (!uid || !setIds.length) return m;
+  const { data } = await supabase.from('collection_albums').select('id, set_id').eq('user_id', uid).eq('kind', 'set').in('set_id', setIds)
+    .order('created_at').returns<Array<{ id: string; set_id: string }>>();
+  for (const r of data ?? []) if (!m.has(r.set_id)) m.set(r.set_id, r.id);
+  return m;
 }
 
 /** Sady pro průvodce založením: bez hledání nejnovější sady hry, s hledáním podle názvu, kódu nebo roku. */
@@ -227,18 +249,25 @@ export async function findSets(game: GameId, q: string): Promise<SetOption[]> {
       .in('cards.set_id', sets.map((s) => s.id)).returns<Array<{ card_id: string; cards: { set_id: string } }>>();
     for (const r of data ?? []) owned.set(r.cards.set_id, (owned.get(r.cards.set_id) ?? 0) + 1);
   }
-  return sets.map((s) => ({ ...s, owned: owned.get(s.id) ?? 0 }));
+  const albums = await setAlbums(supabase, uid ?? null, sets.map((s) => s.id));
+  return sets.map((s) => ({ ...s, owned: owned.get(s.id) ?? 0, album: albums.get(s.id) ?? null }));
 }
 
 /** Jedna sada pro průvodce otevřený ze Sbírky (Založit kolekci u sady). */
 export async function getSet(id: string): Promise<SetOption | null> {
   if (!isId(id)) return null;
-  const { supabase } = await user();
+  const { supabase, uid } = await user();
   const { data } = await supabase.from('card_sets').select('id, name, code, released_on, game_id').eq('id', id)
     .maybeSingle<{ id: string; name: string; code: string; released_on: string | null; game_id: GameId }>();
   if (!data) return null;
-  const { count } = await supabase.from('cards').select('id', { count: 'exact', head: true }).eq('set_id', id).eq('hidden', false);
-  return { id: data.id, name: data.name, code: data.code, year: data.released_on ? Number(data.released_on.slice(0, 4)) : null, game: data.game_id, cards: count ?? 0, owned: 0 };
+  const [{ count }, albums] = await Promise.all([
+    supabase.from('cards').select('id', { count: 'exact', head: true }).eq('set_id', id).eq('hidden', false),
+    setAlbums(supabase, uid ?? null, [id]),
+  ]);
+  return {
+    id: data.id, name: data.name, code: data.code, year: data.released_on ? Number(data.released_on.slice(0, 4)) : null, game: data.game_id,
+    cards: count ?? 0, owned: 0, album: albums.get(id) ?? null,
+  };
 }
 
 export interface PickCard {

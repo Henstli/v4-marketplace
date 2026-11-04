@@ -52,7 +52,8 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
 
   useEffect(() => {
     if (!preset?.setId) return;
-    getSet(preset.setId).then((o) => { if (o) { setGame(o.game); setSet(o); setLook((l) => (l.name ? l : { ...l, name: o.name.slice(0, 60) })); } });
+    getSet(preset.setId).then((o) => { if (o?.album) { router.replace(`/kolekce/${o.album}`); return; }
+      if (o) { setGame(o.game); setSet(o); setLook((l) => (l.name ? l : { ...l, name: o.name.slice(0, 60) })); } });
   }, [preset?.setId]);
 
   useEffect(() => {
@@ -147,7 +148,12 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
                   <div className={s.sets}>
                     {sets === null ? <p className={s.hint}>Načítám sady…</p> : null}
                     {sets?.length === 0 ? <p className={s.hint}>Žádná sada neodpovídá.</p> : null}
-                    {sets?.map((o) => (
+                    {sets?.map((o) => o.album ? (
+                      <Link key={o.id} className={`${s.set} ${s.setHas}`} href={`/kolekce/${o.album}`}>
+                        <span><b>{o.name}</b><small>{o.code.toUpperCase()}{o.year ? ` · ${o.year}` : ''} · {o.cards} {cardsWord(o.cards)}</small></span>
+                        <em>Album už máš · Otevřít</em>
+                      </Link>
+                    ) : (
                       <button key={o.id} type="button" className={s.set} aria-pressed={set?.id === o.id} onClick={() => chooseSet(o)}>
                         <span><b>{o.name}</b><small>{o.code.toUpperCase()}{o.year ? ` · ${o.year}` : ''} · {o.cards} {cardsWord(o.cards)}</small></span>
                         <em>{o.owned ? `máš ${o.owned}` : ''}</em>

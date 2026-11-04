@@ -170,19 +170,48 @@ async function stockReady(supabase: SupabaseClient, ids: string[]): Promise<stri
   return [...out];
 }
 
-/** Karty alba v pořadí, ve kterém leží v kapsách. */
-async function albumCards(supabase: SupabaseClient, a: AlbumRow): Promise<AlbumCard[]> {
+/** Album sady bez doplňování ukazuje jen karty, které do něj uživatel vložil (kolekce je společná pro všechna alba). */
+function placedOnly(a: AlbumRow): boolean {
+  return a.kind === 'set' && a.auto_fill === false;
+}
+
+/** Karty vložené do alba (collection_album_cards). */
+async function placedIds(supabase: SupabaseClient, albumIds: string[]): Promise<Map<string, Set<string>>> {
+  const m = new Map<string, Set<string>>();
+  if (!albumIds.length) return m;
+  const rows = await pages(20000, (from, to) => supabase.from('collection_album_cards').select('album_id, card_id').in('album_id', albumIds)
+    .order('album_id').order('card_id').range(from, to).returns<Array<{ album_id: string; card_id: string }>>());
+  for (const r of rows ?? []) {
+    let s = m.get(r.album_id);
+    if (!s) m.set(r.album_id, (s = new Set()));
+    s.add(r.card_id);
+  }
+  return m;
+}
+
+/** Karty alba v pořadí, ve kterém leží v kapsách. Vrací i karty kolekce, které v albu bez doplňování ještě nejsou. */
+async function albumCards(supabase: SupabaseClient, a: AlbumRow): Promise<{ cards: AlbumCard[]; unplaced: string[] }> {
   const rows = await albumRows(supabase, a);
   const ids = rows.map((r) => r.id);
-  const [owned, stats] = await Promise.all([ownedMap(supabase, ids), offerStats(supabase, ids)]);
-  return rows.map((r) => toCard(r, owned.get(r.id) ?? 0, stats.get(r.id)));
+  const [owned, stats, placed] = await Promise.all([
+    ownedMap(supabase, ids), offerStats(supabase, ids),
+    placedOnly(a) ? placedIds(supabase, [a.id]) : Promise.resolve(null),
+  ]);
+  const inAlbum = placed?.get(a.id) ?? new Set<string>();
+  const unplaced: string[] = [];
+  const cards = rows.map((r) => {
+    let q = owned.get(r.id) ?? 0;
+    if (placed && q > 0 && !inAlbum.has(r.id)) { unplaced.push(r.id); q = 0; }
+    return toCard(r, q, stats.get(r.id));
+  });
+  return { cards, unplaced };
 }
 
 export async function getAlbum(id: string): Promise<AlbumDetail | null> {
   const supabase = await createClient();
   const { data } = await supabase.from('collection_albums').select(ALBUM_COLS).eq('id', id).maybeSingle<AlbumRow>();
   if (!data) return null;
-  const [cards, extra] = await Promise.all([
+  const [{ cards, unplaced }, extra] = await Promise.all([
     albumCards(supabase, data),
     supabase.from('collection_albums').select('auto_fill, seen_at').eq('id', id).maybeSingle<{ auto_fill: boolean; seen_at: string | null }>(),
   ]);
@@ -196,6 +225,8 @@ export async function getAlbum(id: string): Promise<AlbumDetail | null> {
     seen ? addedSince(supabase, ownedIds, seen) : Promise.resolve([] as string[]),
     stockReady(supabase, missIds),
   ]);
+  // karty, které už jsou v kolekci (třeba z jiného alba téže sady), čekají na vložení stejně jako karty ze skladu
+  for (const c of unplaced) if (!fromStock.includes(c)) fromStock.push(c);
   return { ...summaryOf(data), cards, have, total: cards.length, value, fresh, fromStock, autoFill };
 }
 
@@ -225,7 +256,10 @@ export async function getCollectionOverview(): Promise<CollectionOverview> {
   // karty všech alb naráz a pak jeden společný dotaz na ceny; vlastnictví už známe z `own`
   const ownQty = new Map(own.map((o) => [o.card_id, o.quantity]));
   const ownAt = new Map(own.map((o) => [o.card_id, Date.parse(o.added_at)]));
-  const rowsOf = await Promise.all((albumRows_ ?? []).map((a) => albumRows(supabase, a)));
+  const [rowsOf, placed] = await Promise.all([
+    Promise.all((albumRows_ ?? []).map((a) => albumRows(supabase, a))),
+    placedIds(supabase, (albumRows_ ?? []).filter(placedOnly).map((a) => a.id)),
+  ]);
   const allStats = await offerStats(supabase, [...own.map((o) => o.card_id), ...rowsOf.flat().map((r) => r.id)]);
   const value = own.reduce((s, o) => s + (allStats.get(o.card_id)?.min ?? 0) * o.quantity, 0);
 
@@ -236,7 +270,8 @@ export async function getCollectionOverview(): Promise<CollectionOverview> {
   const cardAlbums: Record<string, string[]> = {};
   for (const [ai, a] of (albumRows_ ?? []).entries()) {
     for (const r of rowsOf[ai]) (cardAlbums[r.id] ??= []).includes(a.id) || cardAlbums[r.id].push(a.id);
-    const cards = rowsOf[ai].map((r) => toCard(r, ownQty.get(r.id) ?? 0, allStats.get(r.id)));
+    const inAlbum = placedOnly(a) ? (placed.get(a.id) ?? new Set<string>()) : null;
+    const cards = rowsOf[ai].map((r) => toCard(r, inAlbum && !inAlbum.has(r.id) ? 0 : ownQty.get(r.id) ?? 0, allStats.get(r.id)));
     const have = cards.filter((c) => c.owned > 0).length;
     const seen = a.seen_at ? Date.parse(a.seen_at) : null;
     const fresh = seen == null ? 0 : cards.filter((c) => c.owned && (ownAt.get(c.id) ?? 0) > seen).length;

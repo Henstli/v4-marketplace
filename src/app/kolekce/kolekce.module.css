@@ -141,6 +141,9 @@
 .set[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .set b{display:block}
 .set small{color:var(--ink-muted);font-size:12.5px}
+.setHas{background:var(--surface-2,var(--surface));text-decoration:none}
+.setHas b{color:var(--ink-muted)}
+.setHas em{color:var(--accent)}
 .set em{font:500 12px var(--font-mono);font-style:normal;color:var(--ink-muted);white-space:nowrap}
 .tray{display:flex;gap:8px;overflow-x:auto;padding:8px 0}
 .tray .mcImg{width:64px;flex:none}
