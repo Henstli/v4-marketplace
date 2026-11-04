@@ -1,15 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { StockRow } from './data';
 import type { StripStats } from './StockTable';
 
 const OPEN = ['requested', 'confirmed', 'pending_payment', 'paid'];
 const SOLD = ['paid', 'shipped', 'delivered'];
 
 /** Čísla do pruhu nad tabulkou: vývoj hodnoty, nejvíc zdražená karta, objednávky, prodeje, kdo hlídá. */
-export async function loadStrip(supabase: SupabaseClient, owner: string, rows: StockRow[], opts: { watchers: boolean }): Promise<StripStats> {
+export async function loadStrip(supabase: SupabaseClient, owner: string, hasRows: boolean, opts: { watchers: boolean }): Promise<StripStats> {
   const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
   const [rise, open, sold, demand] = await Promise.all([
-    rows.length ? supabase.rpc('stock_riser', { p_owner: owner }) : Promise.resolve({ data: null }),
+    hasRows ? supabase.rpc('stock_riser', { p_owner: owner }) : Promise.resolve({ data: null }),
     supabase.from('orders').select('status, payment').eq('seller_id', owner).in('status', OPEN).limit(1000),
     supabase.from('orders').select('total_czk, order_items(quantity)').eq('seller_id', owner).in('status', SOLD).gte('created_at', since30).limit(1000),
     opts.watchers ? supabase.rpc('market_demand', { p_owner: owner }) : Promise.resolve({ data: null }),

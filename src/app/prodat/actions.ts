@@ -70,9 +70,12 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   return { ok: true };
 }
 
-/** Po změně skladu. Katalog a stránky prodejců se obnoví jen u změn, které jsou vidět veřejně (ceny, kusy na prodej). */
-function revalidateStock(pub = true) {
-  revalidatePath('/prodat');
+/**
+ * Po změně skladu. Katalog a stránky prodejců se obnoví jen u změn, které jsou vidět veřejně (ceny, kusy na prodej).
+ * quiet: změna z tabulky skladu, která si upravené řádky načte sama, takže se celá stránka skladu znovu nevykresluje.
+ */
+function revalidateStock(pub = true, quiet = false) {
+  if (!quiet) revalidatePath('/prodat');
   if (!pub) return;
   refreshCatalog();
   revalidatePath('/prodejci', 'layout');
@@ -114,7 +117,7 @@ function dbError(error: { code?: string; message?: string }) {
 }
 
 // Hromadná změna skladu. Databázová funkce běží s právy přihlášeného, cizí řádky nezmění, a změnu zapíše do Historie.
-export async function stockChange(ids: string[], op: StockOp, value?: number | string): Promise<BulkResult> {
+export async function stockChange(ids: string[], op: StockOp, value?: number | string, quiet = false): Promise<BulkResult> {
   const list = cleanIds(ids);
   if (!list.length) return { error: 'Vyberte karty.' };
   const num = typeof value === 'number' ? value : undefined;
@@ -126,7 +129,7 @@ export async function stockChange(ids: string[], op: StockOp, value?: number | s
     p_ids: list, p_op: op, p_title: opTitle(op, list.length, num, text), p_num: num ?? null, p_text: text ?? null,
   });
   if (error) return { error: dbError(error) };
-  revalidateStock(!PRIVATE_OPS.includes(op));
+  revalidateStock(!PRIVATE_OPS.includes(op), quiet === true);
   if (op === 'sell' || op === 'price' || op === 'pct') await scheduleWatchFlush();
   return { count: Number(data ?? 0) };
 }
@@ -144,7 +147,7 @@ export interface StockSet {
 const qtyOk = (n: number) => Number.isInteger(n) && n >= 0 && n <= 100000;
 
 // Úprava jednoho řádku z detailu karty.
-export async function stockSet(id: string, name: string, set: StockSet): Promise<BulkResult> {
+export async function stockSet(id: string, name: string, set: StockSet, quiet = false): Promise<BulkResult> {
   const [clean] = cleanIds([id]);
   if (!clean) return { error: 'Karta nenalezena.' };
   if (!qtyOk(set.quantity) || !qtyOk(set.keep) || !qtyOk(set.trade)) return { error: 'Počty kusů musí být celá čísla od 0.' };
@@ -158,7 +161,7 @@ export async function stockSet(id: string, name: string, set: StockSet): Promise
     p_ids: [clean], p_op: 'set', p_title: `Upraveno: ${String(name).slice(0, 150)}`, p_set: p,
   });
   if (error) return { error: dbError(error) };
-  revalidateStock();
+  revalidateStock(true, quiet === true);
   if (set.quantity > 0) await scheduleWatchFlush();
   return { count: 1 };
 }
