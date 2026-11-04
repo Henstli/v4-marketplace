@@ -24,6 +24,12 @@ const LIVE = GAMES.filter((g) => g.live);
 export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: string; unsell?: boolean; autoFill?: boolean } }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  // Další krok průvodce vždy začíná nahoře (seznam sad bývá dlouhý).
+  const firstStep = useRef(true);
+  useEffect(() => {
+    if (firstStep.current) { firstStep.current = false; return; }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
   const [look, setLook] = useState<Look>({ name: preset?.name?.slice(0, 60) ?? '', design: 1, sleeve: 1 });
   const [unsell, setUnsell] = useState(preset?.unsell ?? false);
   const [autoFill, setAutoFill] = useState(preset?.autoFill ?? true);
