@@ -64,3 +64,6 @@
   .wrap { right: 16px; bottom: 16px; }
   .panel { width: calc(100vw - 32px); height: calc(100vh - 110px); }
 }
+
+/* Když je otevřené okno nebo detail (např. detail karty ve Skladu), bublina se schová, ať nepřekrývá jeho tlačítka. */
+:global(body:has([aria-modal="true"])) .wrap { display: none; }
