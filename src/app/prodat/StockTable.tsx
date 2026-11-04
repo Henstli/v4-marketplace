@@ -411,7 +411,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <td className="sc">{saleCell([i], i.id)}</td>
       <td className="r pcell">{priceCell(i)}</td>
       {shop ? <td><span className={`src ${SRC[i.src]?.[0] ?? 'R'}`}>{SRC[i.src]?.[1] ?? i.src}</span></td> : null}
-      <td><span className="loc">{i.loc || '—'}</span></td>
+      <td className="c"><span className="loc">{i.loc || '—'}</span></td>
       <td className="r"><button type="button" className="more" onClick={(e) => { e.stopPropagation(); setOpen(i.id); }} aria-label="Detail">{Ico.dots}</button></td>
     </tr>
   );
@@ -447,7 +447,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         <td className="sc">{saleCell(g, `g:${k}`)}</td>
         <td className="r pcell">{pr}</td>
         {shop ? <td>{us.length > 1 ? <span className="src">{us.length} zdroje</span> : <span className={`src ${SRC[us[0]]?.[0] ?? 'R'}`}>{SRC[us[0]]?.[1] ?? us[0]}</span>}</td> : null}
-        <td><span className="loc">{locs.length > 1 ? `${locs.length} místa` : locs[0]}</span></td>
+        <td className="c"><span className="loc">{locs.length > 1 ? `${locs.length} místa` : locs[0]}</span></td>
         <td className="r"><span className="more" title={op_ ? 'Sbalit' : 'Rozbalit varianty'}><i className={`gchev${op_ ? ' op' : ''}`} /></span></td>
       </tr>,
       ...(op_ ? g.map((x, j) => trow(x, j === g.length - 1 ? 2 : 1)) : []),
@@ -486,7 +486,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         <thead><tr>
           <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(pageIds, !allSel), 'Vybrat vše na stránce')}</th>
           {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'r')}
-          {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '')}<th />
+          {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '', 'c')}<th />
         </tr></thead>
         <tbody>{shown.flatMap((g) => (g.length === 1 ? [trow(g[0])] : grow(g)))}</tbody>
       </table>
