@@ -1,69 +1,78 @@
 import Link from 'next/link';
 
-type Conn = { k: string; name: string; text: string; flow: string; state: 'live' | 'soon'; note?: string; href?: string; action?: string };
+type C = [k: string, name: string, color: string, text: string, flow: string, tag: string];
 
-const SHOPS: Conn[] = [
-  { k: 'T', name: 'Tabulka', text: 'Excel nebo CSV, i export z Cardmarketu. Sloupce poznáme sami.', flow: 'Počty → · Ceny →', state: 'live', href: '/prodat/import', action: 'Nahrát tabulku' },
-  { k: 'S', name: 'Shoptet', text: 'Nejčastější e-shop v ČR. Doplněk V4cards ve Shoptetu, přihlášení jedním klikem.', flow: 'Počty ↔ · Ceny → · Prodeje ↔', state: 'soon', note: 'Čeká na partnerskou registraci V4cards u Shoptetu.' },
-  { k: 'W', name: 'WooCommerce', text: 'WordPress e-shopy. Klíč z nastavení WooCommerce.', flow: 'Počty ↔ · Ceny → · Prodeje ↔', state: 'soon' },
-  { k: 'F', name: 'Shopify', text: 'Klíč z vlastní aplikace v Shopify.', flow: 'Počty ↔ · Ceny → · Prodeje ↔', state: 'soon' },
-  { k: 'U', name: 'Upgates a další', text: 'Přes XML feed (Heureka, Zboží), který e-shop už má.', flow: 'Počty → · Ceny →', state: 'soon' },
-  { k: 'A', name: 'Vlastní systém (API)', text: 'Pro obchody s vlastním skladem. API klíč a dokumentace.', flow: 'Počty ↔ · Ceny ↔ · Prodeje ↔', state: 'soon' },
+const SHOP: C[] = [
+  ['S', 'Shoptet', '#9be3ff', 'Nejčastější e-shop v ČR. Doplněk V4cards ve Shoptetu, přihlášení jedním klikem.', 'Počty ↔ · Ceny → · Prodeje ↔', 'Doporučeno'],
+  ['W', 'WooCommerce', '#c8a6ff', 'WordPress e-shopy. Náš plugin, klíč z nastavení WooCommerce.', 'Počty ↔ · Ceny → · Prodeje ↔', ''],
+  ['F', 'Shopify', '#a6e36b', 'Klíč z vlastní aplikace v Shopify.', 'Počty ↔ · Ceny → · Prodeje ↔', ''],
+  ['U', 'Upgates a další', '#ffc86b', 'Přes XML feed (Heureka/Zboží), který e-shop už má.', 'Počty → · Ceny →', 'Jen čtení'],
+  ['T', 'Tabulka', '#7fe0a6', 'Excel nebo CSV, i export z Cardmarketu. Sloupce poznáme sami.', 'Počty → · Ceny →', ''],
+  ['A', 'Vlastní systém (API)', '#e8ecf1', 'Pro obchody s vlastním skladem. API klíč a dokumentace.', 'Počty ↔ · Ceny ↔ · Prodeje ↔', 'Pro'],
 ];
-const CARRIERS: Conn[] = [
-  { k: 'Z', name: 'Zásilkovna', text: 'Štítek z objednávky přes váš účet u Zásilkovny.', flow: 'Štítky · stav zásilky', state: 'soon' },
-  { k: 'B', name: 'Česká pošta a Balíkovna', text: 'Podací data a štítky přes váš účet u České pošty.', flow: 'Štítky · stav zásilky', state: 'soon' },
-  { k: 'P', name: 'PPL', text: 'Štítky přes váš účet PPL.', flow: 'Štítky · stav zásilky', state: 'soon' },
-  { k: 'D', name: 'DPD a GLS', text: 'Štítky přes váš účet u dopravce.', flow: 'Štítky · stav zásilky', state: 'soon' },
+const COLLECTOR: C[] = [
+  ['T', 'Tabulka', '#7fe0a6', 'Excel nebo CSV nahrajete jednou. Sloupce poznáme sami.', 'Počty → · Ceny →', ''],
+  ['M', 'ManaBox', '#ff9b7a', 'Magic. Skenujete karty telefonem. Export sbírky do CSV převedeme celý.', 'Sbírka →', 'Soubor'],
+  ['X', 'Moxfield', '#b58cff', 'Magic. Sbírka i balíčky.', 'Sbírka →', 'Soubor'],
+  ['R', 'Archidekt', '#6aa9ff', 'Magic. Export sbírky.', 'Sbírka →', 'Soubor'],
+  ['D', 'Dragon Shield', '#7fd6e8', 'Pokémon, Magic, Lorcana, One Piece. Skener v telefonu, export do CSV.', 'Sbírka →', 'Soubor'],
+  ['C', 'Collectr', '#ffd36b', 'Pokémon, One Piece, Lorcana a sport. Export portfolia do CSV.', 'Sbírka →', 'Soubor'],
+  ['K', 'Cardmarket', '#9aa3ad', 'Stažený seznam vašich nabídek.', 'Sbírka →', 'Soubor'],
 ];
-const BILLING: Conn[] = [
-  { k: 'F', name: 'Fakturoid', text: 'Faktura k objednávce přes V4cards se založí sama, Fakturoid spáruje platbu a my převezmeme Zaplaceno.', flow: 'Faktury → · Zaplaceno ←', state: 'soon' },
-  { k: 'I', name: 'iDoklad', text: 'Stejně jako Fakturoid: faktura sama, párování platby v iDokladu.', flow: 'Faktury → · Zaplaceno ←', state: 'soon' },
+const CARRIERS: [string, string, string, string][] = [
+  ['Z', 'Zásilkovna', '#ff7a72', 'Klíč API najdete v klientské sekci Zásilkovny.'],
+  ['P', 'PPL', '#ffd36b', 'Přihlašovací údaje k PPL API (MyAPI). Výdejní místa, boxy i na adresu.'],
+  ['B', 'Česká pošta / Balíkovna', '#8fc1ff', 'Klíč z aplikace Podání online. Balíkovna, Balík Do ruky i doporučený dopis.'],
+  ['G', 'GLS', '#7aa7ff', 'Přihlašovací údaje k MyGLS API.'],
+  ['Q', 'DPD', '#ff8a8a', 'Klíč k DPD API z klientského portálu DPD.'],
+];
+const BILLING: [string, string, string, string][] = [
+  ['K', 'Fakturoid', '#ff9b7a', 'Faktura se založí sama, platbu spáruje Fakturoid podle variabilního symbolu.'],
+  ['D', 'iDoklad', '#7ab8ff', 'Stejně jako Fakturoid. Klíč najdete v nastavení iDokladu.'],
+  ['R', 'SuperFaktura', '#ffb36b', 'Nejrozšířenější na Slovensku, umí i Česko. Klíč v nastavení účtu.'],
+  ['X', 'ABRA Flexi', '#b58cff', 'Pro obchody s ABRA Flexi. Uživatel s přístupem k API.'],
+  ['O', 'Pohoda', '#7fd6e8', 'Přes doplněk mServer, který Pohoda už obsahuje.'],
+  ['M', 'Money S3 a S5', '#c9d36a', 'Výměna dat přes XML, v Money ji zapnete v nastavení.'],
 ];
 
-function Grid({ list }: { list: Conn[] }) {
-  return (
-    <div className="tz-stk-cons">
-      {list.map((c) => (
-        <div key={c.name} className={`tz-stk-con${c.state === 'live' ? ' is-live' : ''}`}>
-          <header><span className="tz-stk-lg">{c.k}</span><b>{c.name}</b>{c.state === 'live' ? <em className="tz-stk-pay is-ok">Funguje</em> : <em className="tz-acct-soon">Brzy</em>}</header>
-          <p>{c.text}</p>
-          <small className="tz-stk-code">{c.flow}</small>
-          {c.note ? <small className="tz-stk-muted">{c.note}</small> : null}
-          {c.href ? <Link className="tz-btn tz-btn-secondary tz-btn-sm" href={c.href}>{c.action}</Link> : null}
-        </div>
-      ))}
+const soon = <span style={{ display: 'flex', gap: 8 }}><span className="btn sm" aria-disabled="true" style={{ opacity: 0.55, cursor: 'default' }} title="Připravujeme">Brzy</span></span>;
+
+/** Napojení podle prototypu. Co zatím nefunguje, má místo Napojit poctivé Brzy. */
+export function Connections({ back, shop, obchod }: { back: string; shop: boolean; obchod: string }) {
+  const imp = obchod ? `/prodat/import?obchod=${obchod}` : '/prodat/import';
+  const card = (k: string, n: string, c: string, p: string, f: string, tag: string, action: React.ReactNode) => (
+    <div key={n} className="con">
+      <div className="ch"><span className="lg" style={{ background: c }}>{k}</span><b>{n}</b>{tag ? <em>{tag}</em> : null}</div>
+      <p>{p}</p><small>{f}</small>{action}
     </div>
   );
-}
-
-/** Napojení obchodu: e-shopy, dopravci, fakturace a exporty. Co zatím nefunguje, je poctivě označené Brzy. */
-export function Connections({ isOwner }: { isOwner: boolean }) {
   return (
     <>
-      <p className="t-small muted" style={{ maxWidth: 760 }}>
-        Šipky říkají, kterým směrem data tečou. ↔ znamená obousměrně: prodej na e-shopu sníží počet u nás a prodej u nás sníží počet v e-shopu.
-        Peníze ani zásilky přes V4cards nejdou: štítky platíte svému dopravci a faktury vystavuje vaše fakturace.
+      <div className="top"><div><Link className="btn sm g" href={back} style={{ paddingLeft: 0 }}>← Zpět {shop ? 'na sklad' : 'do sbírky'}</Link><h1>Napojení</h1></div></div>
+      <p style={{ color: 'var(--ink-muted)', maxWidth: 720 }}>
+        {shop
+          ? 'Šipky říkají, kterým směrem data tečou. ↔ znamená obousměrně: prodej na e-shopu sníží počet u nás a prodej u nás sníží počet v e-shopu.'
+          : 'Sbírku nahrajete z tabulky nebo ze sběratelské aplikace. Aplikace zatím jen exportem do souboru, karty spárujeme s katalogem.'}
       </p>
-      <section className="tz-stk-box"><header><b>E-shop a sklad</b></header><Grid list={SHOPS} /></section>
-      <section className="tz-stk-box">
-        <header><b>Dopravci</b><span className="t-small muted">Váš vlastní účet u dopravce. Do té doby: v K odeslání zadáte číslo zásilky ručně a vytisknete adresní štítky.</span></header>
-        <Grid list={CARRIERS} />
-      </section>
-      <section className="tz-stk-box">
-        <header><b>Fakturace</b><span className="t-small muted">Pro obchody bez e-shopu. Bankovní účet obchodu nikdy nečteme.</span></header>
-        <Grid list={BILLING} />
-      </section>
-      {isOwner ? (
-        <section className="tz-stk-box">
-          <header><b>Exporty</b><span className="t-small muted">Stáhnete kdykoli, data jsou vaše.</span></header>
-          <div className="tz-stk-tools">
-            <a className="tz-btn tz-btn-ghost tz-btn-sm" href="/prodat/export" download>Sklad (CSV, jde nahrát zpátky)</a>
-            <a className="tz-btn tz-btn-ghost tz-btn-sm" href="/prodat/export?druh=ucetni" download>Přehled pro účetní</a>
-            <a className="tz-btn tz-btn-ghost tz-btn-sm" href="/prodat/export?druh=pojisteni" download>Přehled pro pojištění</a>
-            <a className="tz-btn tz-btn-ghost tz-btn-sm" href="/prodat/export?druh=deckbuilder" download>Pro deckbuildery (Moxfield)</a>
+      <div className="cons">
+        {(shop ? SHOP : COLLECTOR).map(([k, n, c, p, f, t]) => card(k, n, c, p, f, t,
+          k === 'T' || !shop ? <span style={{ display: 'flex', gap: 8 }}><Link className="btn sm" href={imp}>{k === 'T' ? 'Nahrát' : 'Nahrát export'}</Link></span>
+            : k === 'S' ? <span style={{ display: 'flex', gap: 8 }}><span className="btn sm" style={{ opacity: 0.55, cursor: 'default' }} title="Čeká na partnerskou registraci V4cards u Shoptetu">Brzy</span></span> : soon))}
+      </div>
+      {shop ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, margin: '26px 0 12px' }}>
+            <h3 style={{ font: '700 18px var(--fd)', margin: 0 }}>Dopravci</h3>
+            <span style={{ color: 'var(--ink-muted)', fontSize: 13 }}>Váš vlastní účet. Do té doby zadáte v K odeslání číslo zásilky ručně a vytisknete adresní štítky.</span>
           </div>
-        </section>
+          <div className="cons">{CARRIERS.map(([k, n, c, p]) => card(k, n, c, p, 'Štítky → · Sledování ←', '', soon))}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, margin: '26px 0 4px' }}>
+            <h3 style={{ font: '700 18px var(--fd)', margin: 0 }}>Fakturace</h3>
+            <span style={{ color: 'var(--ink-muted)', fontSize: 13 }}>Pro obchody bez e-shopu, nebo když váš e-shop faktury nevystavuje.</span>
+          </div>
+          <p style={{ color: 'var(--ink-muted)', maxWidth: 720, margin: '0 0 12px' }}>K objednávce přes V4cards se faktura vystaví sama ve vaší fakturační aplikaci. Ta má napojenou vaši banku, platbu spáruje a my jen převezmeme „zaplaceno“.</p>
+          <div className="cons">{BILLING.map(([k, n, c, p]) => card(k, n, c, p, 'Faktury → · Zaplaceno ←', '', soon))}</div>
+        </>
       ) : null}
     </>
   );

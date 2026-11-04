@@ -1,5 +1,6 @@
 @import '../styles/tokens.css';
 @import '../../design-system/bundle.css';
+@import '../../design-system/stock.css';
 @import '../styles/ds-extensions.css';
 
 *, *::before, *::after { box-sizing: border-box; }
