@@ -476,7 +476,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       </td>
       <td className="c"><span className={`cond ${i.cond}`}>{i.cond}</span></td>
       <td className="c"><span className="lang">{langCode(i.lang)}</span></td>
-      <td className="c mono">{nf(i.have)}</td>
+      <td className="c mono">{nf(i.have).replace(/ /g, "\u202F")}</td>
       <td className="sc">{saleCell([i], i.id)}</td>
       <td className="c pcell">{priceCell(i)}</td>
       {shop ? <td><span className={`src ${SRC[i.src]?.[0] ?? 'R'}`}>{SRC[i.src]?.[1] ?? i.src}</span></td> : null}
@@ -512,7 +512,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
         </td>
         <td className="c"><span className="conds">{conds.map((c) => <span key={c} className={`cond ${c}`}>{c}</span>)}</span></td>
         <td className="c"><span className="lang" title={L.length > 2 ? L.join(" · ") : undefined}>{langs_}</span></td>
-        <td className="c mono">{nf(have)}</td>
+        <td className="c mono">{nf(have).replace(/ /g, "\u202F")}</td>
         <td className="sc">{saleCell(g, `g:${k}`)}</td>
         <td className="c pcell">{pr}</td>
         {shop ? <td>{us.length > 1 ? <span className="src">{us.length} zdroje</span> : <span className={`src ${SRC[us[0]]?.[0] ?? 'R'}`}>{SRC[us[0]]?.[1] ?? us[0]}</span>}</td> : null}
