@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlbumBook, Sleeve } from '@/components/album/AlbumBook';
 import { SleeveSprite } from '@/components/album/SleeveSprite';
 import { Button } from '@/components/trezor';
@@ -45,7 +45,7 @@ export function LookFields({ value, onChange }: { value: Look; onChange: (v: Loo
   );
 }
 
-export function AlbumLook({ value, onSave, onDelete }: { value: Look; onSave: (v: Look) => Promise<string | null>; onDelete?: () => void }) {
+export function AlbumLook({ value, onSave, onDelete, extra }: { value: Look; onSave: (v: Look) => Promise<string | null>; onDelete?: () => void; /** Pod náhledem, nad názvem (např. Doplňovat samo) */ extra?: ReactNode }) {
   const [v, setV] = useState(value);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -54,6 +54,7 @@ export function AlbumLook({ value, onSave, onDelete }: { value: Look; onSave: (v
       <div className={s.prev} style={{ position: 'static', marginBottom: 'var(--space-6)' }}>
         <AlbumBook design={v.design} name={v.name || ' '} hover />
       </div>
+      {extra ? <div style={{ marginBottom: 'var(--space-6)' }}>{extra}</div> : null}
       <LookFields value={v} onChange={setV} />
       {err ? <p className={s.err}>{err}</p> : null}
       <div className={s.wizFoot}>

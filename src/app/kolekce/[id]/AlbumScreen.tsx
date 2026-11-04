@@ -258,14 +258,12 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
       ) : null}
       {drawer === 'look' ? (
         <Drawer title="Vzhled alba" onClose={() => setDrawer(null)}>
-          <div style={{ marginBottom: 18 }}>
-            <AutoFill kind={album.kind} checked={autoFill} onChange={async (on) => {
+          <AlbumLook
+            extra={<AutoFill kind={album.kind} checked={autoFill} onChange={async (on) => {
               setAutoFill(on);
               const r = await setAlbumAutoFill(album.id, on);
               if ('error' in r) setAutoFill(!on);
-            }} />
-          </div>
-          <AlbumLook
+            }} />}
             value={look}
             onSave={async (v) => {
               const r = await updateAlbum(album.id, v);
