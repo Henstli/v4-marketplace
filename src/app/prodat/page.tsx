@@ -26,6 +26,7 @@ import { InventoryViews, type InvView } from './InventoryViews';
 import { loadInventory } from './inventory';
 import { loadCtx, loadTeam, ROLE_NAMES, stockHref, type Perm, type StockCtx } from './team';
 import { MarketViews } from './MarketViews';
+import { UnmatchedView, type Unm } from './UnmatchedView';
 import { Connections } from './Connections';
 import { loadAuto, loadDemand, loadMarket, loadPrices, type MarketView } from './market';
 import { nf } from './sk';
@@ -37,8 +38,8 @@ type Props = { searchParams: Promise<{
   zalozka?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string;
 }> };
 
-type Tab = 'vse' | 'prodej' | 'odeslat' | 'trh' | 'inventura' | 'historie' | 'hledam' | 'sady' | 'napojeni';
-const TABS: Tab[] = ['vse', 'prodej', 'odeslat', 'trh', 'inventura', 'historie', 'hledam', 'sady', 'napojeni'];
+type Tab = 'vse' | 'prodej' | 'odeslat' | 'trh' | 'nesparovane' | 'inventura' | 'historie' | 'hledam' | 'sady' | 'napojeni';
+const TABS: Tab[] = ['vse', 'prodej', 'odeslat', 'trh', 'nesparovane', 'inventura', 'historie', 'hledam', 'sady', 'napojeni'];
 const SOLD = ['confirmed', 'pending_payment', 'paid', 'shipped', 'delivered'];
 const VIEWS: InvView[] = ['mista', 'pocitani', 'kontrola', 'historie', 'plan', 'smeny'];
 
@@ -75,9 +76,9 @@ export default async function StockPage({ searchParams }: Props) {
 
   // Záložky přesně podle prototypu, jen ty, na které má přihlášený právo.
   const can: Record<Tab, boolean> = shop
-    ? { vse: has('view'), prodej: has('price'), odeslat: has('ord'), trh: has('conn'), inventura: has('inv') || has('plan') || has('diff'), historie: has('conn'), hledam: false, sady: false, napojeni: has('conn') }
-    : { vse: true, prodej: true, odeslat: false, trh: false, inventura: false, historie: true, hledam: true, sady: true, napojeni: true };
-  const order: Tab[] = shop ? ['vse', 'prodej', 'odeslat', 'trh', 'inventura', 'historie'] : ['vse', 'prodej', 'hledam', 'sady', 'historie'];
+    ? { vse: has('view'), prodej: has('price'), odeslat: has('ord'), trh: has('conn'), nesparovane: ctx.isOwner, inventura: has('inv') || has('plan') || has('diff'), historie: has('conn'), hledam: false, sady: false, napojeni: has('conn') }
+    : { vse: true, prodej: true, odeslat: false, trh: false, nesparovane: ctx.isOwner, inventura: false, historie: true, hledam: true, sady: true, napojeni: true };
+  const order: Tab[] = shop ? ['vse', 'prodej', 'odeslat', 'trh', 'nesparovane', 'inventura', 'historie'] : ['vse', 'prodej', 'nesparovane', 'hledam', 'sady', 'historie'];
   const tabs = order.filter((t) => can[t]);
   if (!tabs.length) {
     return (
@@ -93,7 +94,7 @@ export default async function StockPage({ searchParams }: Props) {
 
   const items = tab === 'vse' || tab === 'prodej' || can.vse ? await loadStock(supabase, ctx.owner) : [];
   const ship = tab === 'odeslat' ? await loadShipping(supabase, ctx.owner) : null;
-  const [toShip, demandN, wantsN, team, auto, strip] = await Promise.all([
+  const [toShip, demandN, wantsN, team, auto, strip, unm] = await Promise.all([
     ship ? ship.orders.filter((o) => o.ready).length : can.odeslat ? supabase.from('orders').select('id', { count: 'exact', head: true })
       .eq('seller_id', ctx.owner).or('status.eq.paid,and(status.eq.confirmed,payment.in.(cod,cash))').then((r) => r.count ?? 0) : 0,
     can.trh ? supabase.rpc('market_demand', { p_owner: ctx.owner }).then((r) => (r.data ?? []).length) : 0,
@@ -101,15 +102,16 @@ export default async function StockPage({ searchParams }: Props) {
     shop && has('staff') ? loadTeam(supabase, ctx.owner) : null,
     shop && has('conn') ? loadAuto(supabase, ctx.owner) : null,
     tab === 'vse' || tab === 'prodej' ? loadStrip(supabase, ctx.owner, items, { watchers: shop && tab === 'prodej' }) : null,
+    can.nesparovane ? loadUnmatched(supabase, tab === 'nesparovane') : { items: [] as Unm[], waiting: 0 },
   ]);
   const places = [...new Set(items.map((r) => r.location?.split(' · ')[0]).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
   const gameNames = GAMES.filter((g) => items.some((r) => r.card?.game === g.id)).map((g) => g.name);
   const kinds = (onSale: boolean) => new Set(items.filter((r) => owned(r) > 0 && (!onSale || r.quantity > 0)).map((r) => r.cardId)).size;
   const label: Record<Tab, string> = {
-    vse: 'Všechny karty', prodej: 'Na prodej', odeslat: 'K odeslání', trh: 'Trh', inventura: 'Inventura', historie: 'Historie',
+    vse: 'Všechny karty', prodej: 'Na prodej', odeslat: 'K odeslání', trh: 'Trh', nesparovane: 'Nespárované', inventura: 'Inventura', historie: 'Historie',
     hledam: 'Hledám', sady: 'Chybí do sad', napojeni: 'Napojení',
   };
-  const count: Partial<Record<Tab, number>> = { vse: kinds(false), prodej: kinds(true), odeslat: toShip, trh: demandN, hledam: wantsN };
+  const count: Partial<Record<Tab, number>> = { vse: kinds(false), prodej: kinds(true), odeslat: toShip, trh: demandN, hledam: wantsN, nesparovane: unm.waiting };
   const view = (VIEWS.includes(sp.pohled as InvView) ? sp.pohled : sp.inventura ? 'pocitani' : 'mista') as InvView;
   const title = shop ? 'Sklad' : 'Sbírka';
 
@@ -147,7 +149,7 @@ export default async function StockPage({ searchParams }: Props) {
       <div className="tabs" role="tablist">
         {tabs.map((t) => (
           <Link key={t} href={href(t === 'vse' ? undefined : t)} className={tab === t ? 'on' : ''} role="tab" aria-selected={tab === t}>
-            {label[t]}{count[t] != null ? <span className="n">{nf(count[t]!)}</span> : null}
+            {label[t]}{t === 'nesparovane' && !count[t] ? null : count[t] != null ? <span className={`n${t === 'nesparovane' ? ' hot' : ''}`}>{nf(count[t]!)}</span> : null}
           </Link>
         ))}
       </div>
@@ -163,7 +165,7 @@ export default async function StockPage({ searchParams }: Props) {
         <>
           {ready.ready || !ctx.isOwner ? null : <SellGate r={ready} back="prodat" />}
           <StockTable key={tab} items={items} mode={tab === 'prodej' ? 'sale' : 'all'} shop={shop} ready={ready.ready}
-            canPrice={has('price')} canAdd={has('add')} stats={strip} unmatched={0}
+            canPrice={has('price')} canAdd={has('add')} stats={strip} unmatched={unm.waiting}
             napojeni={has('conn') ? href('napojeni') : null} ordersHref={shop && can.odeslat ? href('odeslat') : '/objednavky?tab=prodeje'}
             demandHref={can.trh ? href('trh') : null} />
         </>
@@ -175,11 +177,35 @@ export default async function StockPage({ searchParams }: Props) {
           view={view} invId={sp.inventura ? Number(sp.inventura) : undefined} owner={ctx.owner} me={user.id} perms={[...ctx.perms]} q={ctx.q}
           />
       ) : null}
+      {tab === 'nesparovane' ? <UnmatchedView items={unm.items} shop={shop} /> : null}
       {tab === 'trh' ? <Market ctx={ctx} pohled={sp.pohled} dni={sp.dni} /> : null}
       {tab === 'hledam' ? <Wanted /> : null}
       {tab === 'sady' ? <Sets /> : null}
     </div></div>
   );
+}
+
+type UnmRow = {
+  id: number; file: string | null; line: number | null; reason: Unm['reason']; game: string | null; name: string | null; set_code: string | null;
+  set_name: string | null; number: string | null; condition: string | null; language: string | null; raw_condition: string | null;
+  raw_language: string | null; price_czk: number | null; quantity: number; candidates: Unm['candidates'] | null; ignored_at: string | null;
+};
+
+/** Nespárované (jen vlastní sklad/sbírka): počet čekajících, celý seznam jen na své záložce. */
+async function loadUnmatched(supabase: Awaited<ReturnType<typeof createClient>>, full: boolean): Promise<{ items: Unm[]; waiting: number }> {
+  if (!full) {
+    const { count } = await supabase.from('stock_unmatched').select('id', { count: 'exact', head: true }).is('ignored_at', null);
+    return { items: [], waiting: count ?? 0 };
+  }
+  const { data } = await supabase.from('stock_unmatched')
+    .select('id, file, line, reason, game, name, set_code, set_name, number, condition, language, raw_condition, raw_language, price_czk, quantity, candidates, ignored_at')
+    .order('created_at', { ascending: false }).order('line', { ascending: true }).limit(5000);
+  const items: Unm[] = ((data ?? []) as UnmRow[]).map((r) => ({
+    id: r.id, file: r.file, line: r.line, reason: r.reason, game: r.game, name: r.name, setCode: r.set_code, setName: r.set_name, number: r.number,
+    condition: r.condition, language: r.language, rawCondition: r.raw_condition, rawLanguage: r.raw_language, price: r.price_czk,
+    quantity: r.quantity, candidates: r.candidates ?? [], ignored: !!r.ignored_at,
+  }));
+  return { items, waiting: items.filter((u) => !u.ignored).length };
 }
 
 async function Market({ ctx, pohled, dni }: { ctx: StockCtx; pohled?: string; dni?: string }) {

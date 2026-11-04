@@ -11,6 +11,7 @@ import { readTable, ReadError, type Table } from '@/lib/import/read-file';
 import { buildRows, csvLine, rowProblems, type CardLite, type ImportRow, type ImportSettings } from '@/lib/import/rows';
 import { CONDITION_NAMES, CONDITIONS, LANGUAGE_NAMES, type Condition, type Language } from '@/lib/types';
 import { createImportedListings, matchImportRows, searchImportCards, type MatchInput } from './actions';
+import { saveUnmatched } from '../unmatched-actions';
 import styles from './import.module.css';
 
 const STEPS = ['Soubor', 'Sloupce', 'Kontrola', 'Hotovo'];
@@ -23,7 +24,7 @@ interface Match {
   card: CardLite | null;
 }
 
-type Filter = 'all' | 'fix' | 'ready';
+type Filter = 'all' | 'fix' | 'ready' | 'missing';
 
 export function ImportWizard() {
   const [step, setStep] = useState(0);
@@ -42,7 +43,9 @@ export function ImportWizard() {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(0);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<{ created: number; left: ImportRow[] } | null>(null);
+  const [result, setResult] = useState<{ created: number; unmatched: number; left: ImportRow[] } | null>(null);
+  // Řádky k opravě se uloží do Nespárovaných (dořeší se ve skladu).
+  const [toUnm, setToUnm] = useState(true);
   const [saving, startSaving] = useTransition();
 
 
@@ -123,6 +126,7 @@ export function ImportWizard() {
   const visible = rows.filter((r) => {
     if (filter === 'all') return true;
     const ok = !skipped.has(r.line) && problemsOf(r).length === 0;
+    if (filter === 'missing') return ok && r.price == null;
     return filter === 'ready' ? ok : !ok && !skipped.has(r.line);
   });
   const pages = Math.max(1, Math.ceil(visible.length / PAGE));
@@ -146,9 +150,32 @@ export function ImportWizard() {
 
   function save() {
     const ready = rows.filter((r) => !skipped.has(r.line) && problemsOf(r).length === 0);
-    if (!ready.length) return;
+    const fix = toUnm ? rows.filter((r) => !skipped.has(r.line) && matches[r.line]?.status !== 'pending' && problemsOf(r).length > 0) : [];
+    if (!ready.length && !fix.length) return;
     setError('');
     startSaving(async () => {
+      let unmatched = 0;
+      let unmLines = new Set<number>();
+      if (fix.length) {
+        const u = await saveUnmatched(fix.map((r) => {
+          const m = matches[r.line];
+          const reason = m.card ? 'data' as const : m.status === 'multi' ? 'multi' as const : 'none' as const;
+          const candidates = m.card ? [m.card, ...m.candidates.filter((c) => c.id !== m.card!.id)] : m.candidates;
+          return {
+            line: r.line, reason, game: r.game ?? (settings.game || null), name: r.name, setCode: r.setCode, setName: r.setName, number: r.number,
+            condition: r.condition, language: r.language, rawCondition: r.rawCondition, rawLanguage: r.rawLanguage,
+            price: r.price, quantity: r.quantity, graded: r.graded, note: r.note, candidates,
+          };
+        }), fileName);
+        unmatched = u.count ?? 0;
+        unmLines = new Set(fix.slice(0, unmatched).map((r) => r.line));
+        if (u.error) setError(u.error);
+      }
+      if (!ready.length) {
+        setResult({ created: 0, unmatched, left: rows.filter((r) => !unmLines.has(r.line)) });
+        setStep(3);
+        return;
+      }
       const res = await createImportedListings(ready.map((r) => ({
         cardId: matches[r.line].card!.id,
         condition: r.condition!,
@@ -158,14 +185,14 @@ export function ImportWizard() {
         graded: r.graded,
         note: r.note,
       })), keep);
-      if (res.error && !res.created) {
+      if (res.error && !res.created && !unmatched) {
         setError(res.error);
         return;
       }
       if (res.error) setError(res.error);
       // Ukládá se po částech v pořadí, takže vystavené jsou prvních `created` připravených řádků.
       const created = new Set(ready.slice(0, res.created ?? 0).map((r) => r.line));
-      setResult({ created: created.size, left: rows.filter((r) => !created.has(r.line)) });
+      setResult({ created: created.size, unmatched, left: rows.filter((r) => !created.has(r.line) && !unmLines.has(r.line)) });
       setStep(3);
     });
   }
@@ -315,7 +342,7 @@ export function ImportWizard() {
       {step === 2 ? (
         <section className={styles.stack}>
           <div className={styles.summary}>
-            {(['all', 'fix', 'ready'] as Filter[]).map((f) => (
+            {(['all', 'fix', 'ready', 'missing'] as Filter[]).map((f) => (
               <button
                 key={f}
                 type="button"
@@ -323,7 +350,8 @@ export function ImportWizard() {
                 aria-pressed={filter === f ? 'true' : 'false'}
                 onClick={() => { setFilter(f); setPage(0); }}
               >
-                {f === 'all' ? `Vše ${formatNumber(rows.length)}` : f === 'fix' ? `K opravě ${formatNumber(stats.fix)}` : `Připraveno ${formatNumber(stats.ready)}`}
+                {f === 'all' ? `Vše ${formatNumber(rows.length)}` : f === 'fix' ? `K opravě ${formatNumber(stats.fix)}`
+                  : f === 'ready' ? `Připraveno ${formatNumber(stats.ready)}` : `Chybí údaj ${formatNumber(stats.noPrice)}`}
               </button>
             ))}
             {progress ? (
@@ -411,6 +439,7 @@ export function ImportWizard() {
                       <td>
                         {skip ? <Status tone="muted">Vynecháno</Status>
                           : problems.length ? <Status tone={m?.status === 'pending' ? 'muted' : 'warn'}>{problems[0]}</Status>
+                          : r.price == null ? <Status tone="muted">Bez ceny, mimo prodej</Status>
                           : <Status tone="ok">Připraveno</Status>}
                         <div className="t-small muted">Řádek {r.line}</div>
                       </td>
@@ -418,7 +447,7 @@ export function ImportWizard() {
                   );
                 })}
                 {!shown.length ? (
-                  <tr><td colSpan={7} className="tz-muted">{filter === 'fix' ? 'Nic k opravě.' : 'Žádné řádky.'}</td></tr>
+                  <tr><td colSpan={7} className="tz-muted">{filter === 'fix' ? 'Nic k opravě.' : filter === 'missing' ? 'Všem řádkům nic nechybí.' : 'Žádné řádky.'}</td></tr>
                 ) : null}
               </tbody>
             </table>
@@ -441,9 +470,16 @@ export function ImportWizard() {
                 Jen do skladu, zatím neprodávat
               </label>
               {!keep && stats.noPrice ? <span className="t-small muted">{plural(stats.noPrice, ['karta bez ceny přijde', 'karty bez ceny přijdou', 'karet bez ceny přijde'])} do skladu mimo prodej.</span> : null}
-              {stats.fix ? <span className="t-small muted">{plural(stats.fix, ['řádek', 'řádky', 'řádků'])} k opravě se nevystaví.</span> : null}
-              <Button size="lg" disabled={!!progress || saving || !stats.ready} onClick={save}>
-                {saving ? 'Ukládám…' : `${keep ? 'Přidat do skladu' : 'Vystavit'} ${plural(stats.ready, ['kartu', 'karty', 'karet'])}`}
+              {stats.fix ? (
+                <label className="t-small" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                  <input type="checkbox" checked={toUnm} onChange={(e) => setToUnm(e.target.checked)} />
+                  {plural(stats.fix, ['řádek', 'řádky', 'řádků'])} k opravě uložit do Nespárovaných
+                </label>
+              ) : null}
+              <Button size="lg" disabled={!!progress || saving || !(stats.ready || (toUnm && stats.fix))} onClick={save}>
+                {saving ? 'Ukládám…' : stats.ready
+                  ? `${keep ? 'Přidat do skladu' : 'Vystavit'} ${plural(stats.ready, ['kartu', 'karty', 'karet'])}${toUnm && stats.fix ? ` + ${formatNumber(stats.fix)} do Nespárovaných` : ''}`
+                  : `Uložit ${formatNumber(stats.fix)} do Nespárovaných`}
               </Button>
             </div>
           </div>
@@ -455,6 +491,12 @@ export function ImportWizard() {
           <div className={styles.done}>
             <h2 className="t-heading-m">{keep ? 'Přidáno do skladu' : 'Vystaveno'}: {plural(result.created, ['karta', 'karty', 'karet'])}</h2>
             <p className="muted">{keep ? 'Karty jsou ve skladu mimo prodej. Prodávat je začnete ve Skladu tlačítkem Prodávat.' : 'Nabídky jsou hned vidět v katalogu. Ceny a počty upravíte hromadně ve Skladu.'}</p>
+            {result.unmatched ? (
+              <p className="t-small">
+                {plural(result.unmatched, ['řádek čeká', 'řádky čekají', 'řádků čeká'])} v Nespárovaných.{' '}
+                <Link className={styles.linkButton} href="/prodat?zalozka=nesparovane">Dořešit je ve skladu</Link>
+              </p>
+            ) : null}
             {error ? <p className={styles.error} role="alert">{error}</p> : null}
             {result.left.length ? (
               <p className="t-small">
