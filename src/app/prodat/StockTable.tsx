@@ -808,13 +808,20 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
     return () => document.removeEventListener('keydown', k);
   }, [onClose]);
   const s = Math.min(sale, have);
-  const stp = (label: string, v: number, set: (n: number) => void, max: number, on?: boolean) => (
-    <div className="qbox"><small>{label}</small><div className="stp">
+  const stp = (v: number, set: (n: number) => void, max: number, on?: boolean) => (
+    <div className="stp">
       <button type="button" disabled={i.locked || v <= 0} onClick={() => set(v - 1)}>−</button>
       <input className={`pin qin${on && v ? ' on' : ''}`} value={v} inputMode="numeric" disabled={i.locked} onChange={(e) => set(Math.min(max, Number(e.target.value.replace(/\D/g, '')) || 0))} />
       <button type="button" disabled={i.locked || v >= max} onClick={() => set(v + 1)}>+</button>
-    </div></div>
+    </div>
   );
+  const [histAll, setHistAll] = useState(false);
+  const hist = [...(info?.events ?? []).map((e) => ({ id: String(e.id), at: e.at, node: <>{e.title}</> })),
+    // Karta koupená na V4cards má v historii „Koupeno na V4cards“, řádek Přidáno by tu byl navíc.
+    ...((info?.events ?? []).some((e) => e.title.startsWith('Koupeno na V4cards')) ? [] : [{ id: 'add', at: i.r.createdAt, node: <>Přidáno: <b>{SRC[i.src]?.[1]?.toLowerCase() ?? 'ručně'}</b></> }])];
+  const HN = 5;
+  const buyN = buy ? Number(buy) : null;
+  const priceN = price ? Number(price) : null;
   const save = () => start(async () => {
     const p = price ? Number(price.replace(/\D/g, '')) : null;
     const r = await stockSet(i.id, i.name, {
@@ -847,45 +854,43 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
         </div>
         <div className="db">
           {i.locked ? <p className="wsm" style={{ margin: 0 }}>{i.r.removed ? 'Nabídku odstranila podpora, upravit ji nejde.' : 'Nabídka je skrytá podporou, upravit ji nejde.'}</p> : null}
-          <div>
-            <p className="lbl">Počty</p>
-            <div className="qty">
-              {stp('Mám', have, (v) => { setHave(v); if (sale > v) setSale(v); }, 100000)}
-              {canPrice ? stp(shop ? 'Na prodej' : 'Nabízím', s, setSale, have, true) : null}
-              {shop ? null : stp('Na výměnu', Math.min(trade, have), setTrade, have, true)}
-            </div>
-            {shop ? null : <small className="wsm" style={{ display: 'block', marginTop: 6 }}>Kusy na výměnu uvidí ostatní na vašem profilu a můžou vám nabídnout svou kartu. Jeden kus může být na prodej i na výměnu zároveň.</small>}
-          </div>
-          <div>
-            <p className="lbl">Cena</p>
-            <div className="inp"><input value={price} disabled={i.locked || !canPrice} placeholder="Nastavit cenu" onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} /><em>Kč / ks</em></div>
-            <div className="mk">Tržní cena <b>{kc(i.market)}</b>{tr != null ? <> <span className={`tr ${tr < 0 ? 'dn' : 'up'}`}>{tr > 0 ? '+' : tr < 0 ? '−' : ''}{Math.abs(tr)} %</span> za 30 dní</> : null}
-              {i.market && canPrice ? <button type="button" onClick={() => setPrice(String(i.market))}>Použít tržní</button> : null}</div>
-            {info ? <Spark v={info.series} down={(tr ?? 0) < 0} /> : null}
-          </div>
-          <div className="grid2">
-            <div className="f"><label>Stav</label><Seg value={cond} onChange={setCond} options={['NM', 'EX', 'GD', 'LP', 'PL'].map((c) => [c, c] as [string, string])} /></div>
-            <div className="f"><label>Jazyk</label><Seg value={lang} onChange={setLang} options={langOpts.map((l) => [l, langCode(l)] as [string, string])} /></div>
-          </div>
-          <div className="grid2">
-            <div className="f"><label>Umístění</label>
+          <section className="dbx">
+            <h4>Kusy</h4>
+            <div className="drow"><div><b>Mám</b><small>Všechny kusy této karty</small></div>{stp(have, (v) => { setHave(v); if (sale > v) setSale(v); }, 100000)}</div>
+            {canPrice ? <div className="drow"><div><b>{shop ? 'Na prodej' : 'Nabízím'}</b><small>{shop ? (have - s ? `${have - s} ks zůstává mimo prodej` : 'Všechny kusy jsou na prodej') : s ? `${s} z ${have} vidí kupující` : 'Nikdo ji teď nevidí'}</small></div>{stp(s, setSale, have, true)}</div> : null}
+            {shop ? null : <div className="drow"><div><b>Na výměnu</b><small>Uvidí ostatní na vašem profilu</small></div>{stp(Math.min(trade, have), setTrade, have, true)}</div>}
+          </section>
+          <section className="dbx">
+            <h4>Cena</h4>
+            <div className="drow"><div><b>{shop ? 'Prodejní cena' : 'Cena'}</b><small>Trh <span className="mono">{kc(i.market)}</span>{tr != null ? <> · <span className={`tr ${tr < 0 ? 'dn' : 'up'}`}>{tr > 0 ? '+' : tr < 0 ? '−' : ''}{Math.abs(tr)} %</span> za 30 dní</> : null}
+              {i.market && canPrice && String(i.market) !== price ? <> · <button type="button" className="lnk" onClick={() => setPrice(String(i.market))}>Použít tržní</button></> : null}</small></div>
+              <div className="inp"><input value={price} disabled={i.locked || !canPrice} placeholder="—" onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div></div>
+            {info && info.series.length > 1 ? <div className="dspark"><Spark v={info.series} down={(tr ?? 0) < 0} /></div> : null}
+            <div className="drow"><div><b>Nákupní cena</b><small>{buyN && priceN ? (() => { const p = priceN - buyN; return <span className={`pfd${p < 0 ? ' dn' : ''}`}>Zisk na kus <b>{p < 0 ? '−' : '+'}{kc(Math.abs(p))}</b> · {Math.round((p / buyN) * 100)} %</span>; })() : 'Doplní se sama, když kartu koupíte na V4cards'}</small></div>
+              <div className="inp"><input value={buy} placeholder="—" onChange={(e) => setBuy(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div></div>
+          </section>
+          <section className="dbx">
+            <h4>Karta</h4>
+            <div className="drow"><b>Stav</b><Seg value={cond} onChange={setCond} options={['NM', 'EX', 'GD', 'LP', 'PL'].map((c) => [c, c] as [string, string])} /></div>
+            <div className="drow"><b>Jazyk</b><Seg value={lang} onChange={setLang} options={langOpts.map((l) => [l, langCode(l)] as [string, string])} /></div>
+          </section>
+          <section className="dbx">
+            <h4>Umístění</h4>
+            <div className="dblk">
               <PlacePicker places={places} value={place} onPick={(v) => { if (v !== place && (v === '' || places.includes(v))) setPos(''); setPlace(v); }} />
-              {place.trim() ? <div className="inp" style={{ marginTop: 8 }}><input value={pos} maxLength={40} placeholder="Pozice, nepovinné (např. 04)" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPos(e.target.value)} /></div> : null}
+              {place.trim() ? <div className="inp" style={{ marginTop: 8 }}><input value={pos} maxLength={40} placeholder="Pozice v místě, nepovinné (např. 04)" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPos(e.target.value)} /></div> : null}
               {place.trim() && posClash(pos, places) ? <PosClash pos={pos} /> : null}
             </div>
-            <div className="f"><label>Nákupní cena</label><div className="inp"><input value={buy} placeholder="Za kolik jste ji koupili" style={{ fontSize: 14 }} onChange={(e) => setBuy(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div>
-              {shop && i.buy && i.price != null ? (() => { const p = i.price - i.buy; return <div className={`pfd${p < 0 ? ' dn' : ''}`}>Zisk na kus <b>{p < 0 ? '−' : '+'}{kc(Math.abs(p))}</b> · {Math.round((p / i.buy) * 100)} %</div>; })() : null}
-            </div>
-          </div>
-          <div>
-            <p className="lbl">Historie karty</p>
+          </section>
+          <section className="dbx">
+            <h4>Historie</h4>
             <div className="hist">
-              {(info?.events ?? []).map((e) => (
-                <div key={e.id}><span className="t">{new Date(e.at).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}</span><span>{e.title}</span></div>
+              {(histAll ? hist : hist.slice(0, HN)).map((e) => (
+                <div key={e.id}><span className="t">{new Date(e.at).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}</span><span>{e.node}</span></div>
               ))}
-              <div><span className="t">{new Date(i.r.createdAt).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}</span><span>Přidáno: <b>{SRC[i.src]?.[1]?.toLowerCase() ?? 'ručně'}</b></span></div>
             </div>
-          </div>
+            {hist.length > HN ? <button type="button" className="hmore" onClick={() => setHistAll(!histAll)}>{histAll ? 'Sbalit' : `Zobrazit další (${hist.length - HN})`}{Ico.chev}</button> : null}
+          </section>
         </div>
         <div className="df">
           {canAdd && !i.locked ? (del
