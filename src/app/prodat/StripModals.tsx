@@ -313,7 +313,7 @@ export function OrdersModal({ owner, sold, allHref, allLabel, onClose }: {
   const date = (iso: string) => { const d = new Date(iso); return `${d.getDate()}. ${d.getMonth() + 1}.`; };
 
   return (
-    <Modal title={sold ? 'Prodáno za 30 dní' : 'Objednávky'} wide onClose={onClose}
+    <Modal title={sold ? 'Tržby za 30 dní' : 'Objednávky'} wide onClose={onClose}
       foot={<><span className="note">Kliknutím na řádek otevřete detail objednávky.</span><button type="button" className="btn" onClick={() => (location.href = allHref)}>{allLabel}</button></>}>
       {err ? <p className="wsm">Výpis se nepodařilo načíst. Zkuste to prosím znovu.</p> : rows == null ? <p className="wsm">Načítám…</p> : (
         <>
