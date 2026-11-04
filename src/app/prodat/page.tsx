@@ -24,16 +24,20 @@ import { ShipManager } from './ShipManager';
 import { InventoryViews, type InvView } from './InventoryViews';
 import { TeamView } from './TeamView';
 import { loadInventory } from './inventory';
-import { loadCtx, loadTeam, ROLE_NAMES, type Perm } from './team';
+import { loadCtx, loadTeam, ROLE_NAMES, type Perm, type StockCtx } from './team';
+import { MarketViews } from './MarketViews';
+import { Connections } from './Connections';
+import { loadAuto, loadDemand, loadMarket, loadPrices, type MarketView } from './market';
 import styles from './sell.module.css';
 
 export const metadata: Metadata = { title: 'Sklad' };
 
 type Props = { searchParams: Promise<{
-  zalozka?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string;
+  zalozka?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string;
 }> };
 
-const TABS: StockTab[] = ['vse', 'prodej', 'odeslat', 'hledam', 'sady', 'historie', 'inventura', 'tym', 'pridat'];
+const TABS: StockTab[] = ['vse', 'prodej', 'odeslat', 'hledam', 'sady', 'historie', 'trh', 'inventura', 'tym', 'napojeni', 'pridat'];
+const MVIEWS: MarketView[] = ['poptavka', 'trh', 'ceny', 'automaticke'];
 const SOLD = ['confirmed', 'pending_payment', 'paid', 'shipped', 'delivered'];
 const VIEWS: InvView[] = ['mista', 'pocitani', 'kontrola', 'historie', 'plan', 'smeny'];
 
@@ -57,13 +61,14 @@ export default async function StockPage({ searchParams }: Props) {
   const has = (p: Perm) => ctx.perms.has(p);
   // Záložky podle práv: majitel všechno (sběratel bez týmu a odesílání), člověk z týmu jen co smí.
   const allowed: StockTab[] = ctx.isOwner
-    ? (shop ? ['vse', 'prodej', 'odeslat', 'historie', 'inventura', 'tym', 'pridat', 'import'] : ['vse', 'prodej', 'hledam', 'sady', 'historie', 'pridat', 'import'])
+    ? (shop ? ['vse', 'prodej', 'odeslat', 'historie', 'trh', 'inventura', 'tym', 'napojeni', 'pridat', 'import'] : ['vse', 'prodej', 'hledam', 'sady', 'historie', 'pridat', 'import'])
     : [
         ...(has('view') ? ['vse', 'prodej'] as StockTab[] : []),
         ...(has('ord') ? ['odeslat'] as StockTab[] : []),
-        ...(has('view') ? ['historie'] as StockTab[] : []),
+        ...(has('view') ? ['historie', 'trh'] as StockTab[] : []),
         ...(has('inv') || has('plan') || has('diff') ? ['inventura'] as StockTab[] : []),
         ...(has('staff') ? ['tym'] as StockTab[] : []),
+        ...(has('conn') ? ['napojeni'] as StockTab[] : []),
         ...(has('add') ? ['pridat'] as StockTab[] : []),
       ];
   // Dřívější odkazy /prodat?karta=… a ?hledat=… vedou na Přidat kartu.
@@ -107,6 +112,7 @@ export default async function StockPage({ searchParams }: Props) {
               <>
                 <a href="/prodat/export?druh=pojisteni" className="tz-btn tz-btn-ghost tz-btn-md" download>Přehled pro pojištění</a>
                 <a href="/prodat/export" className="tz-btn tz-btn-ghost tz-btn-md" download>Exportovat (CSV)</a>
+                {shop ? null : <a href="/prodat/export?druh=deckbuilder" className="tz-btn tz-btn-ghost tz-btn-md" download>Pro Moxfield</a>}
               </>
             ) : <span className="t-small muted">Jste v týmu jako {ROLE_NAMES[ctx.role] ?? ctx.role}</span>}
             {allowed.includes('pridat') ? <ButtonLink href={base('pridat')} variant="secondary">Přidat kartu</ButtonLink> : null}
@@ -139,11 +145,30 @@ export default async function StockPage({ searchParams }: Props) {
         <InventoryViews data={await loadInventory(supabase, ctx.owner, user.id, ctx.ownerName, Math.max(-52, Math.min(52, Number(sp.tyden) || 0)))}
           view={view} invId={sp.inventura ? Number(sp.inventura) : undefined} owner={ctx.owner} me={user.id} perms={[...ctx.perms]} q={ctx.q} />
       ) : null}
+      {tab === 'trh' ? <Market ctx={ctx} pohled={sp.pohled} dni={sp.dni} /> : null}
+      {tab === 'napojeni' ? <Connections isOwner={ctx.isOwner} /> : null}
       {tab === 'tym' ? <TeamView owner={ctx.owner} ownerName={ctx.ownerName} me={user.id} isOwner={ctx.isOwner} team={await loadTeam(supabase, ctx.owner)} /> : null}
       {tab === 'hledam' ? <Wanted q={sp.hledat?.trim()} karta={sp.karta} /> : null}
       {tab === 'sady' ? <Sets set={sp.sada} /> : null}
     </div>
   );
+}
+
+async function Market({ ctx, pohled, dni }: { ctx: StockCtx; pohled?: string; dni?: string }) {
+  const supabase = await createClient();
+  const can = ctx.perms.has('price') || ctx.perms.has('conn');
+  let view = (MVIEWS.includes(pohled as MarketView) ? pohled : 'poptavka') as MarketView;
+  if (view === 'automaticke' && !can) view = 'poptavka';
+  const days = dni === '30' ? 30 : 7;
+  const [demand, market, prices, auto, places] = await Promise.all([
+    view === 'poptavka' ? loadDemand(supabase, ctx.owner) : undefined,
+    view === 'trh' ? loadMarket(supabase, days) : undefined,
+    view === 'ceny' ? loadPrices(supabase, ctx.owner) : undefined,
+    view === 'automaticke' ? loadAuto(supabase, ctx.owner) : undefined,
+    view === 'automaticke' ? supabase.from('listing_stock').select('location').eq('seller_id', ctx.owner).not('location', 'is', null).limit(5000)
+      .then((r) => [...new Set(((r.data ?? []) as { location: string }[]).map((x) => x.location))].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }))) : [],
+  ]);
+  return <MarketViews view={view} q={ctx.q} perms={[...ctx.perms]} owner={ctx.owner} days={days} demand={demand} market={market} prices={prices} auto={auto} places={places} />;
 }
 
 async function AddCard({ q, karta, ready, shop, gate, owner, base }: {

@@ -27,7 +27,7 @@ export function PageTabs({ tabs, current, label }: { tabs: PageTab[]; current: s
   );
 }
 
-export type StockTab = 'vse' | 'prodej' | 'odeslat' | 'hledam' | 'sady' | 'historie' | 'inventura' | 'tym' | 'pridat' | 'import';
+export type StockTab = 'vse' | 'prodej' | 'odeslat' | 'hledam' | 'sady' | 'historie' | 'trh' | 'inventura' | 'tym' | 'napojeni' | 'pridat' | 'import';
 
 /**
  * Záložky Skladu (obchod) nebo Sbírky (sběratel). Sběratel má navíc Hledám a Chybí do sad, obchod Inventuru a Zaměstnance.
@@ -45,7 +45,7 @@ export function StockTabs({ current, shop, onSale, toShip, toReview, allowed, q 
   };
   const href: Record<StockTab, string> = {
     vse: at(), prodej: at('prodej'), odeslat: at('odeslat'), hledam: at('hledam'), sady: at('sady'),
-    historie: at('historie'), inventura: at('inventura'), tym: at('tym'), pridat: at('pridat'), import: '/prodat/import',
+    historie: at('historie'), trh: at('trh'), inventura: at('inventura'), tym: at('tym'), napojeni: at('napojeni'), pridat: at('pridat'), import: '/prodat/import',
   };
   const tabs: (PageTab & { key: StockTab })[] = [
     { key: 'vse', label: 'Všechny karty', href: href.vse },
@@ -56,8 +56,10 @@ export function StockTabs({ current, shop, onSale, toShip, toReview, allowed, q 
     ]),
     { key: 'historie', label: 'Historie', href: href.historie },
     ...(shop ? [
+      { key: 'trh' as const, label: 'Trh', href: href.trh },
       { key: 'inventura' as const, label: 'Inventura', href: href.inventura, count: toReview },
       { key: 'tym' as const, label: 'Zaměstnanci a role', href: href.tym },
+      { key: 'napojeni' as const, label: 'Napojení', href: href.napojeni },
     ] : []),
     { key: 'pridat', label: 'Přidat kartu', href: href.pridat },
     { key: 'import', label: 'Nahrát tabulku', href: href.import },

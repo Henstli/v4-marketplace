@@ -4,6 +4,7 @@
   "git": { "deploymentEnabled": { "claude/**": false } },
   "crons": [
     { "path": "/api/cron/upozorneni", "schedule": "0 7 * * *" },
-    { "path": "/api/cron/podpora", "schedule": "*/10 * * * *" }
+    { "path": "/api/cron/podpora", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/ceny", "schedule": "0 2 * * *" }
   ]
 }

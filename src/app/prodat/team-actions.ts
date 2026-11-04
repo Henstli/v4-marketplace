@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { PERMS, type Perm } from './team';
+import { stockChange } from './actions';
 
 export interface Res { ok?: boolean; error?: string; text?: string; id?: number }
 
@@ -164,4 +165,37 @@ export async function shiftToggle(owner: string, user: string, day: string, off:
   if (error) return { error: bad(error) };
   done();
   return { ok: true };
+}
+
+// ===== Trh a automatické ceny =====
+
+export async function autopriceSave(owner: string, r: {
+  enabled: boolean; mode: string; pct: number; floorPct: number; capPct: number; exclLocations: string[]; exclGames: string[];
+}): Promise<Res> {
+  if (!UUID.test(owner) || !['under', 'market', 'over'].includes(r.mode)) return { error: 'Neplatné nastavení.' };
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Number(n) || 0));
+  const supabase = await createClient();
+  const { error } = await supabase.from('stock_autoprice').upsert({
+    owner_id: owner, enabled: !!r.enabled, mode: r.mode, pct: Math.round(clamp(r.pct, 0, 50) * 10) / 10,
+    floor_pct: Math.round(clamp(r.floorPct, 0, 500)), cap_pct: Math.round(clamp(r.capPct, 1, 50)),
+    excl_locations: [...new Set((r.exclLocations ?? []).map((x) => String(x).slice(0, 60)))].slice(0, 200),
+    excl_games: [...new Set((r.exclGames ?? []).map((x) => String(x).slice(0, 40)))].slice(0, 20),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { error: bad(error) };
+  done();
+  return { ok: true, text: r.enabled ? 'Uloženo. Ceny se přepočítají dnes v noci ve 3:00.' : 'Uloženo. Automatické ceny jsou vypnuté.' };
+}
+
+/** Poptávka u vás → Dát na prodej: všechny kusy karty mimo prodej půjdou na prodej. */
+export async function demandSell(owner: string, cardId: string): Promise<Res> {
+  if (!UUID.test(owner) || !UUID.test(cardId)) return { error: 'Karta nenalezena.' };
+  const supabase = await createClient();
+  const { data } = await supabase.from('listing_stock').select('listing_id, keep_qty, listings!inner(card_id, seller_id)')
+    .eq('listings.card_id', cardId).eq('listings.seller_id', owner).gt('keep_qty', 0);
+  const ids = ((data ?? []) as { listing_id: string }[]).map((r) => r.listing_id);
+  if (!ids.length) return { error: 'Kartu mimo prodej nemáte.' };
+  const res = await stockChange(ids, 'sell');
+  if (res.error) return { error: res.error };
+  return { ok: true, text: 'Karta je na prodej. Kdo ji hlídá, dostane upozornění.' };
 }

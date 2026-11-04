@@ -1276,3 +1276,22 @@ a.tz-ord-num{text-decoration:underline;text-underline-offset:3px}
 .tz-stk-shift{height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:600 12px var(--font-sans);cursor:pointer}
 .tz-stk-shift[aria-pressed=true]{background:var(--surface-sunken);color:var(--ink-muted);border-style:dashed}
 .tz-stk-matrix td:not(:first-child),.tz-stk-matrix th:not(:first-child){text-align:center;width:110px}
+/* Sklad fáze 4: Trh, automatické ceny, napojení */
+.tz-stk-mk{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:14px;align-items:start}
+.tz-stk-bar{display:grid;grid-template-columns:150px minmax(0,1fr) 54px 40px;gap:10px;align-items:center;font-size:13.5px}
+.tz-stk-bar .tz-stk-prog{height:8px}
+.tz-stk-bar b{text-align:right}
+.tz-stk-bar small{font-size:12px;text-align:right}
+.tz-stk-check{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+.tz-stk-rule{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+.tz-stk-rule>b{font-size:14px}
+.tz-stk-cons{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tz-stk-con{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.tz-stk-con.is-live{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.tz-stk-con header{display:flex;align-items:center;gap:10px}
+.tz-stk-con header em{margin-left:auto;font-style:normal}
+.tz-stk-con p{margin:0;font-size:13.5px;color:var(--ink-muted)}
+.tz-stk-con small{font-size:12px}
+.tz-stk-con .tz-btn{align-self:flex-start}
+.tz-stk-lg{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--surface-sunken);border:1px solid var(--line-strong);font:700 13px var(--font-sans);color:var(--ink)}
+@media (max-width:900px){.tz-stk-mk{grid-template-columns:1fr}}
