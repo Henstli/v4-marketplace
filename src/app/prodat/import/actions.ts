@@ -79,7 +79,8 @@ export interface ImportItem {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function createImportedListings(items: ImportItem[]): Promise<{ created?: number; error?: string }> {
+/** `keep`: karty jdou jen do skladu/sbírky (mimo prodej), bez dopravy a platby. */
+export async function createImportedListings(items: ImportItem[], keep = false): Promise<{ created?: number; error?: string }> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: 'Přihlášení vypršelo. Přihlaste se prosím znovu.' };
@@ -101,7 +102,7 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
       price_czk: price,
       condition: it.condition,
       language: it.language,
-      quantity,
+      quantity: keep ? 0 : quantity,
       graded: String(it.graded ?? '').trim().slice(0, 20) || null,
       note: String(it.note ?? '').trim().slice(0, 200) || null,
     });
@@ -110,7 +111,13 @@ export async function createImportedListings(items: ImportItem[]): Promise<{ cre
   let created = 0;
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
-    const { error } = await supabase.from('listings').insert(chunk);
+    const { data: inserted, error } = await supabase.from('listings').insert(chunk).select('id');
+    if (!error && inserted) {
+      // Řádek skladu vznikne s nabídkou, tady jen doplníme zdroj a kusy mimo prodej (pořadí vložených řádků se drží).
+      await supabase.rpc('stock_set_keep', {
+        p_rows: inserted.map((r, j) => ({ id: r.id, keep: keep ? Number(items[i + j].quantity) : 0, source: 'import' })),
+      });
+    }
     if (error) {
       if (created) revalidate();
       return {
