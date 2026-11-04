@@ -37,7 +37,7 @@ export default async function ImportPage() {
       </div></div>
       {PLANS[toPlan(plan)].bulkImport ? (
         ready.ready ? (
-          <ImportWizard />
+          <ImportWizard shop={account?.kind === 'shop'} />
         ) : (
           <>
             <SellGate r={ready} back="import" />

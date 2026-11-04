@@ -17,6 +17,7 @@ import styles from './import.module.css';
 const STEPS = ['Soubor', 'Sloupce', 'Kontrola', 'Hotovo'];
 const PAGE = 100;
 const MATCH_CHUNK = 200;
+const SAVE_CHUNK = 250;
 
 interface Match {
   status: 'pending' | 'ok' | 'multi' | 'none';
@@ -26,7 +27,23 @@ interface Match {
 
 type Filter = 'all' | 'fix' | 'ready' | 'missing';
 
-export function ImportWizard() {
+const pct = (done: number, total: number) => (total ? Math.min(100, Math.round((done / total) * 100)) : 0);
+
+/** Průběh párování nebo ukládání: proužek, procenta a počet řádků. */
+function Progress({ label, done, total }: { label: string; done: number; total: number }) {
+  return (
+    <div className={`tz-sk ${styles.progress}`} role="status" aria-live="polite">
+      <div className={styles.progressHead}>
+        <b>{label}… {pct(done, total)} %</b>
+        <span className="t-small muted">{formatNumber(done)} z {formatNumber(total)} řádků</span>
+      </div>
+      <div className="prog"><i style={{ width: `${pct(done, total)}%`, transition: 'width .3s' }} /></div>
+    </div>
+  );
+}
+
+export function ImportWizard({ shop = true }: { shop?: boolean }) {
+  const sklad = shop ? 'skladu' : 'sbírky';
   const [step, setStep] = useState(0);
   // Jen do skladu: kusy půjdou mimo prodej (prodávat je pak jde ze Skladu jedním klikem).
   const [keep, setKeep] = useState(false);
@@ -44,8 +61,8 @@ export function ImportWizard() {
   const [page, setPage] = useState(0);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ created: number; unmatched: number; left: ImportRow[] } | null>(null);
-  // Řádky k opravě se uloží do Nespárovaných (dořeší se ve skladu).
-  const [toUnm, setToUnm] = useState(true);
+  // Ukládání po částech, aby šel ukázat průběh.
+  const [saveProg, setSaveProg] = useState<{ done: number; total: number } | null>(null);
   const [saving, startSaving] = useTransition();
 
 
@@ -150,14 +167,19 @@ export function ImportWizard() {
 
   function save() {
     const ready = rows.filter((r) => !skipped.has(r.line) && problemsOf(r).length === 0);
-    const fix = toUnm ? rows.filter((r) => !skipped.has(r.line) && matches[r.line]?.status !== 'pending' && problemsOf(r).length > 0) : [];
+    // Řádky k opravě se uloží do Nespárovaných (dořeší se ve skladu).
+    const fix = rows.filter((r) => !skipped.has(r.line) && matches[r.line]?.status !== 'pending' && problemsOf(r).length > 0);
     if (!ready.length && !fix.length) return;
     setError('');
+    const total = ready.length + fix.length;
+    setSaveProg({ done: 0, total });
     startSaving(async () => {
-      let unmatched = 0;
-      let unmLines = new Set<number>();
-      if (fix.length) {
-        const u = await saveUnmatched(fix.map((r) => {
+      let done = 0;
+      let failed = '';
+      const unmLines = new Set<number>();
+      for (let i = 0; i < fix.length && !failed; i += SAVE_CHUNK) {
+        const part = fix.slice(i, i + SAVE_CHUNK);
+        const u = await saveUnmatched(part.map((r) => {
           const m = matches[r.line];
           const reason = m.card ? 'data' as const : m.status === 'multi' ? 'multi' as const : 'none' as const;
           const candidates = m.card ? [m.card, ...m.candidates.filter((c) => c.id !== m.card!.id)] : m.candidates;
@@ -167,32 +189,33 @@ export function ImportWizard() {
             price: r.price, quantity: r.quantity, graded: r.graded, note: r.note, candidates,
           };
         }), fileName);
-        unmatched = u.count ?? 0;
-        unmLines = new Set(fix.slice(0, unmatched).map((r) => r.line));
-        if (u.error) setError(u.error);
+        part.slice(0, u.count ?? 0).forEach((r) => unmLines.add(r.line));
+        if (u.error) failed = u.error;
+        done += u.count ?? 0;
+        setSaveProg({ done, total });
       }
-      if (!ready.length) {
-        setResult({ created: 0, unmatched, left: rows.filter((r) => !unmLines.has(r.line)) });
-        setStep(3);
-        return;
+      const created = new Set<number>();
+      for (let i = 0; i < ready.length && !failed; i += SAVE_CHUNK) {
+        const part = ready.slice(i, i + SAVE_CHUNK);
+        const res = await createImportedListings(part.map((r) => ({
+          cardId: matches[r.line].card!.id,
+          condition: r.condition!,
+          language: r.language!,
+          price: r.price ?? null,
+          quantity: r.quantity!,
+          graded: r.graded,
+          note: r.note,
+        })), keep);
+        // Ukládá se v pořadí, takže uložené jsou prvních `created` řádků části.
+        part.slice(0, res.created ?? 0).forEach((r) => created.add(r.line));
+        if (res.error) failed = res.error;
+        done += res.created ?? 0;
+        setSaveProg({ done, total });
       }
-      const res = await createImportedListings(ready.map((r) => ({
-        cardId: matches[r.line].card!.id,
-        condition: r.condition!,
-        language: r.language!,
-        price: r.price ?? null,
-        quantity: r.quantity!,
-        graded: r.graded,
-        note: r.note,
-      })), keep);
-      if (res.error && !res.created && !unmatched) {
-        setError(res.error);
-        return;
-      }
-      if (res.error) setError(res.error);
-      // Ukládá se po částech v pořadí, takže vystavené jsou prvních `created` připravených řádků.
-      const created = new Set(ready.slice(0, res.created ?? 0).map((r) => r.line));
-      setResult({ created: created.size, unmatched, left: rows.filter((r) => !created.has(r.line) && !unmLines.has(r.line)) });
+      setSaveProg(null);
+      if (failed) setError(failed);
+      if (!created.size && !unmLines.size) return;
+      setResult({ created: created.size, unmatched: unmLines.size, left: rows.filter((r) => !created.has(r.line) && !unmLines.has(r.line)) });
       setStep(3);
     });
   }
@@ -354,10 +377,10 @@ export function ImportWizard() {
                   : f === 'ready' ? `Připraveno ${formatNumber(stats.ready)}` : `Chybí údaj ${formatNumber(stats.noPrice)}`}
               </button>
             ))}
-            {progress ? (
-              <span className="t-small muted" role="status">Páruji s katalogem… {formatNumber(progress.done)} z {formatNumber(progress.total)}</span>
-            ) : null}
           </div>
+          {progress ? (
+            <Progress label="Páruji s katalogem" done={progress.done} total={progress.total} />
+          ) : null}
 
           <div className="tz-table-wrap">
             <table className="tz-table">
@@ -461,27 +484,31 @@ export function ImportWizard() {
             </div>
           ) : null}
 
-          {error ? <p className={styles.error} role="alert">{error}</p> : null}
-          <div className={styles.actions}>
-            <Button variant="ghost" onClick={() => setStep(1)} disabled={saving}>Zpět ke sloupcům</Button>
-            <div className={styles.saveBox}>
-              <label className="t-small" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
-                Jen do skladu, zatím neprodávat
-              </label>
-              {!keep && stats.noPrice ? <span className="t-small muted">{plural(stats.noPrice, ['karta bez ceny přijde', 'karty bez ceny přijdou', 'karet bez ceny přijde'])} do skladu mimo prodej.</span> : null}
-              {stats.fix ? (
-                <label className="t-small" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                  <input type="checkbox" checked={toUnm} onChange={(e) => setToUnm(e.target.checked)} />
-                  {plural(stats.fix, ['řádek', 'řádky', 'řádků'])} k opravě uložit do Nespárovaných
-                </label>
-              ) : null}
-              <Button size="lg" disabled={!!progress || saving || !(stats.ready || (toUnm && stats.fix))} onClick={save}>
-                {saving ? 'Ukládám…' : stats.ready
-                  ? `${keep ? 'Přidat do skladu' : 'Vystavit'} ${plural(stats.ready, ['kartu', 'karty', 'karet'])}${toUnm && stats.fix ? ` + ${formatNumber(stats.fix)} do Nespárovaných` : ''}`
-                  : `Uložit ${formatNumber(stats.fix)} do Nespárovaných`}
-              </Button>
+          <div className={`tz-sk ${styles.finish}`}>
+            <div className="sumr">
+              <div><small>{keep ? 'Na prodej' : 'Hned na prodej'}</small><b>{formatNumber(keep ? 0 : stats.ready - stats.noPrice)}</b></div>
+              <div><small>Do {sklad} mimo prodej</small><b>{formatNumber(keep ? stats.ready : stats.noPrice)}</b></div>
+              <div className={stats.fix ? 'w' : ''}><small>Do Nespárovaných (dořešíte potom)</small><b>{formatNumber(stats.fix)}</b></div>
+              {stats.skipped ? <div><small>Vynechané</small><b>{formatNumber(stats.skipped)}</b></div> : null}
             </div>
+            {saveProg ? (
+              <Progress label="Ukládám" done={saveProg.done} total={saveProg.total} />
+            ) : (
+              <div className={styles.finishRow}>
+                <button type="button" className="btn" onClick={() => setStep(1)} disabled={saving}>Zpět ke sloupcům</button>
+                <div className={styles.finishOpts}>
+                  <span className="t-small muted">Karty s cenou</span>
+                  <div className="seg" role="radiogroup" style={{ width: 260 }}>
+                    <button type="button" role="radio" aria-checked={!keep} className={keep ? '' : 'on'} onClick={() => setKeep(false)}>Prodávat hned</button>
+                    <button type="button" role="radio" aria-checked={keep} className={keep ? 'on' : ''} onClick={() => setKeep(true)}>Jen do {sklad}</button>
+                  </div>
+                </div>
+                <button type="button" className="btn p" style={{ height: 44, padding: '0 22px', fontSize: 15 }} disabled={!!progress || saving || !(stats.ready + stats.fix)} onClick={save}>
+                  Nahrát {plural(stats.ready + stats.fix, ['řádek', 'řádky', 'řádků'])}
+                </button>
+              </div>
+            )}
+            {error ? <p className={styles.error} role="alert">{error}</p> : null}
           </div>
         </section>
       ) : null}
@@ -489,7 +516,7 @@ export function ImportWizard() {
       {step === 3 && result ? (
         <section className={styles.stack}>
           <div className={styles.done}>
-            <h2 className="t-heading-m">{keep ? 'Přidáno do skladu' : 'Vystaveno'}: {plural(result.created, ['karta', 'karty', 'karet'])}</h2>
+            <h2 className="t-heading-m">{keep ? `Přidáno do ${sklad}` : 'Nahráno'}: {plural(result.created, ['karta', 'karty', 'karet'])}</h2>
             <p className="muted">{keep ? 'Karty jsou ve skladu mimo prodej. Prodávat je začnete ve Skladu tlačítkem Prodávat.' : 'Nabídky jsou hned vidět v katalogu. Ceny a počty upravíte hromadně ve Skladu.'}</p>
             {result.unmatched ? (
               <p className="t-small">
