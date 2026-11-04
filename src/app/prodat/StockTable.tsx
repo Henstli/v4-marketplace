@@ -179,9 +179,10 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   };
 
   const toggle = (ids: string[], on: boolean) => setSel((s) => { const n = new Set(s); ids.forEach((id) => (on ? n.add(id) : n.delete(id))); return n; });
-  const pageIds = shown.flat().filter((i) => !i.locked).map((i) => i.id);
-  const allSel = pageIds.length > 0 && pageIds.every((id) => sel.has(id));
-  const someSel = !allSel && pageIds.some((id) => sel.has(id));
+  // Hlavní zaškrtávátko vybírá všechny karty podle filtru, ne jen stránku.
+  const filterIds = visible.filter((i) => !i.locked).map((i) => i.id);
+  const allSel = filterIds.length > 0 && filterIds.every((id) => sel.has(id));
+  const someSel = !allSel && filterIds.some((id) => sel.has(id));
 
   // ---- pruh
   const t = useMemo(() => {
@@ -484,7 +485,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     <div className={`tbl${view === 'text' ? ' txt' : ''}`}>
       <table>
         <thead><tr>
-          <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(pageIds, !allSel), 'Vybrat vše na stránce')}</th>
+          <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(filterIds, !allSel), `Vybrat všech ${filterIds.length} podle filtru`)}</th>
           {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'r')}
           {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '', 'c')}<th />
         </tr></thead>
