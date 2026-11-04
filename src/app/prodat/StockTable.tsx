@@ -260,11 +260,16 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   );
 
   // ---- upozornění (obchod)
-  const isList = all.map((i) => issues(i, shop));
-  const nAttn = isList.filter((r) => r.length).length;
-  const cnt = (k: string) => isList.filter((r) => r.some((x) => x.includes(k))).length;
-  const attnParts = ([[cnt('Bez ceny'), 'bez ceny'], [cnt('trhem'), 'mimo trh'], [cnt('umístění'), 'bez umístění'], [cnt('Leží'), 'leží přes 60 dní']] as [number, string][])
-    .filter((p) => p[0]);
+  // Počítá se jen při změně dat, ne při každém psaní do hledání nebo otevření detailu.
+  const { nAttn, attnParts } = useMemo(() => {
+    const isList = all.map((i) => issues(i, shop));
+    const cnt = (k: string) => isList.filter((r) => r.some((x) => x.includes(k))).length;
+    return {
+      nAttn: isList.filter((r) => r.length).length,
+      attnParts: ([[cnt('Bez ceny'), 'bez ceny'], [cnt('trhem'), 'mimo trh'], [cnt('umístění'), 'bez umístění'], [cnt('Leží'), 'leží přes 60 dní']] as [number, string][])
+        .filter((p) => p[0]),
+    };
+  }, [all, shop]);
   const attnNote = shop && !attnHide && !attn && nAttn ? (
     <div className="attn">
       <i className="adot" />
@@ -276,18 +281,23 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   ) : null;
 
   // ---- filtry
-  const games = GAMES.filter((g) => base.some((i) => i.gameId === g.id));
-  const langs = [...new Set(base.map((i) => i.lang))].sort((a, b) => CARD_LANGS.indexOf(a) - CARD_LANGS.indexOf(b));
-  const srcs = shop ? [...new Set(base.map((i) => i.src))] : [];
+  const { games, langs, srcs, LOCG, LOCF } = useMemo(() => {
+    const LOCG = new Map<string, number>(), LOCF = new Map<string, number>();
+    base.forEach((i) => {
+      if (!i.loc) { LOCG.set('—', (LOCG.get('—') ?? 0) + i.have); return; }
+      const g = locOf(i); LOCG.set(g, (LOCG.get(g) ?? 0) + i.have); LOCF.set(i.loc, (LOCF.get(i.loc) ?? 0) + i.have);
+    });
+    return {
+      games: GAMES.filter((g) => base.some((i) => i.gameId === g.id)),
+      langs: [...new Set(base.map((i) => i.lang))].sort((a, b) => CARD_LANGS.indexOf(a) - CARD_LANGS.indexOf(b)),
+      srcs: shop ? [...new Set(base.map((i) => i.src))] : [],
+      LOCG, LOCF,
+    };
+  }, [base, shop]);
   const flip = (k: keyof F, v: string) => setF((x) => { const s = new Set(x[k]); if (s.has(v)) s.delete(v); else s.add(v); return { ...x, [k]: s }; });
   const op = (k: keyof F, v: string, l: React.ReactNode) => (
     <button key={v} type="button" className={`fop${f[k].has(v) ? ' on' : ''}`} onClick={() => flip(k, v)}>{l}</button>
   );
-  const LOCG = new Map<string, number>(), LOCF = new Map<string, number>();
-  base.forEach((i) => {
-    if (!i.loc) { LOCG.set('—', (LOCG.get('—') ?? 0) + i.have); return; }
-    const g = locOf(i); LOCG.set(g, (LOCG.get(g) ?? 0) + i.have); LOCF.set(i.loc, (LOCF.get(i.loc) ?? 0) + i.have);
-  });
   // Umístění ve filtru: posuvný seznam všech míst se zaškrtáváním, hledání zúží seznam (i na pozice).
   const fqq = fq.trim().toLowerCase();
   const czs = (x: [string, number], y: [string, number]) => x[0].localeCompare(y[0], 'cs', { numeric: true });

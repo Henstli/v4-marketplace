@@ -52,10 +52,13 @@ export default async function StockPage({ searchParams }: Props) {
 
   const sp = await searchParams;
   const supabase = await createClient();
+  const accountP = getAccountSummary();
   // Vlastní sklad, nebo sklad obchodu, kde je přihlášený v týmu (?obchod=…).
   const ctx = await loadCtx(supabase, user, sp.obchod);
+  // Sklad se načítá souběžně s účtem: skoro každá záložka ho potřebuje (počty v záložkách), práva hlídá databáze.
+  if (!sp.karta && (ctx.isOwner || ctx.perms.has('view') || ctx.perms.has('price'))) void loadStock(supabase, ctx.owner);
   const [account, ready, { data: restriction }] = await Promise.all([
-    getAccountSummary(),
+    accountP,
     ctx.isOwner ? loadReadiness(supabase, user.id) : Promise.resolve({ ready: true } as Awaited<ReturnType<typeof loadReadiness>>),
     supabase.from('account_restrictions').select('kind, until').eq('user_id', user.id).is('ended_at', null).maybeSingle(),
   ]);

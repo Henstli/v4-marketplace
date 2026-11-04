@@ -70,11 +70,16 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   return { ok: true };
 }
 
-function revalidateStock() {
+/** Po změně skladu. Katalog a stránky prodejců se obnoví jen u změn, které jsou vidět veřejně (ceny, kusy na prodej). */
+function revalidateStock(pub = true) {
   revalidatePath('/prodat');
+  if (!pub) return;
   refreshCatalog();
   revalidatePath('/prodejci', 'layout');
 }
+
+// Umístění a výměna jsou jen ve skladu, veřejný katalog se jimi nemění.
+const PRIVATE_OPS: StockOp[] = ['location', 'trade_all', 'trade_none'];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const cleanIds = (ids: unknown) => (Array.isArray(ids) ? ids.map(String).filter((id) => UUID.test(id)).slice(0, 5000) : []);
@@ -121,7 +126,7 @@ export async function stockChange(ids: string[], op: StockOp, value?: number | s
     p_ids: list, p_op: op, p_title: opTitle(op, list.length, num, text), p_num: num ?? null, p_text: text ?? null,
   });
   if (error) return { error: dbError(error) };
-  revalidateStock();
+  revalidateStock(!PRIVATE_OPS.includes(op));
   if (op === 'sell' || op === 'price' || op === 'pct') await scheduleWatchFlush();
   return { count: Number(data ?? 0) };
 }
