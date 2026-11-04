@@ -261,3 +261,93 @@ export function ValueModal({ owner, off, shop, onClose, onCard }: { owner: strin
     </Modal>
   );
 }
+
+// ---- Prodáno za 30 dní a Objednávky: výpis v okně, řádek vede na detail objednávky
+
+const SOLD_ST = ['paid', 'shipped', 'delivered'];
+const OPEN_ST = ['requested', 'confirmed', 'pending_payment', 'paid'];
+const ST_SHORT: Record<string, string> = {
+  requested: 'Čeká na vás', confirmed: 'Potvrzeno', pending_payment: 'Čeká na platbu', paid: 'Zaplaceno',
+  shipped: 'Odesláno', delivered: 'Převzato',
+};
+const ST_TONE: Record<string, string> = { requested: 'wait', pending_payment: 'pay', confirmed: '', paid: '', shipped: '', delivered: 'ok' };
+
+type OrdRow = {
+  id: string; number: number; status: string; total_czk: number; created_at: string; decided_at: string | null; buyer_id: string;
+  order_items: { quantity: number; cards: { name: string; image_url: string | null } | null }[];
+};
+
+export function OrdersModal({ owner, sold, allHref, allLabel, onClose }: {
+  owner: string; sold: boolean; allHref: string; allLabel: string; onClose: () => void;
+}) {
+  const [rows, setRows] = useState<OrdRow[] | null>(null);
+  const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [f, setF] = useState<'all' | 'wait' | 'run'>('all');
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const sb = createClient();
+    let q = sb.from('orders').select('id, number, status, total_czk, created_at, decided_at, buyer_id, order_items(quantity, cards(name, image_url))')
+      .eq('seller_id', owner).in('status', sold ? SOLD_ST : OPEN_ST);
+    if (sold) q = q.gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString());
+    q.order('created_at', { ascending: false }).limit(500).then(async ({ data, error }) => {
+      if (!live) return;
+      if (error) { setErr(true); return; }
+      const r = (data ?? []) as unknown as OrdRow[];
+      setRows(r);
+      const ids = [...new Set(r.map((o) => o.buyer_id))];
+      if (ids.length) {
+        const { data: p } = await sb.from('profiles').select('id, display_name').in('id', ids);
+        if (live) setNames(new Map(((p ?? []) as { id: string; display_name: string }[]).map((x) => [x.id, x.display_name])));
+      }
+    });
+    return () => { live = false; };
+  }, [owner, sold]);
+
+  const pcs = (o: OrdRow) => o.order_items.reduce((s, i) => s + i.quantity, 0);
+  const all = rows ?? [];
+  const wait = all.filter((o) => o.status === 'requested');
+  const shown = sold ? all : f === 'wait' ? wait : f === 'run' ? all.filter((o) => o.status !== 'requested') : all;
+  const sumPcs = all.reduce((s, o) => s + pcs(o), 0);
+  const sumKc = all.reduce((s, o) => s + o.total_czk, 0);
+  const date = (iso: string) => { const d = new Date(iso); return `${d.getDate()}. ${d.getMonth() + 1}.`; };
+
+  return (
+    <Modal title={sold ? 'Prodáno za 30 dní' : 'Objednávky'} wide onClose={onClose}
+      foot={<><span className="note">Kliknutím na řádek otevřete detail objednávky.</span><button type="button" className="btn" onClick={() => (location.href = allHref)}>{allLabel}</button></>}>
+      {err ? <p className="wsm">Výpis se nepodařilo načíst. Zkuste to prosím znovu.</p> : rows == null ? <p className="wsm">Načítám…</p> : (
+        <>
+          {sold ? (
+            <div className="ordsum">
+              <div><small>Prodáno</small><b>{nf(sumPcs)} {sumPcs === 1 ? 'karta' : sumPcs >= 2 && sumPcs <= 4 ? 'karty' : 'karet'}</b></div>
+              <div><small>Tržba</small><b>{kc(sumKc)}</b></div>
+              <div><small>Objednávek</small><b>{nf(all.length)}</b></div>
+            </div>
+          ) : (
+            <Seg value={f} onChange={setF} style={{ alignSelf: 'flex-start' }}
+              options={[['all', <>Vše <span className="n">{all.length}</span></>], ['wait', <>Čeká na vás <span className={`n${wait.length ? ' hot' : ''}`}>{wait.length}</span></>], ['run', <>Probíhá <span className="n">{all.length - wait.length}</span></>]]} />
+          )}
+          {shown.length ? (
+            <div className="ordl">
+              {shown.map((o) => {
+                const it = o.order_items;
+                const first = it[0]?.cards;
+                const n = pcs(o);
+                const title = first ? `${first.name}${it.length > 1 ? ` +${it.length - 1}` : ''}` : 'Objednávka';
+                return (
+                  <a key={o.id} className="ordr" href={`/objednavky/${o.number}`}>
+                    {first?.image_url ? <img src={thumbUrl(first.image_url) ?? first.image_url} alt="" /> : <img alt="" />}
+                    <span><b>{title}</b><small>č. {o.number} · {names.get(o.buyer_id) ?? 'Kupující'} · {n} {n === 1 ? 'kus' : n >= 2 && n <= 4 ? 'kusy' : 'kusů'}</small></span>
+                    <span className="mono od">{date(o.decided_at ?? o.created_at)}</span>
+                    <em className={`ost ${ST_TONE[o.status] ?? ''}`}>{ST_SHORT[o.status] ?? o.status}</em>
+                    <b className="mono">{kc(o.total_czk)}</b>
+                  </a>
+                );
+              })}
+            </div>
+          ) : <p className="wsm">{sold ? 'Za posledních 30 dní jste nic neprodali.' : f === 'wait' ? 'Žádná objednávka nečeká na vás.' : 'Žádné otevřené objednávky.'}</p>}
+        </>
+      )}
+    </Modal>
+  );
+}

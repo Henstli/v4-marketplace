@@ -297,7 +297,7 @@ async function History({ userId, shop, sales }: { userId: string; shop: boolean;
     ...(orders ?? []).map((o) => {
       const pcs = ((o.order_items ?? []) as { quantity: number }[]).reduce((s, i) => s + i.quantity, 0);
       return {
-        key: `o${o.id}`, kind: 'sale' as const, at: o.decided_at ?? o.created_at, href: `/objednavky/${o.id}`, who: null,
+        key: `o${o.id}`, kind: 'sale' as const, at: o.decided_at ?? o.created_at, href: `/objednavky/${o.number}`, who: null,
         title: `Prodej · objednávka č. ${o.number}`, detail: `${plural(pcs, ['kus', 'kusy', 'kusů'])} · ${formatPrice(o.total_czk)}`,
       };
     }),
