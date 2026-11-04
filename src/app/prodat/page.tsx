@@ -15,7 +15,6 @@ import { ListingForm } from './ListingForm';
 import { StockTable } from './StockTable';
 import { StockActions } from './StockModals';
 import { StockHistory, type HistoryEntry } from './StockHistory';
-import { WantsView, type Want } from './Wants';
 import { SetsView } from './SetsView';
 import { EMPTY_SUMMARY, countsId, toPage, type StockPageRaw, type StockSummary } from './stock-view';
 import { LiveCount } from './LiveCount';
@@ -98,8 +97,8 @@ export default async function StockPage({ searchParams }: Props) {
   // Záložky přesně podle prototypu, jen ty, na které má přihlášený právo.
   const can: Record<Tab, boolean> = shop
     ? { vse: has('view'), prodej: has('price'), odeslat: has('ord'), trh: has('conn'), nesparovane: ctx.isOwner, inventura: has('inv') || has('plan') || has('diff'), historie: has('conn'), hledam: false, sady: false, napojeni: has('conn') }
-    : { vse: true, prodej: true, odeslat: false, trh: false, nesparovane: ctx.isOwner, inventura: false, historie: true, hledam: true, sady: true, napojeni: true };
-  const order: Tab[] = shop ? ['vse', 'prodej', 'odeslat', 'trh', 'nesparovane', 'inventura', 'historie'] : ['vse', 'prodej', 'nesparovane', 'hledam', 'sady', 'historie'];
+    : { vse: true, prodej: true, odeslat: false, trh: false, nesparovane: ctx.isOwner, inventura: false, historie: true, hledam: false, sady: true, napojeni: true };
+  const order: Tab[] = shop ? ['vse', 'prodej', 'odeslat', 'trh', 'nesparovane', 'inventura', 'historie'] : ['vse', 'prodej', 'nesparovane', 'sady', 'historie'];
   const tabs = order.filter((t) => can[t]);
   if (!tabs.length) {
     return (
@@ -109,6 +108,8 @@ export default async function StockPage({ searchParams }: Props) {
       </div></div>
     );
   }
+  // Hledám se přesunulo do Hlídání a příkazů (jeden seznam Hlídané karty).
+  if (sp.zalozka === 'hledam') redirect('/ucet/hlidane');
   let tab = (TABS.includes(sp.zalozka as Tab) ? sp.zalozka : 'vse') as Tab;
   if (!shop && tab === 'odeslat') redirect('/objednavky?tab=prodeje');
   if (!can[tab]) tab = tabs[0];
@@ -128,7 +129,7 @@ export default async function StockPage({ searchParams }: Props) {
     ship ? ship.orders.filter((o) => o.ready).length : can.odeslat ? supabase.from('orders').select('id', { count: 'exact', head: true })
       .eq('seller_id', ctx.owner).or('status.eq.paid,and(status.eq.confirmed,payment.in.(cod,cash))').then((r) => r.count ?? 0) : 0,
     can.trh ? supabase.rpc('market_demand', { p_owner: ctx.owner }).then((r) => (r.data ?? []).length) : 0,
-    shop ? 0 : supabase.from('stock_wants').select('card_id', { count: 'exact', head: true }).eq('user_id', user.id).then((r) => r.count ?? 0),
+    0,
     shop && has('staff') ? loadTeam(supabase, ctx.owner) : null,
     shop && has('conn') ? loadAuto(supabase, ctx.owner) : null,
     can.nesparovane ? loadUnmatched(supabase, tab === 'nesparovane') : { items: [] as Unm[], waiting: 0 },
@@ -209,7 +210,6 @@ export default async function StockPage({ searchParams }: Props) {
       ) : null}
       {tab === 'nesparovane' ? <UnmatchedView items={unm.items} shop={shop} /> : null}
       {tab === 'trh' ? <Market ctx={ctx} pohled={sp.pohled} dni={sp.dni} /> : null}
-      {tab === 'hledam' ? <Wanted /> : null}
       {tab === 'sady' ? <Sets /> : null}
     </div></div>
   );
@@ -311,16 +311,6 @@ async function History({ userId, shop, sales }: { userId: string; shop: boolean;
     }),
   ].sort((a, b) => b.at.localeCompare(a.at));
   return <StockHistory entries={entries} shop={shop} initialKind={sales ? 'sale' : 'all'} />;
-}
-
-async function Wanted() {
-  const supabase = await createClient();
-  const { data } = await supabase.rpc('stock_wants_view');
-  const wants: Want[] = ((data ?? []) as Record<string, never>[]).map((w) => ({
-    cardId: w.card_id, slug: w.slug, name: w.name, number: w.number, image: w.image_url, game: w.game_id,
-    setCode: w.set_code ?? '', setName: w.set_name ?? '', maxPrice: w.max_price_czk, minCondition: w.min_condition, low: w.low_czk, offers: w.offers,
-  }));
-  return <WantsView wants={wants} />;
 }
 
 type SetRow = { set_id: string; code: string; name: string; game_id: string; owned: number; total: number };

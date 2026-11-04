@@ -19,14 +19,16 @@ export interface Want {
   setCode: string;
   setName: string;
   maxPrice: number | null;
-  minCondition: string;
+  minCondition: string | null;
   low: number | null;
   offers: number;
+  /** Nové upozornění, které uživatel ještě neviděl */
+  fresh?: boolean;
 }
 
 const offers = (n: number) => `${n} ${n === 1 ? 'nabídka' : n < 5 ? 'nabídky' : 'nabídek'}`;
 
-/** Hledám podle prototypu: Dostupné za vaši cenu a Hlídám, přidání oknem. */
+/** Hlídané karty (Hlídání a příkazy): Dostupné za vaši cenu a Hlídám, přidání oknem. */
 export function WantsView({ wants }: { wants: Want[] }) {
   const [add, setAdd] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
@@ -37,17 +39,17 @@ export function WantsView({ wants }: { wants: Want[] }) {
   const row = (w: Want) => (
     <div key={w.cardId} className="wnr">
       {w.image ? <img src={thumbUrl(w.image)} alt="" /> : <img alt="" />}
-      <span><b><Link href={`/karty/${w.slug}`}>{w.name}</Link></b><small className="mono">{w.setCode} {w.number} · od {w.minCondition}</small></span>
+      <span><b>{w.fresh ? <span className="wnew">Nové</span> : null}<Link href={`/karty/${w.slug}`}>{w.name}</Link></b><small className="mono">{w.setCode} {w.number} · {w.minCondition && w.minCondition !== 'PL' ? `${w.minCondition} a lepší` : 'jakýkoli stav'}</small></span>
       {edit === w.cardId ? (
         <span className="wnm"><small>Chci do</small>
           <input className="pin" autoFocus defaultValue={w.maxPrice ?? ''} inputMode="numeric" style={{ width: 90, font: '600 14px var(--fm)', background: 'var(--surface-sunken)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 6px' }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') setEdit(null);
-              if (e.key === 'Enter') { const v = Number((e.target as HTMLInputElement).value.replace(/\D/g, '')) || null; setEdit(null); start(async () => { await saveWant(w.cardId, v, w.minCondition); router.refresh(); }); }
+              if (e.key === 'Enter') { const v = Number((e.target as HTMLInputElement).value.replace(/\D/g, '')) || null; setEdit(null); start(async () => { await saveWant(w.cardId, v, w.minCondition ?? 'PL'); router.refresh(); }); }
             }} onBlur={() => setEdit(null)} />
         </span>
       ) : (
-        <span className="wnm" title="Změnit" onClick={() => setEdit(w.cardId)} style={{ cursor: 'pointer' }}><small>Chci do</small><b className="mono">{w.maxPrice != null ? kc(w.maxPrice) : 'tržní cena'}</b></span>
+        <span className="wnm" title="Změnit" onClick={() => setEdit(w.cardId)} style={{ cursor: 'pointer' }}><small>Chci do</small><b className="mono">{w.maxPrice != null ? kc(w.maxPrice) : 'bez limitu'}</b></span>
       )}
       <span className="wnl"><small>Nejlevněji teď</small>{w.low == null ? <b className="mut">nikdo neprodává</b> : <b className={`mono${ok(w) ? ' acc' : ''}`}>{kc(w.low)}</b>}
         <small>{w.offers ? offers(w.offers) : 'dáme vědět, až se objeví'}</small></span>
@@ -60,12 +62,12 @@ export function WantsView({ wants }: { wants: Want[] }) {
   return (
     <>
       <div className="wnh">
-        <p className="ilead" style={{ margin: 0 }}>Karty, které sháníte. Hlídáme ceny a dáme vědět, když se objeví nabídka za vaši cenu. Celé sady najdete v Chybí do sad.</p>
-        <button type="button" className="btn p" onClick={() => setAdd(true)}>+ Přidat kartu</button>
+        <p className="ilead" style={{ margin: 0 }}>Karty, které sháníte. Jakmile se objeví nabídka za vaši cenu a ve vašem stavu, pošleme e-mail. Hlídat jde i u karty tlačítkem „Dát vědět, až se objeví nabídka“ a ve Sbírce v Chybí do sad.</p>
+        <button type="button" className="btn p" onClick={() => setAdd(true)}>+ Hlídat kartu</button>
       </div>
       {A.length ? <><div className="wng acc">Dostupné za vaši cenu <span>{A.length}</span></div><div className="olist">{A.map(row)}</div></> : null}
       <div className="wng">Hlídám <span>{B.length}</span></div>
-      <div className="olist">{B.length ? B.map(row) : <div className="none">{wants.length ? 'Nic dalšího nehlídáte.' : 'Zatím nic nehledáte. Kartu přidáte tlačítkem + Přidat kartu.'}</div>}</div>
+      <div className="olist">{B.length ? B.map(row) : <div className="none">{wants.length ? 'Nic dalšího nehlídáte.' : 'Zatím nic nehlídáte. Kartu přidáte tlačítkem + Hlídat kartu.'}</div>}</div>
       {add ? <AddWant onClose={() => { setAdd(false); router.refresh(); }} /> : null}
     </>
   );
@@ -78,7 +80,7 @@ const condHint = (c: string) => {
   return k <= 0 ? 'Jen Mint' : `${CONDITION_NAMES[c as Condition]} a lepší (${CONDS.slice(0, k + 1).join(', ')})`;
 };
 
-/** Přidat do Hledám: najít kartu, vybrat ji, nastavit cenu a stav, přidat. Pak jde hledat další. */
+/** Hlídat kartu: najít kartu, vybrat ji, nastavit cenu a stav, přidat. Pak jde hledat další. */
 function AddWant({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('');
   const [res, setRes] = useState<FoundCard[] | null>(null);
@@ -98,10 +100,10 @@ function AddWant({ onClose }: { onClose: () => void }) {
     setErr(''); setDone((d) => [sel.name, ...d]); setSel(null); setQ(''); setRes(null); setMax('');
   });
   return (
-    <Modal title="Přidat do Hledám" onClose={onClose} foot={<>
+    <Modal title="Hlídat kartu" onClose={onClose} foot={<>
       {done.length ? <span className="note">Přidáno: {done.slice(0, 2).join(', ')}{done.length > 2 ? ` a ${done.length - 2} další` : ''}</span> : null}
       <button type="button" className="btn" onClick={onClose}>{done.length ? 'Hotovo' : 'Zrušit'}</button>
-      <button type="button" className="btn p" disabled={!sel || pending} onClick={add}>Přidat do Hledám</button>
+      <button type="button" className="btn p" disabled={!sel || pending} onClick={add}>Hlídat kartu</button>
     </>}>
       <div className="wadd">
         <div className="wst"><span className="n">1</span>Karta</div>
@@ -143,7 +145,7 @@ function AddWant({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Tlačítko u chybějící karty sady: hlídat cenu (přidat do Hledám). */
+/** Tlačítko u chybějící karty sady: hlídat cenu (přidat do Hlídaných karet). */
 export function WantButton({ cardId, wanted }: { cardId: string; wanted: boolean }) {
   const [done, setDone] = useState(wanted);
   const [pending, start] = useTransition();

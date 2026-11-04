@@ -177,7 +177,7 @@ export async function stockUndo(eventId: number): Promise<BulkResult> {
   return { count: Number(data) };
 }
 
-// Hledám: karty, které sběratel shání.
+// Hlídané karty (Hlídání a příkazy): karty, které uživatel shání, s nejvyšší cenou a nejhorším stavem.
 export async function saveWant(cardId: string, maxPrice: number | null, minCondition: string): Promise<BulkResult> {
   const [clean] = cleanIds([cardId]);
   if (!clean) return { error: 'Vyberte kartu.' };
@@ -186,12 +186,13 @@ export async function saveWant(cardId: string, maxPrice: number | null, minCondi
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: 'Nejdřív se přihlaste.' };
-  const { data: had } = await supabase.from('stock_wants').select('card_id').eq('user_id', auth.user.id).eq('card_id', clean).maybeSingle();
+  const { data: had } = await supabase.from('card_watches').select('card_id').eq('user_id', auth.user.id).eq('card_id', clean).maybeSingle();
   const { error } = had
-    ? await supabase.from('stock_wants').update({ max_price_czk: maxPrice, min_condition: minCondition }).eq('user_id', auth.user.id).eq('card_id', clean)
-    : await supabase.from('stock_wants').insert({ user_id: auth.user.id, card_id: clean, max_price_czk: maxPrice, min_condition: minCondition });
+    ? await supabase.from('card_watches').update({ max_price_czk: maxPrice, min_condition: minCondition }).eq('user_id', auth.user.id).eq('card_id', clean)
+    : await supabase.from('card_watches').insert({ user_id: auth.user.id, card_id: clean, max_price_czk: maxPrice, min_condition: minCondition });
   if (error) return { error: 'Kartu se nepodařilo uložit. Zkuste to prosím znovu.' };
   revalidatePath('/prodat');
+  revalidatePath('/ucet/hlidane');
   return { count: 1 };
 }
 
@@ -201,8 +202,9 @@ export async function removeWant(cardId: string): Promise<BulkResult> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: 'Nejdřív se přihlaste.' };
-  const { error } = await supabase.from('stock_wants').delete().eq('user_id', auth.user.id).eq('card_id', clean);
+  const { error } = await supabase.from('card_watches').delete().eq('user_id', auth.user.id).eq('card_id', clean);
   if (error) return { error: 'Kartu se nepodařilo odebrat. Zkuste to prosím znovu.' };
   revalidatePath('/prodat');
+  revalidatePath('/ucet/hlidane');
   return { count: 1 };
 }
