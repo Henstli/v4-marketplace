@@ -13,6 +13,8 @@ export type Item = {
   r: StockRow; id: string; key: string; name: string; set: string; game: string; gameId: string; img: string | null;
   cond: string; lang: string; have: number; sale: number; keep: number; trade: number; price: number | null; market: number | null;
   loc: string; src: string; listed: number; buy: number | null; locked: boolean; upd: string;
+  /** Kusy, které drží album (0 nebo 1), a název alba */
+  held: number; album: string | null;
 };
 
 export const SLOW = 60;
@@ -23,6 +25,7 @@ export const toItem = (r: StockRow): Item => ({
   cond: r.condition, lang: r.language, have: owned(r), sale: r.quantity, keep: r.keep, trade: Math.min(r.trade, owned(r)),
   price: r.price, market: r.market, loc: r.location ?? '', src: r.source, listed: r.quantity > 0 ? days(r.listedAt) : 0,
   buy: r.buyPrice, locked: r.removed || r.hidden != null, upd: r.updatedAt,
+  held: r.album ? 1 : 0, album: r.album ?? null,
 });
 export const fromLoad = (rows: unknown) => ((rows ?? []) as LoadRow[]).map((l) => toItem(mapRow(l)));
 

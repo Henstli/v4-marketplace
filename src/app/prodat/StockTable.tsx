@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { GAMES, getGame } from '@/lib/games';
 import { CONDITIONS } from '@/lib/types';
-import { stockChange, stockSet } from './actions';
+import { collectionRelease, stockChange, stockSet } from './actions';
 import { cardInfo, stockBulkSet, type BulkRow, type CardInfo } from './sk-actions';
 import { ExportModal } from './StockModals';
 import { OrdersModal, StockDetailModal, ValueModal } from './StripModals';
@@ -35,6 +35,7 @@ type Sort = 'chg' | 'name' | 'cond' | 'lang' | 'have' | 'sale' | 'price' | 'loc'
 /** Výchozí směr po prvním kliknutí: abecedně a od nejlepšího stavu vzestupně, počty a ceny od největších. */
 const ASC_FIRST: Sort[] = ['name', 'cond', 'lang', 'loc'];
 type F = { g: Set<string>; c: Set<string>; l: Set<string>; s: Set<string>; p: Set<string> };
+const AlbIco = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h11" /></svg>;
 type BulkModal = 'sell' | 'price' | 'attr' | 'loc' | 'del' | 'export' | 'bmore' | null;
 
 /** Hodnota, podle které se řádek řadí (pro zamrznutí pořadí po úpravě). */
@@ -90,6 +91,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const [open, setOpen] = useState<string | null>(null);
   const [edit, setEdit] = useState<string | null>(null);
   const [pop, setPop] = useState<{ k: string; x: number; y: number } | null>(null);
+  const [warn, setWarn] = useState<{ list: Item[]; k: string; x: number; y: number; more: boolean } | null>(null);
   const [modal, setModal] = useState<BulkModal>(null);
   const [stripModal, setStripModal] = useState<0 | 1 | 2 | 'val' | 'sold' | 'ord' | null>(null);
   const [toast, setToast] = useState<{ t: string; err?: boolean; undo?: boolean } | null>(null);
@@ -224,15 +226,39 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
     if (!canPrice) { setToast({ t: 'Na prodej a ceny nemáte právo.', err: true }); return false; }
     return true;
   };
-  const step = (i: Item, d: number) => {
+  // Kus, který drží album, se neprodává: nejdřív upozornění, karta se z alba vyjme.
+  const askAlbum = (list: Item[], k: string, e?: React.MouseEvent, more = false) => {
+    const b = e ? (e.currentTarget as HTMLElement).getBoundingClientRect() : null;
+    setWarn({ list, k, more, x: b ? Math.max(8, Math.min(window.innerWidth - 308, b.left + b.width / 2 - 150)) : 200, y: b ? b.bottom + 6 : 200 });
+  };
+  const release = () => {
+    if (!warn) return;
+    const w = warn; setWarn(null);
+    const ids = w.list.filter((x) => x.held).map((x) => x.id);
+    start(async () => {
+      const r = await collectionRelease(ids);
+      if (r.error) { done(r, ''); return; }
+      await patch(ids);
+      if (w.more) {
+        const t = w.list.find((x) => x.sale < x.have && !x.locked);
+        if (t) bulk([{ id: t.id, quantity: t.sale + 1, keep_qty: t.have - t.sale - 1 }], `${t.name}: na prodej ${t.sale + 1} z ${t.have}`, `${t.name}: vyjmuto z alba a na prodej`);
+      } else {
+        setToast({ t: `${w.list[0].name}: vyjmuto z alba` });
+        setPop({ k: w.k, x: w.x, y: w.y });
+      }
+    });
+  };
+  const step = (i: Item, d: number, e?: React.MouseEvent) => {
+    if (d > 0 && i.held && i.sale + d > i.have - i.held && i.sale < i.have) { askAlbum([i], i.id, e, true); return; }
     const s = Math.max(0, Math.min(i.have, i.sale + d));
     if (s === i.sale || !needReady(d > 0)) return;
     bulk([{ id: i.id, quantity: s, keep_qty: i.have - s }], `${i.name}: na prodej ${s} z ${i.have}`, `${i.name}: na prodej ${s} z ${i.have}`);
   };
-  const gstep = (g: Item[], d: number) => {
+  const gstep = (g: Item[], d: number, e?: React.MouseEvent) => {
     if (!needReady(d > 0)) return;
-    const t = d > 0 ? g.find((x) => x.sale < x.have && !x.locked) : [...g].reverse().find((x) => x.sale > 0 && !x.locked);
+    const t = d > 0 ? g.find((x) => x.sale < x.have - x.held && !x.locked) : [...g].reverse().find((x) => x.sale > 0 && !x.locked);
     if (t) step(t, d);
+    else if (d > 0 && g.some((x) => x.held && x.sale < x.have)) askAlbum(g, `g:${g[0].key}`, e, true);
   };
   const stop = (list: Item[]) => {
     if (!needReady(false)) return;
@@ -427,8 +453,9 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   // ---- buňky
   const itags = (i: Item) => {
     const r = issues(i, shop);
-    const tb = !shop && i.trade ? <span className="trdb">Výměna {i.trade}×</span> : null;
-    if (!r.length) return tb;
+    const ab = i.held ? (i.have <= i.held ? <span className="albb" title={`Kus drží album ${i.album}`}>{AlbIco}V albu {i.album}</span> : <span className="albb m" title={`1 kus drží album ${i.album}`}>{AlbIco}1 v albu</span>) : null;
+    const tb = <>{ab}{!shop && i.trade ? <span className="trdb">Výměna {i.trade}×</span> : null}</>;
+    if (!r.length) return i.held || (!shop && i.trade) ? tb : null;
     const lz = r.find((x) => x.startsWith('Leží')); const first = lz ?? r[0]; const rest = r.filter((x) => x !== first);
     return <>{tb}<span className="iss">{first}</span>{rest.length ? <span className="iss more" title={rest.join(' · ')}>+{rest.length}</span> : null}
       {lz && canPrice ? <button type="button" className="disb" onClick={(e) => { e.stopPropagation(); setSel(new Set([i.id])); setModal('price'); }}><span className="dl">Nabídnout slevu</span><span className="ds">Sleva</span></button> : null}</>;
@@ -442,12 +469,17 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const saleCell = (list: Item[], k: string) => {
     const have = list.reduce((s, x) => s + x.have, 0), s = list.reduce((a, x) => a + x.sale, 0);
     if (list.every((x) => x.locked)) return <span className="spill add" style={{ cursor: 'default' }}><DashBorder />Skryto podporou</span>;
+    const held = list.reduce((a, x) => a + x.held, 0);
+    if (!s && held && have <= held) {
+      const al = list.find((x) => x.held)?.album ?? 'albu';
+      return <button type="button" className="spill alb" title={`Poslední kus je v albu ${al}`} onClick={(e) => { e.stopPropagation(); if (needReady(true)) askAlbum(list, k, e); }}>{AlbIco}V albu</button>;
+    }
     if (!s) return <button type="button" className="spill add" onClick={(e) => openPop(k, e)}><DashBorder />+ Prodávat</button>;
     return (
       <span className="spill" onClick={(e) => e.stopPropagation()}>
         <button type="button" title="Méně" disabled={pending} onClick={() => (list.length > 1 ? gstep(list, -1) : step(list[0], -1))}>−</button>
         <button type="button" className="sv" title="Stáhnout z prodeje" disabled={pending} onClick={() => stop(list)}><b>{nf(s)}</b><small>z {nf(have)}</small></button>
-        <button type="button" title="Více" disabled={pending || s >= have} onClick={() => (list.length > 1 ? gstep(list, 1) : step(list[0], 1))}>+</button>
+        <button type="button" title={held && s >= have - held ? 'Poslední kus je v albu' : 'Více'} disabled={pending || s >= have} onClick={(e) => (list.length > 1 ? gstep(list, 1, e) : step(list[0], 1, e))}>+</button>
         <i style={{ '--w': `${(s / have) * 100}%` } as React.CSSProperties} />
       </span>
     );
@@ -522,7 +554,9 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
           <div className="cn">
             {i.img ? <img src={i.img} alt="" /> : <img alt="" />}
             <span><b>{i.name}</b><span className="mt"><small className="mono">{i.set}</small>{i.game ? <small> · {i.game}</small> : null}</span>
-              {!shop && g.some((x) => x.trade) ? <span className="isl"><span className="trdb">Výměna {g.reduce((a, x) => a + x.trade, 0)}×</span></span> : null}</span>
+              {g.some((x) => x.held) || (!shop && g.some((x) => x.trade)) ? <span className="isl">
+                {g.some((x) => x.held) ? (have <= g.reduce((a, x) => a + x.held, 0) ? <span className="albb">{AlbIco}V albu {g.find((x) => x.held)?.album}</span> : <span className="albb m">{AlbIco}1 v albu</span>) : null}
+                {!shop && g.some((x) => x.trade) ? <span className="trdb">Výměna {g.reduce((a, x) => a + x.trade, 0)}×</span> : null}</span> : null}</span>
             <span className="gtag"><i className={`adot${g.some((x) => issues(x, shop).length) ? '' : ' off'}`} />{g.length} {g.length < 5 ? 'varianty' : 'variant'} {Ico.chev}</span>
           </div>
         </td>
@@ -603,6 +637,19 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       {pop && popList.length ? <SellPop list={popList} shop={shop} x={pop.x} y={pop.y} onClose={() => setPop(null)}
         onOk={(rowsSet, text) => { setPop(null); bulk(rowsSet, text, text); }} /> : null}
 
+      {warn ? (() => {
+        const h = warn.list.find((x) => x.held)!;
+        return (
+          <Modal title="Karta je v albu" onClose={() => setWarn(null)} foot={<>
+            <button type="button" className="btn" onClick={() => setWarn(null)}>Nechat v albu</button>
+            <button type="button" className="btn p" disabled={pending} onClick={release}>{warn.more ? 'Vyjmout z alba a prodávat' : 'Vyjmout z alba'}</button>
+          </>}>
+            <div className="cn" style={{ marginBottom: 12 }}>{h.img ? <img src={h.img} alt="" /> : <img alt="" />}<span><b>{h.name}</b><small className="mono">{h.set} · {h.cond}</small></span></div>
+            <p className="ixlead" style={{ margin: 0 }}>{warn.list.reduce((a, x) => a + x.have, 0) <= 1 ? 'Máte jen tento kus' : 'Poslední volný kus'} drží album <b>{h.album}</b>. Když ho dáte na prodej, z alba se vyjme a zůstane po něm prázdné místo.</p>
+          </Modal>
+        );
+      })() : null}
+
       {n ? (
         <div className="bulk">
           <button type="button" className="cb on" onClick={() => { setSel(new Set()); setSelKey(null); }} title="Zrušit výběr" />
@@ -623,7 +670,16 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       ) : null}
 
       {modal === 'sell' ? <SellModal items={selItems} shop={shop} onClose={() => setModal(null)}
-        onOk={(list, text) => { if (!needReady(true)) return; setModal(null); bulk(list, text, text, 'stock', () => setSel(new Set())); }} /> : null}
+        onOk={(list, text, rel) => {
+          if (!needReady(true)) return;
+          setModal(null);
+          if (!rel.length) { bulk(list, text, text, 'stock', () => setSel(new Set())); return; }
+          start(async () => {
+            const r = await collectionRelease(rel);
+            if (r.error) { done(r, ''); return; }
+            bulk(list, text, text, 'stock', () => setSel(new Set()));
+          });
+        }} /> : null}
       {modal === 'price' ? <PriceModal items={selItems} onClose={() => setModal(null)}
         onOk={(list, text) => { setModal(null); bulk(list, text, text, 'price'); }} /> : null}
       {modal === 'attr' ? <AttrModal n={n} onClose={() => setModal(null)}
@@ -636,7 +692,8 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
           <button type="button" className="btn p" style={{ background: 'var(--danger)', borderColor: 'var(--danger)', color: '#2a0b09' }}
             onClick={() => { setModal(null); run(() => stockChange(selItems.map((x) => x.id), 'remove', undefined, true), `Odebráno: ${pl1(n)}`, selItems.map((x) => x.id), () => setSel(new Set())); }}>Odebrat</button>
         </>}>
-          <p style={{ margin: 0, color: 'var(--ink-muted)' }}>Karty zmizí ze {shop ? 'skladu i z prodeje' : 'sbírky i z nabídky'}. Odebrání už vrátit nejde.</p>
+          <p style={{ margin: 0, color: 'var(--ink-muted)' }}>Karty zmizí ze {shop ? 'skladu i z prodeje' : 'sbírky i z nabídky'}. Odebrání už vrátit nejde.
+            {selItems.some((x) => x.held) ? <> {selItems.filter((x) => x.held).length === 1 ? '1 karta je v albu, z alba se vyjme.' : `${selItems.filter((x) => x.held).length} karet je v albech, z alb se vyjmou.`}</> : null}</p>
         </Modal>
       ) : null}
       {stripModal === 'val' ? <ValueModal owner={owner} off={sale} shop={shop} onClose={() => setStripModal(null)} onCard={openCard} /> : null}
@@ -665,7 +722,9 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
 function SellPop({ list, shop, x, y, onClose, onOk }: {
   list: Item[]; shop: boolean; x: number; y: number; onClose: () => void; onOk: (rows: BulkRow[], text: string) => void;
 }) {
-  const have = list.reduce((s, i) => s + i.have, 0);
+  // Kus, který drží album, se nenabízí (prodávat jde nejvýš všechny bez něj).
+  const have = list.reduce((s, i) => s + i.have - i.held, 0);
+  const held = list.reduce((s, i) => s + i.held, 0);
   const first = list.find((i) => i.price != null) ?? list[0];
   const [qty, setQty] = useState(String(have));
   const [price, setPrice] = useState(String(first.price ?? first.market ?? ''));
@@ -681,7 +740,7 @@ function SellPop({ list, shop, x, y, onClose, onOk }: {
     let left = Math.max(0, Math.min(have, Number(qty.replace(/\D/g, '')) || 0));
     const p = Number(price.replace(/\D/g, '')) || null;
     const rows: BulkRow[] = list.filter((i) => !i.locked).map((i) => {
-      const s = Math.min(i.have, left); left -= s;
+      const s = Math.min(i.have - i.held, left); left -= s;
       return { id: i.id, quantity: s, keep_qty: i.have - s, ...(shop ? { price_czk: p } : i.price == null ? { price_czk: i.market ?? null } : {}) };
     });
     onOk(rows, `${list[0].name}: na prodej ${qty} z ${have}`);
@@ -691,6 +750,7 @@ function SellPop({ list, shop, x, y, onClose, onOk }: {
       <div className="pop" ref={ref} style={{ left: x, top: Math.min(y, window.innerHeight - 260) }} onClick={(e) => e.stopPropagation()}>
         <p className="lbl" style={{ margin: 0 }}>Kolik kusů prodat</p>
         <div className="inp"><input className="pin" value={qty} inputMode="numeric" autoFocus onChange={(e) => setQty(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok()} /><em>z {have}</em></div>
+        {held ? <small className="wsm" style={{ margin: 0 }}>{held === 1 ? '1 kus drží album, ten se nenabízí.' : `${held} kusy drží alba, ty se nenabízí.`}</small> : null}
         <div className="qk">
           <button type="button" onClick={() => setQty('1')}>1</button>
           {have > 3 ? <button type="button" onClick={() => setQty(String(Math.ceil(have / 2)))}>Polovinu</button> : null}
@@ -710,18 +770,23 @@ function SellPop({ list, shop, x, y, onClose, onOk }: {
   );
 }
 
-function SellModal({ items, shop, onClose, onOk }: { items: Item[]; shop: boolean; onClose: () => void; onOk: (rows: BulkRow[], text: string) => void }) {
+function SellModal({ items, shop, onClose, onOk }: { items: Item[]; shop: boolean; onClose: () => void; onOk: (rows: BulkRow[], text: string, release: string[]) => void }) {
   const [ms, setMs] = useState<'all' | 'keep' | 'n'>('all');
+  // Karty, jejichž jediný kus drží album: prodat jen volné kusy, nebo je z alb vyjmout.
+  const inAlb = items.filter((i) => i.held && i.have <= i.held);
+  const [rel, setRel] = useState(false);
   const [n, setN] = useState('1');
   const [pm, setPm] = useState<'mk' | 'mk5' | 'own'>('mk');
   const [own, setOwn] = useState('');
   const apply = () => {
     const rows: BulkRow[] = items.map((i) => {
-      const s = ms === 'all' ? i.have : ms === 'keep' ? Math.max(0, i.have - 1) : Math.min(i.have, Number(n) || 0);
+      const want = ms === 'all' ? i.have : ms === 'keep' ? Math.max(0, i.have - 1) : Math.min(i.have, Number(n) || 0);
+      const s = Math.min(want, rel ? i.have : i.have - i.held);
       const p = i.price != null ? undefined : pm === 'own' ? (Number(own) || null) : i.market ? Math.max(1, Math.round(i.market * (pm === 'mk5' ? 0.95 : 1))) : null;
       return { id: i.id, quantity: s, keep_qty: i.have - s, ...(p !== undefined ? { price_czk: p } : {}) };
     });
-    onOk(rows, `${shop ? 'Na prodej' : 'Nabídnuto'} · ${pl1(items.length)}`);
+    const release = rel ? items.filter((i, k) => i.held && (rows[k].quantity ?? 0) > i.have - i.held).map((i) => i.id) : [];
+    onOk(rows, `${shop ? 'Na prodej' : 'Nabídnuto'} · ${pl1(items.length)}`, release);
   };
   return (
     <Modal title={`${shop ? 'Dát do prodeje' : 'Nabídnout'}: ${pl1(items.length)}`} onClose={onClose} foot={<>
@@ -738,6 +803,13 @@ function SellModal({ items, shop, onClose, onOk }: { items: Item[]; shop: boolea
         <Seg value={pm} onChange={setPm} options={[['mk', 'Tržní cena'], ['mk5', 'Tržní −5 %'], ['own', 'Zadám sám']]} />
       </div>
       {pm === 'own' ? <div className="inp"><input value={own} inputMode="numeric" placeholder="Cena za kus" onChange={(e) => setOwn(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div> : null}
+      {inAlb.length && ms !== 'keep' ? <>
+        <p className="ixlead" style={{ margin: '4px 0 0' }}><b>{inAlb.length === 1 ? '1 z vybraných karet' : `${inAlb.length} z vybraných karet`}</b> {inAlb.length === 1 ? 'drží album' : 'drží alba'} a jiný kus nemáte.</p>
+        <div className="opt">
+          <label className={rel ? '' : 'on'} onClick={() => setRel(false)}><span className="rd" /><span>Prodávat jen volné kusy<small>{pl1(items.length - inAlb.length)}, alba zůstanou celá</small></span></label>
+          <label className={rel ? 'on' : ''} onClick={() => setRel(true)}><span className="rd" /><span>Prodávat všech {items.length}<small>{inAlb.length === 1 ? '1 karta se vyjme z alba' : `${pl1(inAlb.length)} se vyjmou z alb`}</small></span></label>
+        </div>
+      </> : null}
     </Modal>
   );
 }
@@ -896,7 +968,13 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
     document.addEventListener('keydown', k);
     return () => document.removeEventListener('keydown', k);
   }, [onClose]);
-  const s = Math.min(sale, have);
+  const [held, setHeld] = useState(i.held);
+  const s = Math.min(sale, have - held);
+  const unAlbum = () => start(async () => {
+    const r = await collectionRelease([i.id]);
+    if (r.error) { onDone(r, ''); return; }
+    setHeld(0);
+  });
   const stp = (v: number, set: (n: number) => void, max: number, on?: boolean) => (
     <div className="stp">
       <button type="button" disabled={i.locked || v <= 0} onClick={() => set(v - 1)}>−</button>
@@ -946,7 +1024,9 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
           <section className="dbx">
             <h4>Kusy</h4>
             <div className="drow"><div><b>Mám</b><small>Všechny kusy této karty</small></div>{stp(have, (v) => { setHave(v); if (sale > v) setSale(v); }, 100000)}</div>
-            {canPrice ? <div className="drow"><div><b>{shop ? 'Na prodej' : 'Nabízím'}</b><small>{shop ? (have - s ? `${have - s} ks zůstává mimo prodej` : 'Všechny kusy jsou na prodej') : s ? `${s} z ${have} vidí kupující` : 'Nikdo ji teď nevidí'}</small></div>{stp(s, setSale, have, true)}</div> : null}
+            {canPrice ? <div className="drow"><div><b>{shop ? 'Na prodej' : 'Nabízím'}</b><small>{shop ? (have - s ? `${have - s} ks zůstává mimo prodej` : 'Všechny kusy jsou na prodej') : s ? `${s} z ${have} vidí kupující` : 'Nikdo ji teď nevidí'}</small></div>{stp(s, setSale, Math.max(0, have - held), true)}</div> : null}
+            {held ? <div className="drow"><div><b>V albu {i.album}</b><small>{have > held ? `1 kus drží album, ${shop ? 'na prodej' : 'nabídnout'} jde nejvýš ${have - held}` : 'Jediný kus drží album, proto ho nejde prodávat'}</small></div>
+              <button type="button" className="btn sm" disabled={pending || i.locked} onClick={unAlbum}>Vyjmout z alba</button></div> : null}
             {shop ? null : <div className="drow"><div><b>Na výměnu</b><small>Uvidí ostatní na vašem profilu</small></div>{stp(Math.min(trade, have), setTrade, have, true)}</div>}
           </section>
           <section className="dbx">
