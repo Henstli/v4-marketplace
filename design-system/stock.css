@@ -129,7 +129,7 @@
 @keyframes tzsk-fl{0%{background:color-mix(in srgb,var(--accent) 28%,transparent)}100%{background:transparent}}
 .tz-sk .pdbl.flash b{color:var(--accent);transition:color 1.2s}
 .tz-sk .pcell{width:150px}.tz-sk .pr b,.tz-sk .pr small{white-space:nowrap}.tz-sk .tbl.txt .pcell{width:150px}
-.tz-sk .pedit{display:inline-flex;position:relative}
+.tz-sk .pedit{display:inline-flex;position:relative}.tz-sk td.c .pedit small{right:auto;left:50%;transform:translateX(-50%)}
 .tz-sk .pebox{display:inline-flex;align-items:baseline;gap:6px;height:30px;padding:0 10px;margin:0 -10px 0 0;border-radius:9px;background:var(--bg);border:1px solid var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
 .tz-sk .pebox input{width:70px;background:none;border:0;text-align:right;font:600 14px/28px var(--fm);color:var(--ink)}
 .tz-sk .pebox em{font:600 13px/28px var(--fm);font-style:normal;color:var(--ink-muted)}
@@ -457,6 +457,11 @@
 .tz-sk .flist>button em{margin-left:auto;font:500 11px var(--fm);color:var(--ink-muted);font-style:normal}.tz-sk .flist>button.add{color:var(--accent);font-weight:600}
 .tz-sk .flist .fnone{display:block;padding:8px 10px}
 .tz-sk .cb.rd{border-radius:50%}.tz-sk .cb.rd.on::after{left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border:0;border-radius:50%;background:var(--on-accent);transform:none}
+.tz-sk .flist>button.on{color:var(--accent);font-weight:600}.tz-sk .flist>button.on em{color:var(--accent)}
+.tz-sk .ftags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tz-sk .fsel{display:flex;align-items:center;justify-content:space-between;width:100%;height:36px;padding:0 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface-sunken);color:var(--ink-muted);font:500 13px var(--fs);cursor:pointer}
+.tz-sk .fsel:hover{color:var(--ink)}.tz-sk .fsel.open{border-color:var(--accent);color:var(--ink)}.tz-sk .fsel svg{flex:none;transition:transform .15s}.tz-sk .fsel.open svg{transform:rotate(180deg)}
+.tz-sk .fsdd{margin-top:6px;padding:8px;border:1px solid var(--line-strong);border-radius:10px;background:var(--raised);box-shadow:0 12px 30px rgba(0,0,0,.35)}.tz-sk .fsdd .flist{border:0;padding:0;background:none}
 .tz-sk .fhint{margin:8px 0 0;font-size:12px;color:var(--ink-muted)}.tz-sk .fnone{font-size:12.5px;color:var(--ink-muted);padding:6px 0}
 .tz-sk .fpop{max-height:min(640px,calc(100vh - 140px));overflow:auto}
 .tz-sk .ffoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:12px}

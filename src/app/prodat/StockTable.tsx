@@ -76,6 +76,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   const [attnHide, setAttnHide] = useState(false);
   const [fp, setFp] = useState(false);
   const [fq, setFq] = useState('');
+  const [locOpen, setLocOpen] = useState(false);
   const [view, setView] = useState<'list' | 'text'>('list');
   const [sort, setSort] = useState<Sort>('chg');
   const [page, setPage] = useState(1);
@@ -277,7 +278,6 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   const lops: [string, number][] = fqq
     ? [...[...LOCG].filter(([k]) => k !== '—'), ...[...LOCF].filter(([k]) => k.includes(' · '))].filter(([k]) => k.toLowerCase().includes(fqq)).sort(czs)
     : [...(LOCG.get('—') ? [['—', LOCG.get('—')!] as [string, number]] : []), ...[...LOCG].filter(([k]) => k !== '—').sort(czs)];
-  [...f.p].forEach((v) => { if (!lops.some((x) => x[0] === v)) lops.unshift([v, LOCG.get(v) ?? LOCF.get(v) ?? 0]); });
   const pills: [React.ReactNode, () => void, string][] = [
     ...[...f.g].map((v) => [<><i style={{ '--c': `var(--game-${v})` } as React.CSSProperties} />{getGame(v)?.name}</>, () => flip('g', v), `g${v}`] as [React.ReactNode, () => void, string]),
     ...[...f.c].map((v) => [<><b>Stav</b> {v}</>, () => flip('c', v), `c${v}`] as [React.ReactNode, () => void, string]),
@@ -307,15 +307,18 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
             {langs.length ? <div className="fsec"><h6>Jazyk</h6><div className="fops">{langs.map((l) => op('l', l, langCode(l)))}</div></div> : null}
             {srcs.length ? <div className="fsec"><h6>Zdroj</h6><div className="fops">{srcs.map((k) => op('s', k, SRC[k]?.[1] ?? k))}</div></div> : null}
             <div className="fsec"><h6>Umístění</h6>
-              <label className="floc">{Ico.s}<input placeholder="Hledat místo nebo pozici" value={fq} onChange={(e) => setFq(e.target.value)} autoComplete="off" /></label>
-              <div className="flist">
-                {lops.length ? lops.map(([k, c]) => (
-                  <button key={k} type="button" className={f.p.has(k) ? 'on' : ''} onClick={() => flip('p', k)}>
-                    <span className={`cb${f.p.has(k) ? ' on' : ''}`} />{k === '—' ? 'Bez umístění' : k}<em>{nf(c)}</em>
-                  </button>))
-                  : <span className="fnone">Žádné místo neodpovídá</span>}
-              </div>
-              {f.p.size ? <p className="fhint">Vybráno {f.p.size} · <button type="button" className="lnk" onClick={() => setF((x) => ({ ...x, p: new Set() }))}>Zrušit výběr míst</button></p> : null}
+              {f.p.size ? <div className="ftags">{[...f.p].map((v) => <span key={v} className="fpill">{v === '—' ? 'Bez umístění' : v}<button type="button" className="xx" onClick={() => flip('p', v)} title="Odebrat">×</button></span>)}</div> : null}
+              <button type="button" className={`fsel${locOpen ? ' open' : ''}`} onClick={() => { setLocOpen(!locOpen); setFq(''); }}>{f.p.size ? 'Přidat další umístění' : 'Vybrat umístění'}{Ico.chev}</button>
+              {locOpen ? <div className="fsdd">
+                <label className="floc">{Ico.s}<input autoFocus placeholder="Hledat místo nebo pozici" value={fq} onChange={(e) => setFq(e.target.value)} autoComplete="off" /></label>
+                <div className="flist">
+                  {lops.length ? lops.map(([k, c]) => (
+                    <button key={k} type="button" className={f.p.has(k) ? 'on' : ''} onClick={() => flip('p', k)}>
+                      <span className={`cb${f.p.has(k) ? ' on' : ''}`} />{k === '—' ? 'Bez umístění' : k}<em>{nf(c)}</em>
+                    </button>))
+                    : <span className="fnone">Žádné místo neodpovídá</span>}
+                </div>
+              </div> : null}
             </div>
             {shop ? (
               <button type="button" className="frow" onClick={() => setAttn(!attn)}>
@@ -409,7 +412,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <td><span className="lang">{langCode(i.lang)}</span></td>
       <td className="c mono">{nf(i.have)}</td>
       <td className="sc">{saleCell([i], i.id)}</td>
-      <td className="r pcell">{priceCell(i)}</td>
+      <td className="c pcell">{priceCell(i)}</td>
       {shop ? <td><span className={`src ${SRC[i.src]?.[0] ?? 'R'}`}>{SRC[i.src]?.[1] ?? i.src}</span></td> : null}
       <td className="c"><span className="loc">{i.loc || '—'}</span></td>
       <td className="r"><button type="button" className="more" onClick={(e) => { e.stopPropagation(); setOpen(i.id); }} aria-label="Detail">{Ico.dots}</button></td>
@@ -445,7 +448,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         <td><span className="lang">{langs_}</span></td>
         <td className="c mono">{nf(have)}</td>
         <td className="sc">{saleCell(g, `g:${k}`)}</td>
-        <td className="r pcell">{pr}</td>
+        <td className="c pcell">{pr}</td>
         {shop ? <td>{us.length > 1 ? <span className="src">{us.length} zdroje</span> : <span className={`src ${SRC[us[0]]?.[0] ?? 'R'}`}>{SRC[us[0]]?.[1] ?? us[0]}</span>}</td> : null}
         <td className="c"><span className="loc">{locs.length > 1 ? `${locs.length} místa` : locs[0]}</span></td>
         <td className="r"><span className="more" title={op_ ? 'Sbalit' : 'Rozbalit varianty'}><i className={`gchev${op_ ? ' op' : ''}`} /></span></td>
@@ -485,7 +488,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <table>
         <thead><tr>
           <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(filterIds, !allSel), `Vybrat všech ${filterIds.length} podle filtru`)}</th>
-          {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'r')}
+          {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'c')}
           {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '', 'c')}<th />
         </tr></thead>
         <tbody>{shown.flatMap((g) => (g.length === 1 ? [trow(g[0])] : grow(g)))}</tbody>
