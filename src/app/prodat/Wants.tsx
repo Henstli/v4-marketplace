@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { thumbUrl } from '@/lib/images';
 import { removeWant, saveWant } from './actions';
 import { addSearch, type FoundCard } from './sk-actions';
-import { kc, Modal, Seg } from './sk';
+import { CONDITIONS, CONDITION_NAMES, type Condition } from '@/lib/types';
+import { Ico, kc, Modal, Seg } from './sk';
 
 export interface Want {
   cardId: string;
@@ -71,42 +72,74 @@ export function WantsView({ wants }: { wants: Want[] }) {
   );
 }
 
+const CONDS = CONDITIONS;
+/** „EX a lepší“: všechny stavy od Mint po zvolený. */
+const condHint = (c: string) => {
+  const k = CONDS.indexOf(c as never);
+  return k <= 0 ? 'Jen Mint' : `${CONDITION_NAMES[c as Condition]} a lepší (${CONDS.slice(0, k + 1).join(', ')})`;
+};
+
+/** Přidat do Hledám: najít kartu, vybrat ji, nastavit cenu a stav, přidat. Pak jde hledat další. */
 function AddWant({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('');
-  const [res, setRes] = useState<FoundCard[]>([]);
+  const [res, setRes] = useState<FoundCard[] | null>(null);
+  const [sel, setSel] = useState<FoundCard | null>(null);
   const [max, setMax] = useState('');
   const [cond, setCond] = useState('EX');
-  const [added, setAdded] = useState<Set<string>>(new Set());
+  const [done, setDone] = useState<string[]>([]);
   const [err, setErr] = useState('');
   const [pending, start] = useTransition();
   useEffect(() => {
-    const t = setTimeout(() => { if (q.trim().length >= 2) addSearch(q).then(setRes).catch(() => setRes([])); else setRes([]); }, 220);
+    const t = setTimeout(() => { if (q.trim().length >= 2) addSearch(q).then(setRes).catch(() => setRes([])); else setRes(null); }, 220);
     return () => clearTimeout(t);
   }, [q]);
+  const add = () => sel && start(async () => {
+    const r = await saveWant(sel.id, max ? Number(max) : null, cond);
+    if (r.error) { setErr(r.error); return; }
+    setErr(''); setDone((d) => [sel.name, ...d]); setSel(null); setQ(''); setRes(null); setMax('');
+  });
   return (
-    <Modal title="Přidat do Hledám" onClose={onClose} foot={<button type="button" className="btn" onClick={onClose}>Hotovo</button>}>
-      <div>
-        <div className="inp"><input autoFocus value={q} placeholder="Název, sada nebo číslo karty" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setQ(e.target.value)} /></div>
-        <div className="umal" style={{ marginTop: 12 }}>
-          {res.length ? res.map((c) => (
-            <div key={c.id} className="umar">
-              {c.image ? <img src={c.image} alt="" /> : <img alt="" />}
-              <span><b>{c.name}</b><small className="mono">{c.set}{c.game ? ` · ${c.game}` : ''}</small></span>
-              {added.has(c.id) ? <span className="usrc">V Hledám</span> : (
-                <button type="button" className="btn sm" disabled={pending} onClick={() => start(async () => {
-                  const r = await saveWant(c.id, max ? Number(max) : null, cond);
-                  if (r.error) setErr(r.error); else setAdded((s) => new Set(s).add(c.id));
-                })}>Přidat</button>
-              )}
-            </div>
-          )) : <div className="umar"><span style={{ color: 'var(--ink-muted)', fontSize: 13 }}>{q.trim().length >= 2 ? 'Nic nenalezeno' : 'Napište název karty'}</span></div>}
+    <Modal title="Přidat do Hledám" onClose={onClose} foot={<>
+      {done.length ? <span className="note">Přidáno: {done.slice(0, 2).join(', ')}{done.length > 2 ? ` a ${done.length - 2} další` : ''}</span> : null}
+      <button type="button" className="btn" onClick={onClose}>{done.length ? 'Hotovo' : 'Zrušit'}</button>
+      <button type="button" className="btn p" disabled={!sel || pending} onClick={add}>Přidat do Hledám</button>
+    </>}>
+      <div className="wadd">
+        <div className="wst"><span className="n">1</span>Karta</div>
+        {sel ? (
+          <div className="wsel">
+            {sel.image ? <img src={sel.image} alt="" /> : <img alt="" />}
+            <span><b>{sel.name}</b><small className="mono">{sel.set}{sel.game ? ` · ${sel.game}` : ''}</small></span>
+            <button type="button" className="btn sm g" onClick={() => setSel(null)}>Změnit</button>
+          </div>
+        ) : (
+          <>
+            <div className="inp">{Ico.s}<input autoFocus value={q} placeholder="Název, sada nebo číslo karty" onChange={(e) => setQ(e.target.value)} /></div>
+            {res ? (
+              <div className="umal wres">
+                {res.length ? res.map((c) => (
+                  <button key={c.id} type="button" className="umar" onClick={() => setSel(c)}>
+                    {c.image ? <img src={c.image} alt="" /> : <img alt="" />}
+                    <span><b>{c.name}</b><small className="mono">{c.set}{c.game ? ` · ${c.game}` : ''}</small></span>
+                    <span className="wpick">Vybrat</span>
+                  </button>
+                )) : <div className="umar"><span className="wmut">Nic nenalezeno. Zkuste jiný název nebo číslo.</span></div>}
+              </div>
+            ) : null}
+          </>
+        )}
+        <div className={`wset${sel ? '' : ' off'}`}>
+          <div className="wst"><span className="n">2</span>Za kolik a v jakém stavu</div>
+          <div className="f"><label>Zaplatím nejvýš</label>
+            <div className="inp"><input value={max} inputMode="numeric" placeholder="Bez limitu" onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div>
+          </div>
+          <div className="f"><label>Nejhorší stav, který beru</label>
+            <Seg value={cond} onChange={setCond} options={CONDS.map((c) => [c, c] as [string, string])} />
+            <small className="wmut">{condHint(cond)}</small>
+          </div>
         </div>
+        {err ? <small style={{ color: 'var(--down)' }}>{err}</small> : null}
       </div>
-      <div className="grid2">
-        <div className="f"><label>Chci zaplatit nejvýš</label><div className="inp"><input value={max} placeholder="Prázdné = tržní cena" onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div></div>
-        <div className="f"><label>Nejhorší stav</label><Seg value={cond} onChange={setCond} options={[['NM', 'NM'], ['EX', 'EX'], ['LP', 'LP']]} /></div>
-      </div>
-      {err ? <small style={{ color: 'var(--down)' }}>{err}</small> : null}
     </Modal>
   );
 }
