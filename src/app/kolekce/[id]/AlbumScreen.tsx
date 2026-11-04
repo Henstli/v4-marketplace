@@ -174,7 +174,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
                   const c = cards.find((x) => x.id === id);
                   const k = a.length - 1 - i;
                   // eslint-disable-next-line @next/next/no-img-element
-                  return c?.image ? <img key={id} src={thumbUrl(c.image) ?? c.image} alt="" style={{ transform: `translate(${k * -5}px, ${k * -4}px) rotate(${k * -4}deg)` }} /> : null;
+                  return c?.image ? <img key={id} src={thumbUrl(c.image) ?? c.image} alt="" style={{ transform: `translate(${k * -2}px, ${k * -4}px) rotate(${k * -2}deg)` }} /> : null;
                 })}
               </span>
               <b>{stockIds.length}</b>
