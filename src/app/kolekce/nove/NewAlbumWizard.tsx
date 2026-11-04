@@ -26,8 +26,9 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
   const [step, setStep] = useState(0);
   // Další krok průvodce vždy začíná nahoře (seznam sad bývá dlouhý).
   const firstStep = useRef(true);
-  // Náhled alba začíná ve výšce prvního boxu v hlavním sloupci (pole názvu, volba obsahu nebo hledání).
+  // Box náhledu alba začíná ve výšce prvního boxu v hlavním sloupci (pole názvu, volba obsahu nebo hledání).
   const mainRef = useRef<HTMLDivElement>(null);
+  const stepsRef = useRef<HTMLDivElement>(null);
   const [prevTop, setPrevTop] = useState(0);
   useEffect(() => {
     if (firstStep.current) { firstStep.current = false; return; }
@@ -106,7 +107,9 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
   useLayoutEffect(() => {
     const m = mainRef.current;
     const f = m?.querySelector<HTMLElement>(`.tz-search, input.${s.input}, .${s.kinds}, .${s.pick}`);
-    setPrevTop(m && f ? Math.max(0, Math.round(f.getBoundingClientRect().top - m.getBoundingClientRect().top)) : 0);
+    // Kroky leží hned nad náhledem; celý sloupec se posune tak, aby box náhledu začínal s prvním boxem vlevo.
+    const above = (stepsRef.current?.offsetHeight ?? 0) + 12;
+    setPrevTop(Math.round((m && f ? f.getBoundingClientRect().top - m.getBoundingClientRect().top : 0) - above));
   }, [step, kind]);
   const canNext = step === 0 ? true : step === 1 ? (kind === 'custom' || !!set) : !!look.name.trim();
 
@@ -115,7 +118,6 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
       <div className={s.crumb}><Link href="/kolekce">Moje kolekce</Link><span>›</span><span>Nové album</span></div>
       <div className={s.head} style={{ marginTop: 'var(--space-3)' }}>
         <div><h1>Nové album</h1><p>Vyber desky a obaly a sadu nebo vlastní karty. Do alba jdou karty ze tvé sbírky.</p></div>
-        <Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} className={s.wizSteps} />
       </div>
 
       <div className={s.wiz}>
@@ -230,6 +232,7 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
         </div>
 
         <div className={s.prevCol} style={{ marginTop: prevTop }}>
+          <div ref={stepsRef}><Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} className={s.wizSteps} /></div>
           <aside className={s.prev}>
             {step !== 0 ? <SleeveSprite /> : null}
             <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
