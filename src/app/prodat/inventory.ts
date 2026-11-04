@@ -13,6 +13,8 @@ export interface Place {
   overdue: number;
   /** Dnes v plánu (komu) */
   today: string[];
+  /** Náhled karet na místě (nejvýš 4) */
+  images: string[];
 }
 
 export interface Group { name: string; blind: boolean; person: string | null }
@@ -61,13 +63,13 @@ export async function loadInventory(supabase: SupabaseClient, owner: string, me:
   const today = todayStr();
   const [stock, places, groups, team, invs, plan, shifts, setting] = await Promise.all([
     (async () => {
-      const out: { location: string | null; qty: number }[] = [];
+      const out: { location: string | null; qty: number; image: string | null }[] = [];
       for (let i = 0; i < 10; i++) {
-        const { data } = await supabase.from('listing_stock').select('location, keep_qty, listings!inner(quantity, removed_at, hidden_qty)')
+        const { data } = await supabase.from('listing_stock').select('location, keep_qty, listings!inner(quantity, removed_at, hidden_qty, cards(image_url))')
           .eq('seller_id', owner).not('location', 'is', null).range(i * 1000, i * 1000 + 999);
-        for (const r of (data ?? []) as unknown as { location: string; keep_qty: number; listings: { quantity: number; removed_at: string | null; hidden_qty: number | null } }[]) {
+        for (const r of (data ?? []) as unknown as { location: string; keep_qty: number; listings: { quantity: number; removed_at: string | null; hidden_qty: number | null; cards: { image_url: string | null } | null } }[]) {
           if (r.listings.removed_at || r.listings.hidden_qty != null) continue;
-          out.push({ location: r.location, qty: r.keep_qty + r.listings.quantity });
+          out.push({ location: r.location, qty: r.keep_qty + r.listings.quantity, image: r.listings.cards?.image_url ?? null });
         }
         if (!data || data.length < 1000) break;
       }
@@ -97,11 +99,12 @@ export async function loadInventory(supabase: SupabaseClient, owner: string, me:
 
   const planTasks: PlanTask[] = ((plan.data ?? []) as { day: string; user_id: string; places: string[] }[]).map((p) => ({ day: p.day, userId: p.user_id, places: p.places }));
   const settings = new Map(((places.data ?? []) as { name: string; group_name: string | null; every_days: number; last_checked_at: string | null }[]).map((p) => [p.name, p]));
-  const agg = new Map<string, { rows: number; pcs: number }>();
+  const agg = new Map<string, { rows: number; pcs: number; images: string[] }>();
   for (const s of stock) {
     if (!s.location || s.qty <= 0) continue;
-    const a = agg.get(s.location) ?? { rows: 0, pcs: 0 };
+    const a = agg.get(s.location) ?? { rows: 0, pcs: 0, images: [] };
     a.rows++; a.pcs += s.qty;
+    if (s.image && a.images.length < 4) a.images.push(s.image);
     agg.set(s.location, a);
   }
   const names = new Set([...agg.keys(), ...settings.keys()]);
@@ -116,6 +119,7 @@ export async function loadInventory(supabase: SupabaseClient, owner: string, me:
       counting: run ? { id: run.id, user: run.user, mine: run.userId === me } : null,
       overdue,
       today: planTasks.filter((t) => t.day === today && t.places.includes(name)).map((t) => t.userId),
+      images: agg.get(name)?.images ?? [],
     };
   });
   // Dnes na řadě první, pak nejdéle bez kontroly.

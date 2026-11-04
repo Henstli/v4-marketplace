@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
 import { getCurrentUser } from '@/lib/auth';
 import { getAccountSummary } from '@/lib/account';
-import { StockTabs } from '@/components/account/PageTabs';
+import Link from 'next/link';
 import { ButtonLink } from '@/components/trezor';
 import { PLANS, toPlan } from '@/lib/plans';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
@@ -26,11 +26,15 @@ export default async function ImportPage() {
 
   return (
     <div className={`container ${styles.page}`}>
-      <div>
-        <h1 className="t-heading-l">{account?.kind === 'shop' ? 'Sklad' : 'Sbírka'}</h1>
-        <p className="muted">Nahrajte celý sklad z tabulky: karty spárujeme s katalogem, zkontrolujete je a vystavíte jedním tlačítkem.</p>
-        <StockTabs current="import" shop={account?.kind === 'shop'} onSale={account?.listings ?? 0} />
-      </div>
+      <div className="tz-sk"><div className="wrap" style={{ padding: 0 }}>
+        <div className="top">
+          <div>
+            <Link className="btn sm g" href="/prodat?zalozka=napojeni" style={{ paddingLeft: 0, marginBottom: 6 }}>← Zpět</Link>
+            <h1>Nahrát tabulku</h1>
+            <p className="ilead" style={{ margin: 0 }}>Nahrajte {account?.kind === 'shop' ? 'celý sklad' : 'sbírku'} z tabulky: karty spárujeme s katalogem, zkontrolujete je a uložíte jedním tlačítkem.</p>
+          </div>
+        </div>
+      </div></div>
       {PLANS[toPlan(plan)].bulkImport ? (
         ready.ready ? (
           <ImportWizard />

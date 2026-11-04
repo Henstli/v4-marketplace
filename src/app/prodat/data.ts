@@ -18,6 +18,10 @@ export interface StockRow {
   buyPrice: number | null;
   listedAt: string | null;
   createdAt: string;
+  /** Poslední změna řádku skladu */
+  updatedAt: string;
+  /** Odkud karta přišla: manual, import, photo, app */
+  source: string;
   /** Skrytá podporou (kusy odložené) */
   hidden: number | null;
   /** Odstraněná podporou */
@@ -31,7 +35,7 @@ type CardRow = {
   slug: string; name: string; number: string; image_url: string | null; game_id: string | null;
   card_sets: { code: string; name: string } | { code: string; name: string }[] | null;
 };
-type StockExtra = { keep_qty: number; trade_qty: number; location: string | null; buy_price_czk: number | null; listed_at: string | null };
+type StockExtra = { keep_qty: number; trade_qty: number; location: string | null; buy_price_czk: number | null; listed_at: string | null; source: string; updated_at: string };
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
@@ -41,7 +45,7 @@ export async function loadStock(supabase: SupabaseClient, userId: string): Promi
   for (let from = 0; from < 10000; from += 1000) {
     const { data } = await supabase
       .from('listings')
-      .select('id, card_id, price_czk, condition, language, quantity, hidden_qty, removed_at, created_at, listing_stock(keep_qty, trade_qty, location, buy_price_czk, listed_at), cards(slug, name, number, image_url, game_id, card_sets(code, name))')
+      .select('id, card_id, price_czk, condition, language, quantity, hidden_qty, removed_at, created_at, listing_stock(keep_qty, trade_qty, location, buy_price_czk, listed_at, source, updated_at), cards(slug, name, number, image_url, game_id, card_sets(code, name))')
       .eq('seller_id', userId)
       .order('created_at', { ascending: false })
       .order('id')
@@ -76,6 +80,8 @@ export async function loadStock(supabase: SupabaseClient, userId: string): Promi
       buyPrice: st?.buy_price_czk ?? null,
       listedAt: st?.listed_at ?? null,
       createdAt: l.created_at,
+      updatedAt: st?.updated_at ?? l.created_at,
+      source: st?.source ?? 'manual',
       hidden: l.hidden_qty,
       removed: !!l.removed_at,
       market: market.get(l.card_id) ?? null,

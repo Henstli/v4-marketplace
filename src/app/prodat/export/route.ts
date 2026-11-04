@@ -1,62 +1,57 @@
 import { getSignedInUser } from '@/lib/auth';
-import { getAccountSummary } from '@/lib/account';
 import { loadStock, owned } from '../data';
 import { getGame } from '@/lib/games';
 import { csvLine, TEMPLATE_HEADER } from '@/lib/import/rows';
 import { createClient } from '@/lib/supabase/server';
 import { LANGUAGE_NAMES, type Language } from '@/lib/types';
 
-type Row = {
-  price_czk: number | null; condition: string; language: string; quantity: number; graded: string | null; note: string | null;
-  cards: { name: string; number: string; game_id: string | null; card_sets: { code: string; name: string } | null } | null;
-};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type Pick = ((id: string) => boolean) | null;
 
-// Export vlastního skladu ve stejných sloupcích jako šablona, takže jde upravit a nahrát zpátky.
+// Export skladu: druh (csv, pojisteni, ucetni, deckbuilder), volitelně jen vybrané řádky (ids) a sklad obchodu (obchod, právo Napojení).
 export async function GET(req: Request) {
+  const sp = new URL(req.url).searchParams;
+  return run(sp.get('druh'), sp.get('ids'), sp.get('obchod'));
+}
+export async function POST(req: Request) {
+  const f = await req.formData();
+  return run(String(f.get('druh') ?? '') || null, String(f.get('ids') ?? '') || null, String(f.get('obchod') ?? '') || null);
+}
+
+async function run(druh: string | null, idsRaw: string | null, obchod: string | null) {
   const user = await getSignedInUser();
   if (!user) return new Response('Nejdřív se přihlaste.', { status: 401 });
   const supabase = await createClient();
-  const druh = new URL(req.url).searchParams.get('druh');
-  if (druh === 'pojisteni') return insurance(supabase, user.id);
-  if (druh === 'ucetni') return accounting(supabase, user.id);
-  if (druh === 'deckbuilder') return deckbuilder(supabase, user.id);
-  const rows: Row[] = [];
-  // Supabase vrací nejvýš 1000 řádků na dotaz, velký sklad čteme po stránkách.
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('price_czk, condition, language, quantity, graded, note, cards(name, number, game_id, card_sets(code, name))')
-      .eq('seller_id', user.id)
-      .gt('quantity', 0)
-      .order('created_at')
-      .range(from, from + 999);
-    if (error) return new Response('Export se nepovedl, zkuste to prosím znovu.', { status: 500 });
-    rows.push(...((data ?? []) as unknown as Row[]));
-    if (!data || data.length < 1000) break;
+  let owner = user.id;
+  if (obchod && obchod !== user.id) {
+    if (!UUID.test(obchod)) return new Response('Obchod nenalezen.', { status: 404 });
+    const { data } = await supabase.rpc('stock_perm', { p_owner: obchod, p_perm: 'conn' });
+    if (data !== true) return new Response('Na export tohoto skladu nemáte právo.', { status: 403 });
+    owner = obchod;
   }
+  const ids = idsRaw ? new Set(idsRaw.split(',').filter((x) => UUID.test(x)).slice(0, 10000)) : null;
+  const pick: Pick = ids ? (id) => ids.has(id) : null;
+  if (druh === 'pojisteni') return insurance(supabase, owner, pick);
+  if (druh === 'ucetni') return accounting(supabase, owner);
+  if (druh === 'deckbuilder') return deckbuilder(supabase, owner, pick);
+  // Stejné sloupce jako šablona, takže jde upravit a nahrát zpátky. Počet = všechny kusy, které máte.
+  const rows = (await loadStock(supabase, owner)).filter((r) => owned(r) > 0 && (!pick || pick(r.id)));
   const lines = [
     csvLine(TEMPLATE_HEADER),
-    ...rows.map((l) => csvLine([
-      l.cards?.game_id ? getGame(l.cards.game_id)?.name ?? l.cards.game_id : '',
-      l.cards?.name, l.cards?.card_sets?.code, l.cards?.card_sets?.name, l.cards?.number,
-      l.condition, LANGUAGE_NAMES[l.language as Language] ?? l.language, l.price_czk ?? 'dohodou', l.quantity, l.graded, l.note,
+    ...rows.map((r) => csvLine([
+      r.card?.game ? getGame(r.card.game)?.name ?? r.card.game : '',
+      r.card?.name, r.card?.setCode, r.card?.setName, r.card?.number,
+      r.condition, LANGUAGE_NAMES[r.language as Language] ?? r.language, r.price ?? (r.quantity > 0 ? 'dohodou' : ''), owned(r), '', '',
     ])),
   ];
-  const day = new Date().toISOString().slice(0, 10);
-  return new Response('﻿' + lines.join('\r\n') + '\r\n', {
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="v4cards-sklad-${day}.csv"`,
-      'Cache-Control': 'no-store',
-    },
-  });
+  return csvFile(lines, 'sklad');
 }
 
 // Přehled pro pojištění: všechny kusy (na prodej i mimo prodej) s tržní hodnotou; obchod navíc podle míst a s nákupní cenou.
-async function insurance(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const [rows, account] = await Promise.all([loadStock(supabase, userId), getAccountSummary()]);
-  const shop = account?.kind === 'shop';
-  const items = rows.filter((r) => owned(r) > 0).sort((a, b) =>
+async function insurance(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, pick: Pick) {
+  const [rows, { data: prof }] = await Promise.all([loadStock(supabase, userId), supabase.from('profiles').select('kind').eq('id', userId).maybeSingle()]);
+  const shop = (prof as { kind?: string } | null)?.kind === 'shop';
+  const items = rows.filter((r) => owned(r) > 0 && (!pick || pick(r.id))).sort((a, b) =>
     (shop ? (a.location ?? '~').localeCompare(b.location ?? '~', 'cs') : 0) || (a.card?.name ?? '').localeCompare(b.card?.name ?? '', 'cs'));
   const head = ['Hra', 'Karta', 'Sada', 'Číslo', 'Stav', 'Jazyk', 'Kusů', ...(shop ? ['Umístění', 'Nákupní cena/ks', 'Nákupní hodnota'] : []), 'Tržní cena/ks', 'Tržní hodnota'];
   let buy = 0, market = 0, pcs = 0;
@@ -145,8 +140,8 @@ const MOX_COND: Record<string, string> = { MT: 'Mint', NM: 'Near Mint', EX: 'Goo
 const MOX_LANG: Record<string, string> = {
   en: 'English', de: 'German', ja: 'Japanese', fr: 'French', it: 'Italian', es: 'Spanish', pt: 'Portuguese', ko: 'Korean', zh: 'Chinese Simplified', ru: 'Russian', cs: 'English',
 };
-async function deckbuilder(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const rows = (await loadStock(supabase, userId)).filter((r) => owned(r) > 0 && r.card?.game === 'magic');
+async function deckbuilder(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, pick: Pick) {
+  const rows = (await loadStock(supabase, userId)).filter((r) => owned(r) > 0 && r.card?.game === 'magic' && (!pick || pick(r.id)));
   const lines = [csvLine(['Count', 'Name', 'Edition', 'Condition', 'Language', 'Foil', 'Collector Number']),
     ...rows.map((r) => csvLine([owned(r), r.card?.name, (r.card?.setCode ?? '').toLowerCase(), MOX_COND[r.condition] ?? 'Near Mint',
       MOX_LANG[r.language] ?? 'English', '', r.card?.number]))];
