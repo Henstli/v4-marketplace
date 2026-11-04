@@ -35,6 +35,18 @@ export async function createListing(_prev: ListingState, form: FormData): Promis
   if (price != null && (!Number.isInteger(price) || price <= 0)) return { error: 'Cena musí být celé číslo v korunách.' };
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return { error: 'Počet kusů musí být 1 až 999.' };
 
+  // Člověk z týmu přidává do skladu obchodu: jen mimo prodej, přes databázovou funkci s kontrolou práva.
+  const owner = String(form.get('owner') ?? '');
+  if (owner && owner !== auth.user.id) {
+    if (!UUID.test(owner)) return { error: 'Obchod nenalezen.' };
+    const { error: e } = await supabase.rpc('stock_add_for', {
+      p_owner: owner, p_card: cardId, p_condition: condition, p_language: language, p_price: price, p_keep: quantity, p_note: note || null,
+    });
+    if (e) return { error: e.code === '42501' ? 'Na přidávání karet do tohoto skladu nemáte právo.' : 'Kartu se nepodařilo uložit. Zkuste to prosím znovu.' };
+    revalidatePath('/prodat');
+    return { ok: true };
+  }
+
   const { data: row, error } = await supabase.from('listings').insert({
     card_id: cardId,
     seller_id: auth.user.id,
@@ -91,6 +103,7 @@ function opTitle(op: StockOp, n: number, num?: number, text?: string): string {
 }
 
 function dbError(error: { code?: string; message?: string }) {
+  if (error.code === '42501' && error.message?.includes('nemáte právo')) return 'Na tuto změnu nemáte právo.';
   if (error.code === '42501') return 'Prodávat jde až s dopravou a platbou. Doplňte je v nastavení účtu.';
   return 'Změnu se nepodařilo uložit. Zkuste to prosím znovu.';
 }

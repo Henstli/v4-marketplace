@@ -19,14 +19,27 @@ import { StockManager } from './StockManager';
 import { StockHistory, type HistoryEntry } from './StockHistory';
 import { WantButton, WantForm, WantsList, type Want } from './Wants';
 import { loadStock } from './data';
+import { loadShipping } from './ship';
+import { ShipManager } from './ShipManager';
+import { InventoryViews, type InvView } from './InventoryViews';
+import { TeamView } from './TeamView';
+import { loadInventory } from './inventory';
+import { loadCtx, loadTeam, ROLE_NAMES, type Perm, type StockCtx } from './team';
+import { MarketViews } from './MarketViews';
+import { Connections } from './Connections';
+import { loadAuto, loadDemand, loadMarket, loadPrices, type MarketView } from './market';
 import styles from './sell.module.css';
 
 export const metadata: Metadata = { title: 'Sklad' };
 
-type Props = { searchParams: Promise<{ zalozka?: string; karta?: string; hledat?: string; sada?: string }> };
+type Props = { searchParams: Promise<{
+  zalozka?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string;
+}> };
 
-const TABS: StockTab[] = ['vse', 'prodej', 'hledam', 'sady', 'historie', 'pridat'];
+const TABS: StockTab[] = ['vse', 'prodej', 'odeslat', 'hledam', 'sady', 'historie', 'trh', 'inventura', 'tym', 'napojeni', 'pridat'];
+const MVIEWS: MarketView[] = ['poptavka', 'trh', 'ceny', 'automaticke'];
 const SOLD = ['confirmed', 'pending_payment', 'paid', 'shipped', 'delivered'];
+const VIEWS: InvView[] = ['mista', 'pocitani', 'kontrola', 'historie', 'plan', 'smeny'];
 
 export default async function StockPage({ searchParams }: Props) {
   if (!isSupabaseConfigured()) {
@@ -37,31 +50,78 @@ export default async function StockPage({ searchParams }: Props) {
 
   const sp = await searchParams;
   const supabase = await createClient();
+  // Vlastní sklad, nebo sklad obchodu, kde je přihlášený v týmu (?obchod=…).
+  const ctx = await loadCtx(supabase, user, sp.obchod);
   const [account, ready, { data: restriction }] = await Promise.all([
     getAccountSummary(),
-    loadReadiness(supabase, user.id),
+    ctx.isOwner ? loadReadiness(supabase, user.id) : Promise.resolve({ ready: true } as Awaited<ReturnType<typeof loadReadiness>>),
     supabase.from('account_restrictions').select('kind, until').eq('user_id', user.id).is('ended_at', null).maybeSingle(),
   ]);
-  const shop = account?.kind === 'shop';
+  const shop = ctx.isOwner ? account?.kind === 'shop' : true;
+  const has = (p: Perm) => ctx.perms.has(p);
+  // Záložky podle práv: majitel všechno (sběratel bez týmu a odesílání), člověk z týmu jen co smí.
+  const allowed: StockTab[] = ctx.isOwner
+    ? (shop ? ['vse', 'prodej', 'odeslat', 'historie', 'trh', 'inventura', 'tym', 'napojeni', 'pridat', 'import'] : ['vse', 'prodej', 'hledam', 'sady', 'historie', 'pridat', 'import'])
+    : [
+        ...(has('view') ? ['vse', 'prodej'] as StockTab[] : []),
+        ...(has('ord') ? ['odeslat'] as StockTab[] : []),
+        ...(has('view') ? ['historie', 'trh'] as StockTab[] : []),
+        ...(has('inv') || has('plan') || has('diff') ? ['inventura'] as StockTab[] : []),
+        ...(has('staff') ? ['tym'] as StockTab[] : []),
+        ...(has('conn') ? ['napojeni'] as StockTab[] : []),
+        ...(has('add') ? ['pridat'] as StockTab[] : []),
+      ];
   // Dřívější odkazy /prodat?karta=… a ?hledat=… vedou na Přidat kartu.
   let tab = (TABS.includes(sp.zalozka as StockTab) ? sp.zalozka : sp.karta || sp.hledat ? 'pridat' : 'vse') as StockTab;
-  if (shop && (tab === 'hledam' || tab === 'sady')) tab = 'vse';
+  if (!shop && tab === 'odeslat') redirect('/objednavky?tab=prodeje');
+  if (!allowed.includes(tab)) tab = allowed[0] ?? 'vse';
+  if (!allowed.length) {
+    return <div className="container"><ComingSoon title="Sklad obchodu" text="V tomto obchodě zatím nemáte žádné právo. Požádejte vedoucího, ať vám ho nastaví." /></div>;
+  }
+  const base = (zalozka: string, extra = '') => `/prodat?zalozka=${zalozka}${ctx.q ? `&${ctx.q}` : ''}${extra}`;
+
+  // Počet k odeslání v záložce (zaplacené, dobírka, hotově); celý seznam se načte jen v záložce.
+  const ship = allowed.includes('odeslat') && tab === 'odeslat' ? await loadShipping(supabase, ctx.owner) : null;
+  const [toShip, toReview] = await Promise.all([
+    ship ? ship.orders.filter((o) => o.ready).length : allowed.includes('odeslat') ? supabase.from('orders').select('id', { count: 'exact', head: true })
+      .eq('seller_id', ctx.owner).or('status.eq.paid,and(status.eq.confirmed,payment.in.(cod,cash))').then((r) => r.count ?? 0) : 0,
+    shop && has('diff') ? supabase.from('inventories').select('id', { count: 'exact', head: true })
+      .eq('owner_id', ctx.owner).eq('status', 'review').then((r) => r.count ?? 0) : 0,
+  ]);
+  const view = (VIEWS.includes(sp.pohled as InvView) ? sp.pohled : sp.inventura ? 'pocitani' : 'mista') as InvView;
+  const title = !ctx.isOwner ? `Sklad · ${ctx.ownerName}` : shop ? 'Sklad' : 'Sbírka';
 
   return (
     <div className={`container ${styles.page}`}>
       <div>
+        {ctx.shops.length ? (
+          <nav className="tz-stk-switch" aria-label="Čí sklad">
+            <span className="t-small muted">Sklad:</span>
+            <Link href="/prodat" aria-current={ctx.isOwner ? 'page' : undefined}>{account?.kind === 'shop' ? 'Můj obchod' : 'Moje sbírka'}</Link>
+            {ctx.shops.map((s) => (
+              <Link key={s.owner} href={`/prodat?obchod=${s.owner}`} aria-current={ctx.owner === s.owner ? 'page' : undefined}>
+                {s.name}<small>{ROLE_NAMES[s.role] ?? ''}</small>
+              </Link>
+            ))}
+          </nav>
+        ) : null}
         <div className={styles.sectionHead}>
-          <h1 className="t-heading-l">{shop ? 'Sklad' : 'Sbírka'}</h1>
+          <h1 className="t-heading-l">{title}</h1>
           <div className={styles.headActions}>
-            <a href="/prodat/export?druh=pojisteni" className="tz-btn tz-btn-ghost tz-btn-md" download>Přehled pro pojištění</a>
-            <a href="/prodat/export" className="tz-btn tz-btn-ghost tz-btn-md" download>Exportovat (CSV)</a>
-            <ButtonLink href="/prodat?zalozka=pridat" variant="secondary">Přidat kartu</ButtonLink>
+            {ctx.isOwner ? (
+              <>
+                <a href="/prodat/export?druh=pojisteni" className="tz-btn tz-btn-ghost tz-btn-md" download>Přehled pro pojištění</a>
+                <a href="/prodat/export" className="tz-btn tz-btn-ghost tz-btn-md" download>Exportovat (CSV)</a>
+                {shop ? null : <a href="/prodat/export?druh=deckbuilder" className="tz-btn tz-btn-ghost tz-btn-md" download>Pro Moxfield</a>}
+              </>
+            ) : <span className="t-small muted">Jste v týmu jako {ROLE_NAMES[ctx.role] ?? ctx.role}</span>}
+            {allowed.includes('pridat') ? <ButtonLink href={base('pridat')} variant="secondary">Přidat kartu</ButtonLink> : null}
           </div>
         </div>
-        <StockTabs current={tab} shop={shop} onSale={account?.listings ?? 0} />
+        <StockTabs current={tab} shop={shop} onSale={ctx.isOwner ? account?.listings ?? 0 : undefined} toShip={toShip} toReview={toReview} allowed={allowed} q={ctx.q} />
       </div>
 
-      {restriction ? (
+      {restriction && ctx.isOwner ? (
         <p className={styles.restricted}>
           <strong>Vystavování máte omezené podporou V4cards{restriction.until ? ` do ${formatDate(restriction.until)}` : ''}.</strong>{' '}
           Nabídky jsou skryté a nové nejde vystavit. Odůvodnění jsme vám poslali e-mailem, ohradit se můžete na{' '}
@@ -72,18 +132,48 @@ export default async function StockPage({ searchParams }: Props) {
       {tab === 'vse' || tab === 'prodej' ? (
         <>
           {ready.ready ? null : <SellGate r={ready} back="prodat" />}
-          <StockManager key={tab} items={await loadStock(supabase, user.id)} mode={tab === 'prodej' ? 'sale' : 'all'} shop={shop} ready={ready.ready} />
+          <StockManager key={tab} items={await loadStock(supabase, ctx.owner)} mode={tab === 'prodej' ? 'sale' : 'all'} shop={shop} ready={ready.ready} />
         </>
       ) : null}
-      {tab === 'pridat' ? <AddCard q={sp.hledat?.trim()} karta={sp.karta} ready={ready.ready} shop={shop} gate={ready.ready ? null : <SellGate r={ready} back="prodat" />} /> : null}
-      {tab === 'historie' ? <History userId={user.id} shop={shop} /> : null}
+      {tab === 'pridat' ? (
+        <AddCard q={sp.hledat?.trim()} karta={sp.karta} ready={ready.ready} shop={shop} owner={ctx.isOwner ? undefined : ctx.owner} base={base}
+          gate={ready.ready ? null : <SellGate r={ready} back="prodat" />} />
+      ) : null}
+      {tab === 'odeslat' && ship ? <ShipManager orders={ship.orders} toConfirm={ctx.isOwner ? ship.toConfirm : 0} q={ctx.q} /> : null}
+      {tab === 'historie' ? <History userId={ctx.owner} shop={shop} /> : null}
+      {tab === 'inventura' ? (
+        <InventoryViews data={await loadInventory(supabase, ctx.owner, user.id, ctx.ownerName, Math.max(-52, Math.min(52, Number(sp.tyden) || 0)))}
+          view={view} invId={sp.inventura ? Number(sp.inventura) : undefined} owner={ctx.owner} me={user.id} perms={[...ctx.perms]} q={ctx.q} />
+      ) : null}
+      {tab === 'trh' ? <Market ctx={ctx} pohled={sp.pohled} dni={sp.dni} /> : null}
+      {tab === 'napojeni' ? <Connections isOwner={ctx.isOwner} /> : null}
+      {tab === 'tym' ? <TeamView owner={ctx.owner} ownerName={ctx.ownerName} me={user.id} isOwner={ctx.isOwner} team={await loadTeam(supabase, ctx.owner)} /> : null}
       {tab === 'hledam' ? <Wanted q={sp.hledat?.trim()} karta={sp.karta} /> : null}
       {tab === 'sady' ? <Sets set={sp.sada} /> : null}
     </div>
   );
 }
 
-async function AddCard({ q, karta, ready, shop, gate }: { q?: string; karta?: string; ready: boolean; shop: boolean; gate: React.ReactNode }) {
+async function Market({ ctx, pohled, dni }: { ctx: StockCtx; pohled?: string; dni?: string }) {
+  const supabase = await createClient();
+  const can = ctx.perms.has('price') || ctx.perms.has('conn');
+  let view = (MVIEWS.includes(pohled as MarketView) ? pohled : 'poptavka') as MarketView;
+  if (view === 'automaticke' && !can) view = 'poptavka';
+  const days = dni === '30' ? 30 : 7;
+  const [demand, market, prices, auto, places] = await Promise.all([
+    view === 'poptavka' ? loadDemand(supabase, ctx.owner) : undefined,
+    view === 'trh' ? loadMarket(supabase, days) : undefined,
+    view === 'ceny' ? loadPrices(supabase, ctx.owner) : undefined,
+    view === 'automaticke' ? loadAuto(supabase, ctx.owner) : undefined,
+    view === 'automaticke' ? supabase.from('listing_stock').select('location').eq('seller_id', ctx.owner).not('location', 'is', null).limit(5000)
+      .then((r) => [...new Set(((r.data ?? []) as { location: string }[]).map((x) => x.location))].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }))) : [],
+  ]);
+  return <MarketViews view={view} q={ctx.q} perms={[...ctx.perms]} owner={ctx.owner} days={days} demand={demand} market={market} prices={prices} auto={auto} places={places} />;
+}
+
+async function AddCard({ q, karta, ready, shop, gate, owner, base }: {
+  q?: string; karta?: string; ready: boolean; shop: boolean; gate: React.ReactNode; owner?: string; base: (zalozka: string, extra?: string) => string;
+}) {
   const [selected, found] = await Promise.all([karta ? getCardBySlug(karta) : null, q ? searchCards({ q, pageSize: 12 }) : null]);
   return (
     <section className="panel">
@@ -97,20 +187,20 @@ async function AddCard({ q, karta, ready, shop, gate }: { q?: string; karta?: st
               <Link href={`/karty/${selected.slug}`} className={styles.rowName}>{selected.name}</Link>
               <div className="t-small muted">{selected.setName} · <span className="code">{selected.setCode} {selected.number}</span> · {getGame(selected.game)?.name}</div>
             </div>
-            <ButtonLink href="/prodat?zalozka=pridat" variant="ghost">Změnit kartu</ButtonLink>
+            <ButtonLink href={base('pridat')} variant="ghost">Změnit kartu</ButtonLink>
           </div>
-          {ready ? null : gate}
-          <ListingForm cardId={selected.id} ready={ready} shop={shop} />
+          {ready || owner ? null : gate}
+          <ListingForm cardId={selected.id} ready={ready} shop={shop} owner={owner} />
         </>
       ) : (
         <>
-          <SearchBox key={q ?? ''} className={styles.search} action="/prodat" param="hledat" keep={{ zalozka: 'pridat' }}
-            cardHref="/prodat?zalozka=pridat&karta=" defaultValue={q} placeholder="Název karty, sada nebo číslo" label="Najít kartu v katalogu" />
-          <Results found={found} href="/prodat?zalozka=pridat&karta=" />
-          <p className={`t-small muted ${styles.suggest}`}>
+          <SearchBox key={q ?? ''} className={styles.search} action="/prodat" param="hledat" keep={owner ? { zalozka: 'pridat', obchod: owner } : { zalozka: 'pridat' }}
+            cardHref={base('pridat', '&karta=')} defaultValue={q} placeholder="Název karty, sada nebo číslo" label="Najít kartu v katalogu" />
+          <Results found={found} href={base('pridat', '&karta=')} />
+          {owner ? null : <p className={`t-small muted ${styles.suggest}`}>
             Hodně karet najednou? <Link href="/prodat/import">Nahrajte tabulku</Link> (CSV, Excel, export z Cardmarketu). Hokejovou nebo jinou sportovní kartu v katalogu nenajdete?{' '}
             <Link href="/prodat/nova-karta">Navrhněte ji</Link> a my ji po schválení přidáme.
-          </p>
+          </p>}
         </>
       )}
     </section>

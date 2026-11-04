@@ -16,7 +16,10 @@ export async function GET(req: Request) {
   const user = await getSignedInUser();
   if (!user) return new Response('Nejdřív se přihlaste.', { status: 401 });
   const supabase = await createClient();
-  if (new URL(req.url).searchParams.get('druh') === 'pojisteni') return insurance(supabase, user.id);
+  const druh = new URL(req.url).searchParams.get('druh');
+  if (druh === 'pojisteni') return insurance(supabase, user.id);
+  if (druh === 'ucetni') return accounting(supabase, user.id);
+  if (druh === 'deckbuilder') return deckbuilder(supabase, user.id);
   const rows: Row[] = [];
   // Supabase vrací nejvýš 1000 řádků na dotaz, velký sklad čteme po stránkách.
   for (let from = 0; ; from += 1000) {
@@ -78,4 +81,74 @@ async function insurance(supabase: Awaited<ReturnType<typeof createClient>>, use
       'Cache-Control': 'no-store',
     },
   });
+}
+
+function csvFile(lines: string[], name: string) {
+  const day = new Date().toISOString().slice(0, 10);
+  return new Response('\ufeff' + lines.join('\r\n') + '\r\n', {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="v4cards-${name}-${day}.csv"`,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+// Přehled pro účetní: hodnota skladu k dnešku podle her (nákupní, prodejní, tržní) a obrat za 12 měsíců podle měsíců a her.
+async function accounting(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const since = new Date(Date.now() - 365 * 86400000).toISOString();
+  const [rows, { data: orders }] = await Promise.all([
+    loadStock(supabase, userId),
+    supabase.from('orders').select('number, status, created_at, decided_at, total_czk, order_items(quantity, price_czk, listings(cards(game_id)))')
+      .eq('seller_id', userId).in('status', ['paid', 'shipped', 'delivered']).gte('created_at', since).order('created_at').limit(5000),
+  ]);
+  const game = (id: string | null | undefined) => (id ? getGame(id)?.name ?? id : 'Ostatní');
+  const stock = new Map<string, { pcs: number; buy: number; noBuy: number; sale: number; market: number }>();
+  for (const r of rows) {
+    const n = owned(r);
+    if (n <= 0) continue;
+    const g = game(r.card?.game);
+    const a = stock.get(g) ?? { pcs: 0, buy: 0, noBuy: 0, sale: 0, market: 0 };
+    a.pcs += n;
+    if (r.buyPrice != null) a.buy += r.buyPrice * n; else a.noBuy += n;
+    a.sale += (r.price ?? 0) * r.quantity;
+    a.market += (r.market ?? r.price ?? 0) * n;
+    stock.set(g, a);
+  }
+  const day = new Date().toLocaleDateString('cs-CZ');
+  const lines = [csvLine([`Hodnota skladu k ${day}`]), csvLine(['Hra', 'Kusů', 'Nákupní hodnota (Kč)', 'Kusů bez nákupní ceny', 'Na prodej za (Kč)', 'Tržní hodnota (Kč)'])];
+  const tot = { pcs: 0, buy: 0, noBuy: 0, sale: 0, market: 0 };
+  for (const [g, a] of [...stock].sort((x, y) => y[1].market - x[1].market)) {
+    lines.push(csvLine([g, a.pcs, a.buy, a.noBuy, a.sale, a.market]));
+    for (const k of Object.keys(tot) as (keyof typeof tot)[]) tot[k] += a[k];
+  }
+  lines.push(csvLine(['Celkem', tot.pcs, tot.buy, tot.noBuy, tot.sale, tot.market]), '');
+  type O = { number: number; created_at: string; decided_at: string | null; total_czk: number;
+    order_items: { quantity: number; price_czk: number; listings: { cards: { game_id: string | null } | null } | null }[] };
+  const turnover = new Map<string, number>();
+  for (const o of (orders ?? []) as unknown as O[]) {
+    const month = (o.decided_at ?? o.created_at).slice(0, 7);
+    for (const i of o.order_items ?? []) {
+      const k = `${month}|${game(i.listings?.cards?.game_id)}`;
+      turnover.set(k, (turnover.get(k) ?? 0) + i.quantity * i.price_czk);
+    }
+  }
+  lines.push(csvLine(['Obrat za karty přes V4cards za 12 měsíců (bez dopravy), zaplacené a odeslané objednávky']), csvLine(['Měsíc', 'Hra', 'Obrat (Kč)']));
+  let sum = 0;
+  for (const [k, v] of [...turnover].sort()) { const [m, g] = k.split('|'); lines.push(csvLine([m, g, v])); sum += v; }
+  lines.push(csvLine(['Celkem', '', sum]), '', csvLine(['Faktury a daňové doklady vystavuje obchod sám, V4cards je neuchovává.']));
+  return csvFile(lines, 'ucetni');
+}
+
+// Pro deckbuildery: formát sbírky Moxfieldu (Count, Name, Edition, Condition, Language, Foil, Collector Number), jen Magic.
+const MOX_COND: Record<string, string> = { MT: 'Mint', NM: 'Near Mint', EX: 'Good (Lightly Played)', GD: 'Good (Lightly Played)', LP: 'Played', PL: 'Heavily Played' };
+const MOX_LANG: Record<string, string> = {
+  en: 'English', de: 'German', ja: 'Japanese', fr: 'French', it: 'Italian', es: 'Spanish', pt: 'Portuguese', ko: 'Korean', zh: 'Chinese Simplified', ru: 'Russian', cs: 'English',
+};
+async function deckbuilder(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const rows = (await loadStock(supabase, userId)).filter((r) => owned(r) > 0 && r.card?.game === 'magic');
+  const lines = [csvLine(['Count', 'Name', 'Edition', 'Condition', 'Language', 'Foil', 'Collector Number']),
+    ...rows.map((r) => csvLine([owned(r), r.card?.name, (r.card?.setCode ?? '').toLowerCase(), MOX_COND[r.condition] ?? 'Near Mint',
+      MOX_LANG[r.language] ?? 'English', '', r.card?.number]))];
+  return csvFile(lines, 'moxfield');
 }
