@@ -33,7 +33,6 @@ export function StockActions({ shop, owner, ownerName, me, meName, isOwner, role
         {canConn ? <><button type="button" className="btn" onClick={() => setM('export')}>Exportovat</button><Link className="btn" href={napojeni}>Napojení</Link></> : null}
         {canAdd ? <button type="button" className="btn p" onClick={() => setM('add')}>+ Přidat karty</button> : null}
       </div>
-      {canAdd ? <button type="button" className="fab" onClick={() => setM('add')} aria-label="Přidat karty">{Ico.plus}</button> : null}
       {m === 'staff' && team ? <StaffModal owner={owner} ownerName={ownerName} me={me} isOwner={isOwner} team={team} onClose={close} toast={toastFn} /> : null}
       {m === 'rules' && auto ? <RulesModal owner={owner} auto={auto} places={places} games={gameNames} onClose={close} toast={toastFn} /> : null}
       {m === 'export' ? <ExportModal shop={shop} selected={[]} filtered={null} total={total} obchod={obchod} onClose={close} /> : null}
