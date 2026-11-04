@@ -475,8 +475,23 @@ const dbTrending = unstable_cache(
   HOME_CACHE,
 );
 
+/**
+ * Při sestavování webu na Vercelu nesmí pomalá databáze (Nano, statement timeout 3 s) shodit celý build.
+ * Úvodní stránka se pak postaví bez dat a do minuty se obnoví. Za běhu chybu necháme projít,
+ * aby Next dál ukazoval poslední funkční verzi stránky.
+ */
+async function buildSafe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (process.env.NEXT_PHASE !== 'phase-production-build') throw e;
+    console.warn('Při buildu se nepodařilo načíst data úvodní stránky:', e instanceof Error ? e.message : e);
+    return fallback;
+  }
+}
+
 export async function getTrending(limit = 8): Promise<CardSummary[]> {
-  if (isSupabaseConfigured()) return dbTrending(limit);
+  if (isSupabaseConfigured()) return buildSafe(() => dbTrending(limit), []);
   return mockSearch({ sort: 'trend', onlyOffers: true, pageSize: limit }).cards;
 }
 
@@ -529,5 +544,5 @@ export async function getStats(): Promise<{ cards: number; offers: number; selle
   if (!isSupabaseConfigured()) {
     return { cards: CARDS.length, offers: LISTINGS.length, sellers: new Set(LISTINGS.map((l) => l.sellerId)).size };
   }
-  return dbStats();
+  return buildSafe(() => dbStats(), { cards: 0, offers: 0, sellers: 0 });
 }
