@@ -27,6 +27,8 @@ type Filter = 'all' | 'fix' | 'ready';
 
 export function ImportWizard() {
   const [step, setStep] = useState(0);
+  // Jen do skladu: kusy půjdou mimo prodej (prodávat je pak jde ze Skladu jedním klikem).
+  const [keep, setKeep] = useState(false);
   const [fileName, setFileName] = useState('');
   const [table, setTable] = useState<Table | null>(null);
   const [cardmarket, setCardmarket] = useState(false);
@@ -155,7 +157,7 @@ export function ImportWizard() {
         quantity: r.quantity!,
         graded: r.graded,
         note: r.note,
-      })));
+      })), keep);
       if (res.error && !res.created) {
         setError(res.error);
         return;
@@ -433,9 +435,13 @@ export function ImportWizard() {
           <div className={styles.actions}>
             <Button variant="ghost" onClick={() => setStep(1)} disabled={saving}>Zpět ke sloupcům</Button>
             <div className={styles.saveBox}>
+              <label className="t-small" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+                Jen do skladu, zatím neprodávat
+              </label>
               {stats.fix ? <span className="t-small muted">{plural(stats.fix, ['řádek', 'řádky', 'řádků'])} k opravě se nevystaví.</span> : null}
               <Button size="lg" disabled={!!progress || saving || !stats.ready} onClick={save}>
-                {saving ? 'Vystavuji…' : `Vystavit ${plural(stats.ready, ['nabídku', 'nabídky', 'nabídek'])}`}
+                {saving ? 'Ukládám…' : `${keep ? 'Přidat do skladu' : 'Vystavit'} ${plural(stats.ready, ['kartu', 'karty', 'karet'])}`}
               </Button>
             </div>
           </div>
@@ -445,8 +451,8 @@ export function ImportWizard() {
       {step === 3 && result ? (
         <section className={styles.stack}>
           <div className={styles.done}>
-            <h2 className="t-heading-m">Vystaveno {plural(result.created, ['nabídka', 'nabídky', 'nabídek'])}</h2>
-            <p className="muted">Nabídky jsou hned vidět v katalogu. Ceny a počty upravíte hromadně v sekci Moje nabídky.</p>
+            <h2 className="t-heading-m">{keep ? 'Přidáno do skladu' : 'Vystaveno'}: {plural(result.created, ['karta', 'karty', 'karet'])}</h2>
+            <p className="muted">{keep ? 'Karty jsou ve skladu mimo prodej. Prodávat je začnete ve Skladu tlačítkem Prodávat.' : 'Nabídky jsou hned vidět v katalogu. Ceny a počty upravíte hromadně ve Skladu.'}</p>
             {error ? <p className={styles.error} role="alert">{error}</p> : null}
             {result.left.length ? (
               <p className="t-small">
@@ -456,7 +462,7 @@ export function ImportWizard() {
             ) : null}
           </div>
           <div className={styles.actions}>
-            <ButtonLink href="/prodat#moje-nabidky" variant="secondary">Moje nabídky</ButtonLink>
+            <ButtonLink href="/prodat" variant="secondary">Otevřít sklad</ButtonLink>
             <div className={styles.saveBox}>
               <Button onClick={reset}>Nahrát další soubor</Button>
             </div>

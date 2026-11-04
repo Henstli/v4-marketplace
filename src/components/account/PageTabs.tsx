@@ -27,19 +27,26 @@ export function PageTabs({ tabs, current, label }: { tabs: PageTab[]; current: s
   );
 }
 
-/** Záložky Skladu (obchod) nebo Sbírky (sběratel). */
-export function StockTabs({ current, listings }: { current: '/prodat' | '/prodat/import'; listings: number }) {
-  return (
-    <PageTabs
-      label="Sklad"
-      current={current}
-      tabs={[
-        { label: 'Všechny karty' },
-        { label: 'Na prodej', href: '/prodat', n: listings },
-        { label: 'Hromadné nahrávání', href: '/prodat/import' },
-      ]}
-    />
-  );
+export type StockTab = 'vse' | 'prodej' | 'hledam' | 'sady' | 'historie' | 'pridat' | 'import';
+
+/** Záložky Skladu (obchod) nebo Sbírky (sběratel). Sběratel má navíc Hledám a Chybí do sad. */
+export function StockTabs({ current, shop, onSale }: { current: StockTab; shop: boolean; onSale?: number }) {
+  const href: Record<StockTab, string> = {
+    vse: '/prodat', prodej: '/prodat?zalozka=prodej', hledam: '/prodat?zalozka=hledam', sady: '/prodat?zalozka=sady',
+    historie: '/prodat?zalozka=historie', pridat: '/prodat?zalozka=pridat', import: '/prodat/import',
+  };
+  const tabs: (PageTab & { key: StockTab })[] = [
+    { key: 'vse', label: 'Všechny karty', href: href.vse },
+    { key: 'prodej', label: 'Na prodej', href: href.prodej, n: onSale },
+    ...(shop ? [] : [
+      { key: 'hledam' as const, label: 'Hledám', href: href.hledam },
+      { key: 'sady' as const, label: 'Chybí do sad', href: href.sady },
+    ]),
+    { key: 'historie', label: 'Historie', href: href.historie },
+    { key: 'pridat', label: 'Přidat kartu', href: href.pridat },
+    { key: 'import', label: 'Nahrát tabulku', href: href.import },
+  ];
+  return <PageTabs label={shop ? 'Sklad' : 'Sbírka'} current={href[current]} tabs={tabs} />;
 }
 
 /** Záložky Podpory: dotaz na podporu a vlastní hlášení. */

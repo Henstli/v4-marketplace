@@ -6,19 +6,30 @@ import { CONDITION_NAMES, CONDITIONS, LANGUAGE_NAMES, type Language } from '@/li
 import { createListing, type ListingState } from './actions';
 import styles from './sell.module.css';
 
-/** `blocked`: prodejce ještě nemá dopravu a platbu (výzva nad formulářem), vystavit nejde. */
-export function ListingForm({ cardId, blocked = false }: { cardId: string; blocked?: boolean }) {
+/**
+ * Přidání karty do skladu/sbírky: hned prodávat, nebo jen mít (mimo prodej, cena nepovinná).
+ * `ready`: prodejce má dopravu a platbu; bez nich jde kartu jen přidat mimo prodej.
+ */
+export function ListingForm({ cardId, ready, shop }: { cardId: string; ready: boolean; shop: boolean }) {
   const [state, action, pending] = useActionState<ListingState, FormData>(createListing, {});
   const formRef = useRef<HTMLFormElement>(null);
+  const [mode, setMode] = useState<'sell' | 'keep'>(ready ? 'sell' : 'keep');
   // Cena dohodou: bez ceny, kupující pošle návrh (DS OfferTable).
   const [negotiable, setNegotiable] = useState(false);
+  const [done, setDone] = useState<'sell' | 'keep' | null>(null);
   useEffect(() => {
     if (state.ok) { formRef.current?.reset(); setNegotiable(false); }
   }, [state]);
+  const sell = mode === 'sell';
 
   return (
-    <form ref={formRef} action={action} className={`${styles.form} ${blocked ? styles.dimmed : ''}`}>
+    <form ref={formRef} action={(fd) => { setDone(mode); action(fd); }} className={styles.form}>
       <input type="hidden" name="card" value={cardId} />
+      <input type="hidden" name="mode" value={mode} />
+      <div className={`${styles.wide} tz-stk-tools`} role="radiogroup" aria-label="Co s kartou">
+        <button type="button" className="tz-stk-fbtn" aria-pressed={sell} onClick={() => setMode('sell')}>Hned prodávat</button>
+        <button type="button" className="tz-stk-fbtn" aria-pressed={!sell} onClick={() => setMode('keep')}>Jen do {shop ? 'skladu' : 'sbírky'}, zatím neprodávat</button>
+      </div>
       <label className={styles.field}>
         <span className="t-label muted">STAV</span>
         <select name="condition" required defaultValue="NM" className={styles.input}>
@@ -32,17 +43,19 @@ export function ListingForm({ cardId, blocked = false }: { cardId: string; block
         </select>
       </label>
       <div className={styles.field}>
-        {negotiable ? null : (
+        {negotiable && sell ? null : (
           <label className={styles.field}>
-            <span className="t-label muted">CENA ZA KUS (KČ)</span>
-            <input name="price" type="number" min={1} step={1} required inputMode="numeric" className={styles.input} />
+            <span className="t-label muted">CENA ZA KUS (KČ){sell ? '' : ', NEPOVINNÁ'}</span>
+            <input name="price" type="number" min={1} step={1} required={sell} inputMode="numeric" className={styles.input} />
           </label>
         )}
-        <label className={styles.check}>
-          <input type="checkbox" name="negotiable" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} />
-          <span>Cena dohodou</span>
-        </label>
-        {negotiable ? <span className="t-small muted">Kupující vám pošlou návrh ceny, vy ho přijmete, nebo navrhnete jinou.</span> : null}
+        {sell ? (
+          <label className={styles.check}>
+            <input type="checkbox" name="negotiable" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} />
+            <span>Cena dohodou</span>
+          </label>
+        ) : null}
+        {negotiable && sell ? <span className="t-small muted">Kupující vám pošlou návrh ceny, vy ho přijmete, nebo navrhnete jinou.</span> : null}
       </div>
       <label className={styles.field}>
         <span className="t-label muted">POČET KUSŮ</span>
@@ -57,10 +70,12 @@ export function ListingForm({ cardId, blocked = false }: { cardId: string; block
         <input name="note" placeholder="např. drobné odření rohu" maxLength={200} className={styles.input} />
       </label>
       <div className={`${styles.wide} ${styles.submit}`}>
-        <Button type="submit" size="lg" disabled={pending || blocked}>{pending ? 'Ukládám…' : 'Vystavit kartu'}</Button>
-        {blocked ? <p className={styles.blocked}>Nejdřív doplňte dopravu a platbu.</p> : null}
+        <Button type="submit" size="lg" disabled={pending || (sell && !ready)}>
+          {pending ? 'Ukládám…' : sell ? 'Vystavit kartu' : `Přidat do ${shop ? 'skladu' : 'sbírky'}`}
+        </Button>
+        {sell && !ready ? <p className={styles.blocked}>Prodávat jde až s dopravou a platbou. Kartu můžete zatím přidat mimo prodej.</p> : null}
         {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
-        {state.ok ? <p className={styles.ok} role="status">Karta je vystavená.</p> : null}
+        {state.ok ? <p className={styles.ok} role="status">{done === 'keep' ? `Karta je ve ${shop ? 'skladu' : 'sbírce'} mimo prodej.` : 'Karta je vystavená.'}</p> : null}
       </div>
     </form>
   );

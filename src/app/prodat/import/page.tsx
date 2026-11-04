@@ -29,7 +29,7 @@ export default async function ImportPage() {
       <div>
         <h1 className="t-heading-l">{account?.kind === 'shop' ? 'Sklad' : 'Sbírka'}</h1>
         <p className="muted">Nahrajte celý sklad z tabulky: karty spárujeme s katalogem, zkontrolujete je a vystavíte jedním tlačítkem.</p>
-        <StockTabs current="/prodat/import" listings={account?.listings ?? 0} />
+        <StockTabs current="import" shop={account?.kind === 'shop'} onSale={account?.listings ?? 0} />
       </div>
       {PLANS[toPlan(plan)].bulkImport ? (
         ready.ready ? (
