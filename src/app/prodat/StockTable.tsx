@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { fold } from '@/lib/import/columns';
 import { GAMES, getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
+import { CONDITIONS } from '@/lib/types';
 import { stockChange, stockSet } from './actions';
 import { cardInfo, stockBulkSet, type BulkRow, type CardInfo } from './sk-actions';
 import { owned, type StockRow } from './data';
@@ -311,7 +312,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         {fp ? (
           <div className="fpop">
             {games.length ? <div className="fsec"><h6>Hra</h6><div className="fops">{games.map((g) => op('g', g.id, <><i style={{ '--c': g.dot } as React.CSSProperties} />{g.name}</>))}</div></div> : null}
-            <div className="fsec"><h6>Stav</h6><div className="fops">{['NM', 'EX', 'GD', 'LP', 'PL'].map((c) => op('c', c, c))}</div></div>
+            <div className="fsec"><h6>Stav</h6><div className="fops">{CONDITIONS.map((c) => op('c', c, c))}</div></div>
             {sale ? null : (
               <div className="fsec"><h6>{shop ? 'Prodej' : 'Nabídka'}</h6><div className="fops">
                 {([['', 'Vše'], ['on', shop ? 'Na prodej' : 'Nabízím'], ['off', shop ? 'Nevystavené' : 'Ve sbírce']] as ['' | 'on' | 'off', string][]).map(([v, l]) => (
@@ -725,7 +726,7 @@ function AttrModal({ n, onClose, onOk }: { n: number; onClose: () => void; onOk:
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
       <button type="button" className="btn p" disabled={!c && !l} onClick={() => onOk(c, l)}>Uložit</button>
     </>}>
-      <div className="f"><label>Stav</label><Seg value={c} onChange={setC} options={[['', 'Neměnit'], ['NM', 'NM'], ['EX', 'EX'], ['GD', 'GD'], ['LP', 'LP'], ['PL', 'PL']]} /></div>
+      <div className="f"><label>Stav</label><Seg value={c} onChange={setC} options={[['', 'Neměnit'], ...CONDITIONS.map((x) => [x, x] as [string, string])]} /></div>
       <div className="f"><label>Jazyk</label><Seg value={l} onChange={setL} options={[['', 'Neměnit'], ['en', 'EN'], ['de', 'DE'], ['ja', 'JP'], ['fr', 'FR'], ['it', 'IT']]} /></div>
     </Modal>
   );
@@ -886,7 +887,7 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
           </section>
           <section className="dbx">
             <h4>Karta</h4>
-            <div className="drow"><b>Stav</b><Seg value={cond} onChange={setCond} options={['NM', 'EX', 'GD', 'LP', 'PL'].map((c) => [c, c] as [string, string])} /></div>
+            <div className="drow"><b>Stav</b><Seg value={cond} onChange={setCond} options={CONDITIONS.map((c) => [c, c] as [string, string])} /></div>
             <div className="drow"><b>Jazyk</b><Seg value={lang} onChange={setLang} options={langOpts.map((l) => [l, langCode(l)] as [string, string])} /></div>
           </section>
           <section className="dbx">
