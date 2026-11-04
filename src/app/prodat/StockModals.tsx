@@ -1,5 +1,6 @@
 'use client';
 
+import { CONDITIONS } from '@/lib/types';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -127,7 +128,7 @@ function AddModal({ shop, owner, onClose, toast }: { shop: boolean; owner: strin
       <div style={{ marginTop: 'auto' }} className="f">
         <label>Výchozí pro další karty</label>
         <div className="grid2">
-          <Seg value={cond} onChange={setCond} options={[['NM', 'NM'], ['EX', 'EX'], ['LP', 'LP']]} />
+          <Seg value={cond} onChange={setCond} options={CONDITIONS.map((x) => [x, x] as [string, string])} />
           <Seg value={lang} onChange={setLang} options={CARD_LANGS.slice(0, 3).map((l) => [l, langCode(l)] as [string, string])} />
         </div>
       </div>

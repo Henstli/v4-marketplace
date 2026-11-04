@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { fold } from '@/lib/import/columns';
 import { GAMES, getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
+import { CONDITIONS } from '@/lib/types';
 import { stockChange, stockSet } from './actions';
 import { cardInfo, stockBulkSet, type BulkRow, type CardInfo } from './sk-actions';
 import { owned, type StockRow } from './data';
@@ -24,8 +25,8 @@ export interface StripStats {
   orders: number; ordersWaiting: number; unpaid: number;
   /** Prodáno za 30 dní */
   sold30: { pcs: number; sum: number };
-  /** Nejvíc zdražená karta za 30 dní */
-  riser: { name: string; pct: number; cardId: string } | null;
+  /** Karta, která za 30 dní nejvíc zdražila (v Kč za kus) */
+  riser: { name: string; pct: number; cardId: string; from: number; to: number } | null;
 }
 
 type Item = {
@@ -242,10 +243,16 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <div className="stc"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
       <div className="stc"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
       {stats.riser ? (
-        <div className="stc" onClick={() => { const i = all.find((x) => x.key === stats.riser!.cardId); if (i) setOpen(i.id); }} title="Otevřít kartu">
-          <small>Nejvíc zdražila<em>+{stats.riser.pct} %</em></small><b style={{ fontSize: 15 }}>{stats.riser.name}</b>
+        <div className="stc" onClick={() => { const i = all.find((x) => x.key === stats.riser!.cardId); if (i) setOpen(i.id); }}
+          title={`${stats.riser.name}: ${kc(stats.riser.from)} → ${kc(stats.riser.to)} za 30 dní`}>
+          <small>Nejvíc zdražila<em>+{nf(stats.riser.to - stats.riser.from)} Kč · +{stats.riser.pct} %</em></small>
+          <b style={{ fontSize: 15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stats.riser.name}</b>
         </div>
-      ) : null}
+      ) : (
+        <div className="stc" title="Tržní ceny se zapisují každou noc, první porovnání bude zítra">
+          <small>Nejvíc zdražila<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b style={{ fontSize: 15, color: 'var(--ink-muted)' }}>Zatím málo dat</b>
+        </div>
+      )}
       <div className="stc" onClick={() => { resetF(); setDup(true); }} title="Zobrazit duplicity">
         <small>Duplicity<em style={{ color: 'var(--ink-muted)' }}>{t.tradeN ? `${t.tradeN} na výměnu` : 'k prodeji nebo výměně'}</em></small><b>{nf(t.dups)}</b>
       </div>
@@ -305,7 +312,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         {fp ? (
           <div className="fpop">
             {games.length ? <div className="fsec"><h6>Hra</h6><div className="fops">{games.map((g) => op('g', g.id, <><i style={{ '--c': g.dot } as React.CSSProperties} />{g.name}</>))}</div></div> : null}
-            <div className="fsec"><h6>Stav</h6><div className="fops">{['NM', 'EX', 'GD', 'LP', 'PL'].map((c) => op('c', c, c))}</div></div>
+            <div className="fsec"><h6>Stav</h6><div className="fops">{CONDITIONS.map((c) => op('c', c, c))}</div></div>
             {sale ? null : (
               <div className="fsec"><h6>{shop ? 'Prodej' : 'Nabídka'}</h6><div className="fops">
                 {([['', 'Vše'], ['on', shop ? 'Na prodej' : 'Nabízím'], ['off', shop ? 'Nevystavené' : 'Ve sbírce']] as ['' | 'on' | 'off', string][]).map(([v, l]) => (
@@ -440,7 +447,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         </span>;
     const conds = [...new Set(g.map((x) => x.cond))];
     const L = [...new Set(g.map((x) => langCode(x.lang)))];
-    const langs_ = L.length > 3 ? `${L.slice(0, 2).join(' · ')} +${L.length - 2}` : L.join(' · ');
+    const langs_ = L.length > 2 ? `${L[0]} +${L.length - 1}` : L.join(' · ');
     const locs = [...new Set(g.map((x) => x.loc || '—'))];
     const us = [...new Set(g.map((x) => x.src))];
     return [
@@ -455,7 +462,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
           </div>
         </td>
         <td className="c"><span className="conds">{conds.map((c) => <span key={c} className={`cond ${c}`}>{c}</span>)}</span></td>
-        <td className="c"><span className="lang">{langs_}</span></td>
+        <td className="c"><span className="lang" title={L.length > 2 ? L.join(" · ") : undefined}>{langs_}</span></td>
         <td className="c mono">{nf(have)}</td>
         <td className="sc">{saleCell(g, `g:${k}`)}</td>
         <td className="c pcell">{pr}</td>
@@ -719,7 +726,7 @@ function AttrModal({ n, onClose, onOk }: { n: number; onClose: () => void; onOk:
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
       <button type="button" className="btn p" disabled={!c && !l} onClick={() => onOk(c, l)}>Uložit</button>
     </>}>
-      <div className="f"><label>Stav</label><Seg value={c} onChange={setC} options={[['', 'Neměnit'], ['NM', 'NM'], ['EX', 'EX'], ['GD', 'GD'], ['LP', 'LP'], ['PL', 'PL']]} /></div>
+      <div className="f"><label>Stav</label><Seg value={c} onChange={setC} options={[['', 'Neměnit'], ...CONDITIONS.map((x) => [x, x] as [string, string])]} /></div>
       <div className="f"><label>Jazyk</label><Seg value={l} onChange={setL} options={[['', 'Neměnit'], ['en', 'EN'], ['de', 'DE'], ['ja', 'JP'], ['fr', 'FR'], ['it', 'IT']]} /></div>
     </Modal>
   );
@@ -880,7 +887,7 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
           </section>
           <section className="dbx">
             <h4>Karta</h4>
-            <div className="drow"><b>Stav</b><Seg value={cond} onChange={setCond} options={['NM', 'EX', 'GD', 'LP', 'PL'].map((c) => [c, c] as [string, string])} /></div>
+            <div className="drow"><b>Stav</b><Seg value={cond} onChange={setCond} options={CONDITIONS.map((c) => [c, c] as [string, string])} /></div>
             <div className="drow"><b>Jazyk</b><Seg value={lang} onChange={setLang} options={langOpts.map((l) => [l, langCode(l)] as [string, string])} /></div>
           </section>
           <section className="dbx">
