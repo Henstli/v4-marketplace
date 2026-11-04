@@ -971,3 +971,12 @@
 .tz-sk .fop .fcnt{font:500 11.5px var(--fm);opacity:.75}
 /* Řazení podle sloupce: šipka směru za nadpisem */
 .tz-sk th .sdir{margin-left:5px;font:600 11px var(--fm)}
+/* Nespárované › Vyberte verzi: víc karet se stejnou shodou, výběr kliknutím na obrázek */
+.tz-sk .ums .stk{display:flex;flex:none}.tz-sk .ums .stk img{margin-left:-14px;box-shadow:0 0 0 2px var(--surface)}.tz-sk .ums .stk img:first-child{margin-left:0}
+.tz-sk .umv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tz-sk .umv button{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-sunken);text-align:left;cursor:pointer}
+.tz-sk .umv button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--surface-sunken))}
+.tz-sk .umv button[disabled]{opacity:.5;pointer-events:none}
+.tz-sk .umv .im{aspect-ratio:63/88;display:grid;place-items:center}.tz-sk .umv img{width:100%;height:100%;object-fit:contain;border-radius:6px}
+.tz-sk .umv b{font-size:13.5px}.tz-sk .umv small{display:block;color:var(--ink-muted);font-size:12px;margin-top:2px}
+.tz-sk .umv .pick{margin-top:auto;text-align:center;font:600 12.5px var(--fs);color:var(--accent)}

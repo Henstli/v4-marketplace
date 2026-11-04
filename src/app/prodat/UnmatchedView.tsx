@@ -60,14 +60,16 @@ export function matchScore(u: Pick<Unm, 'name' | 'setCode' | 'setName' | 'number
   const w = parts.reduce((t, [x]) => t + x, 0);
   return w ? Math.round((parts.reduce((t, [x, v]) => t + x * v, 0) / w) * 100) : 0;
 }
-/** Shoda navržené karty: u víc možných verzí nejvýš 70 %, protože nevíme, která to je. */
-const scoreOf = (u: Unm) => { const c = u.candidates[0]; if (!c) return 0; const sc = matchScore(u, c); return u.reason === 'multi' ? Math.min(sc, 70) : sc; };
+/** Shoda navržené karty. */
+const scoreOf = (u: Unm) => (u.candidates[0] ? matchScore(u, u.candidates[0]) : 0);
+/** Víc verzí karty se stejnou shodou: místo Potvrdit / Jiná karta se jen vybere jedna z nich. */
+const isMulti = (u: Unm) => u.reason === 'multi' && u.candidates.length > 1;
 const toneOf = (sc: number): 'lo' | 'md' | '' => (sc >= 80 ? '' : sc >= 50 ? 'md' : 'lo');
 
 /** Co u položky chybí (pod shodou). */
 function why(u: Unm): [string, 'lo' | 'md' | ''] {
   if (u.reason === 'none') return ['Nenalezeno', 'lo'];
-  if (u.reason === 'multi') return [`${u.candidates.length} možnosti`, 'md'];
+  if (u.reason === 'multi') return [`${u.candidates.length} verze karty`, 'md'];
   const miss = [!u.condition && (u.rawCondition ? `stav „${u.rawCondition}“` : 'stav'), !u.language && (u.rawLanguage ? `jazyk „${u.rawLanguage}“` : 'jazyk')].filter(Boolean);
   return [miss.length ? `Chybí ${miss.join(', ')}` : 'Zkontrolujte', 'md'];
 }
@@ -79,6 +81,7 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
   const [file, setFile] = useState('all');
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [pick, setPick] = useState<Unm | null>(null);
+  const [ver, setVer] = useState<Unm | null>(null);
   const [toast, setToast] = useState<{ t: string; err?: boolean } | null>(null);
   const [pending, start] = useTransition();
   useEffect(() => { if (!toast) return; const x = setTimeout(() => setToast(null), 6000); return () => clearTimeout(x); }, [toast]);
@@ -166,18 +169,24 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
         {origin(u)}
         <span className="uar">→</span>
         <div className="ums">
-          {c ? <>{c.image ? <img src={thumbUrl(c.image) ?? c.image} alt="" /> : null}<span><b>{c.name}</b><small className="mono">{sub(c)}</small></span></>
+          {isMulti(u) ? <><span className="stk">{u.candidates.slice(0, 3).map((x) => x.image ? <img key={x.id} src={thumbUrl(x.image) ?? x.image} alt="" /> : null)}</span><span><b>{c.name}</b><small>Vyberte z {nf(u.candidates.length)} verzí</small></span></>
+          : c ? <>{c.image ? <img src={thumbUrl(c.image) ?? c.image} alt="" /> : null}<span><b>{c.name}</b><small className="mono">{sub(c)}</small></span></>
             : <span><b style={{ color: 'var(--ink-muted)' }}>V katalogu nenalezeno</b><small>Najděte kartu ručně</small></span>}
         </div>
         <div>
           {c ? <div className={`ump ${toneOf(scoreOf(u))}`} title="Jak moc karta z katalogu odpovídá názvu, sadě a číslu v tabulce"><i style={{ '--w': `${scoreOf(u)}%` } as React.CSSProperties} /><b className="mono">{scoreOf(u)} %</b></div> : null}
           <small style={{ display: 'block', fontSize: 11.5, marginTop: c ? 3 : 0, color: tone === 'lo' ? 'var(--down)' : 'var(--ink-muted)' }}>{w}</small>
         </div>
-        <div className="ua2">
+        {isMulti(u) ? (
+          <div className="ua2">
+            <button type="button" className="btn sm g mut" disabled={pending} onClick={() => run(() => ignoreUnmatched([u.id], true), `Ignorováno: ${raw(u)}. Najdete to v záložce Ignorované.`)}>Ignorovat</button>
+            <button type="button" className="btn sm p" disabled={pending} onClick={() => setVer(u)}>Vybrat verzi</button>
+          </div>
+        ) : <div className="ua2">
           <button type="button" className="btn sm g" onClick={() => setPick(u)}>{c ? 'Jiná karta' : 'Najít kartu'}</button>
           <button type="button" className="btn sm g mut" disabled={pending} onClick={() => run(() => ignoreUnmatched([u.id], true), `Ignorováno: ${raw(u)}. Najdete to v záložce Ignorované.`)}>Ignorovat</button>
           {c ? <button type="button" className={`btn sm${sure ? ' p' : ''}`} disabled={pending} onClick={() => confirm(u)}>Potvrdit</button> : null}
-        </div>
+        </div>}
       </div>
     );
   };
@@ -194,7 +203,8 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
   };
   // Jako v prototypu: Zkontrolujte (pod 80 % nebo něco chybí, nejnejistější první) a Skoro jisté (jde rovnou potvrdit).
   const isSure = (u: Unm) => u.reason !== 'multi' && !!u.candidates[0] && !!u.condition && !!u.language && scoreOf(u) >= 80;
-  const check = U.filter((u) => !isSure(u)).sort((a, b) => scoreOf(a) - scoreOf(b));
+  const vers = U.filter(isMulti);
+  const check = U.filter((u) => !isSure(u) && !isMulti(u)).sort((a, b) => scoreOf(a) - scoreOf(b));
   const ready = U.filter(isSure).sort((a, b) => scoreOf(a) - scoreOf(b));
 
   function confirmAll() {
@@ -215,14 +225,63 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
       {U.length ? (
         <div className="tbl">
           <div className="um2 oth"><span>Z tabulky</span><span /><span>Navrhujeme</span><span>Shoda</span><span /></div>
-          {sec('check', 'Zkontrolujte', 'Shoda pod 80 %, víc možných verzí nebo chybí stav či jazyk. Nejnejistější jsou nahoře.', check)}
+          {sec('check', 'Zkontrolujte', 'Shoda pod 80 % nebo chybí stav či jazyk. Nejnejistější jsou nahoře.', check)}
+          {sec('ver', 'Vyberte verzi', 'Tabulce odpovídá víc verzí stejné karty. Klikněte na Vybrat verzi a vyberte tu svou podle obrázku.', vers)}
           {sec('sure', 'Skoro jisté', 'Karta sedí a údaje jsou kompletní. Stačí potvrdit.', ready,
             <button type="button" className="btn sm p" disabled={pending} onClick={confirmAll}>{ready.length > 1 ? `Potvrdit všech ${nf(ready.length)}` : 'Potvrdit'}</button>)}
         </div>
       ) : <div className="tbl"><div className="none">{wait.length ? 'V tomto filtru nic nečeká.' : 'Všechno je spárované nebo ignorované.'}</div></div>}
+      {ver ? <VersionModal u={ver} shop={shop} onOther={() => { setPick(ver); setVer(null); }} onClose={() => setVer(null)} onDone={(t, err) => { setToast({ t, err }); if (!err) { setVer(null); router.refresh(); } }} /> : null}
       {pick ? <PickModal u={pick} shop={shop} onClose={() => setPick(null)} onDone={(t, err) => { setToast({ t, err }); if (!err) { setPick(null); router.refresh(); } }} /> : null}
       {toast ? <div className={`toast${toast.err ? ' err' : ''}`} role="status">{toast.t}</div> : null}
     </>
+  );
+}
+
+/** Vyberte verzi: velké obrázky všech verzí, kliknutím je hotovo. Stav a jazyk jen když v tabulce chyběly. */
+function VersionModal({ u, shop, onOther, onClose, onDone }: { u: Unm; shop: boolean; onOther: () => void; onClose: () => void; onDone: (t: string, err?: boolean) => void }) {
+  const [cond, setCond] = useState(u.condition ?? 'NM');
+  const [lang, setLang] = useState(u.language && CARD_LANGS.includes(u.language) ? u.language : 'en');
+  const [pending, start] = useTransition();
+  const choose = (c: CardLite) => start(async () => {
+    const r = await resolveUnmatched(u.id, c.id, cond, lang, u.quantity, u.price);
+    if (r.error) onDone(r.error, true);
+    else onDone(`${c.name} (${[c.setCode, c.number].filter(Boolean).join(' ')}): přidáno ${shop ? 'do skladu' : 'do sbírky'}`);
+  });
+  return (
+    <Modal title="Která verze to je?" wide onClose={onClose} foot={<>
+      <button type="button" className="btn g" onClick={onOther}>Žádná z nich, hledat jinou</button>
+      <button type="button" className="btn" onClick={onClose}>Zrušit</button>
+    </>}>
+      <div className="umsrc">
+        <small>Řádek z tabulky</small>
+        <b>{raw(u)}</b>
+        <span className="mono">{[u.file, u.line ? `řádek ${u.line}` : '', `${nf(u.quantity)} ks`, u.condition, u.language ? LANG_FULL[u.language] ?? u.language : ''].filter(Boolean).join(' · ')}</span>
+      </div>
+      {!u.condition || !u.language ? (
+        <div className="grid2" style={{ marginTop: 14 }}>
+          {!u.condition ? <div className="f"><label>Stav{u.rawCondition ? ` (v tabulce „${u.rawCondition}“)` : ''}</label>
+            <Seg value={cond} onChange={setCond} options={CONDITIONS.map((x) => [x, x] as [string, string])} />
+          </div> : null}
+          {!u.language ? <div className="f"><label>Jazyk{u.rawLanguage ? ` (v tabulce „${u.rawLanguage}“)` : ''}</label>
+            <div className="inp" style={{ height: 36 }}>
+              <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ background: 'none', border: 0, flex: 1, font: '600 14px var(--fs)' }} aria-label="Jazyk">
+                {CARD_LANGS.map((l) => <option key={l} value={l}>{LANG_FULL[l]}</option>)}
+              </select>
+            </div>
+          </div> : null}
+        </div>
+      ) : null}
+      <div className="umv" style={{ marginTop: 14 }}>
+        {u.candidates.map((c) => (
+          <button key={c.id} type="button" disabled={pending} onClick={() => choose(c)}>
+            <span className="im">{c.image ? <img src={thumbUrl(c.image) ?? c.image} alt="" /> : null}</span>
+            <span><b>{c.name}</b><small>{c.setName}</small><small className="mono">{[c.setCode, c.number].filter(Boolean).join(' · ')}</small></span>
+            <span className="pick">Je to tahle</span>
+          </button>
+        ))}
+      </div>
+    </Modal>
   );
 }
 
