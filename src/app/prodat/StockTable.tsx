@@ -712,6 +712,10 @@ function AttrModal({ n, onClose, onOk }: { n: number; onClose: () => void; onOk:
   );
 }
 
+/** Pozice nesmí znít jako některé místo (aby nevznikl zmatek). */
+const posClash = (pos: string, places: string[]) => { const p = pos.trim().toLowerCase(); return !!p && places.some((l) => l.toLowerCase() === p); };
+const PosClash = ({ pos }: { pos: string }) => <small style={{ color: 'var(--warn,#f0a24a)', fontSize: 12, display: 'block', marginTop: 6 }}>„{pos.trim()}“ je název místa. Zvolte ho nahoře jako místo, nebo pozici pojmenujte jinak.</small>;
+
 /** Výběr místa: při pár místech všechna jako čipy, při mnoha hledání (8 nejpoužívanějších) a přidání nového z hledání. */
 function PlacePicker({ places, value, onPick }: { places: string[]; value: string; onPick: (v: string) => void }) {
   const MANY = 8;
@@ -751,7 +755,7 @@ function LocModal({ n, places, onClose, onOk }: { n: number; places: string[]; o
   return (
     <Modal title={`Umístění: ${pl1(n)}`} onClose={onClose} foot={<>
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
-      <button type="button" className="btn p" disabled={!v} onClick={() => onOk(v)}>Uložit</button>
+      <button type="button" className="btn p" disabled={!v || posClash(pos, places)} onClick={() => onOk(v)}>Uložit</button>
     </>}>
       <div className="f"><label>Umístění</label>
         <PlacePicker places={places} value={cur} onPick={(v) => { if (v !== cur && (v === '' || places.includes(v))) setPos(''); setCur(v); }} />
@@ -759,6 +763,7 @@ function LocModal({ n, places, onClose, onOk }: { n: number; places: string[]; o
       </div>
       {cur.trim() ? <div className="f"><label>Pozice v umístění <span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}>(nepovinné)</span></label>
         <div className="inp"><input value={pos} maxLength={40} style={{ font: '500 14px var(--fs)' }} placeholder="Např. 04, strana 3, řada 2" onChange={(e) => setPos(e.target.value)} /></div>
+        {posClash(pos, places) ? <PosClash pos={pos} /> : null}
         <small style={{ color: 'var(--ink-muted)', fontSize: 12, display: 'block', marginTop: 6 }}>Pozice pomáhá při vychystávání. Když ji nevyplníte, bude jen „{cur.trim()}“.</small>
       </div> : null}
     </Modal>
@@ -867,6 +872,7 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
             <div className="f"><label>Umístění</label>
               <PlacePicker places={places} value={place} onPick={(v) => { if (v !== place && (v === '' || places.includes(v))) setPos(''); setPlace(v); }} />
               {place.trim() ? <div className="inp" style={{ marginTop: 8 }}><input value={pos} maxLength={40} placeholder="Pozice, nepovinné (např. 04)" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPos(e.target.value)} /></div> : null}
+              {place.trim() && posClash(pos, places) ? <PosClash pos={pos} /> : null}
             </div>
             <div className="f"><label>Nákupní cena</label><div className="inp"><input value={buy} placeholder="Za kolik jste ji koupili" style={{ fontSize: 14 }} onChange={(e) => setBuy(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div>
               {shop && i.buy && i.price != null ? (() => { const p = i.price - i.buy; return <div className={`pfd${p < 0 ? ' dn' : ''}`}>Zisk na kus <b>{p < 0 ? '−' : '+'}{kc(Math.abs(p))}</b> · {Math.round((p / i.buy) * 100)} %</div>; })() : null}
@@ -888,7 +894,7 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
             : <button type="button" className="btn g d" onClick={() => setDel(true)}>Odebrat</button>) : null}
           <span style={{ flex: 1 }} />
           <button type="button" className="btn" onClick={onClose}>Zrušit</button>
-          <button type="button" className="btn p" disabled={pending || i.locked} onClick={save}>{pending ? 'Ukládám…' : 'Uložit'}</button>
+          <button type="button" className="btn p" disabled={pending || i.locked || (!!place.trim() && posClash(pos, places))} onClick={save}>{pending ? 'Ukládám…' : 'Uložit'}</button>
         </div>
       </aside>
     </>
