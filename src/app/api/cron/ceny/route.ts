@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { refreshCatalog } from '@/lib/catalog-refresh';
 
-// Automatické ceny: jednou za noc (3:00 v Praze v zimě, 4:00 v létě) přepočítá ceny obchodů,
+// Denní tržní ceny + automatické ceny: jednou za noc (3:00 v Praze v zimě, 4:00 v létě) přepočítá ceny obchodů,
 // které je mají zapnuté. Každý přepočet je v Historii skladu a jde vrátit.
 // Vercel Cron posílá hlavičku Authorization: Bearer <CRON_SECRET>.
 export async function GET(request: Request) {
@@ -11,6 +11,9 @@ export async function GET(request: Request) {
   }
   const admin = createAdminClient();
   if (!admin) return Response.json({ changed: 0 });
+  // Nejdřív zapsat dnešní tržní ceny (vývoj hodnoty a nejvíc zdražená karta ve Skladu a Sbírce).
+  const snap = await admin.rpc('price_snapshot');
+  if (snap.error) console.error('price_snapshot', snap.error.message);
   const { data, error } = await admin.rpc('stock_autoprice_run');
   if (error) return Response.json({ error: error.message }, { status: 500 });
   if (Number(data) > 0) refreshCatalog();
