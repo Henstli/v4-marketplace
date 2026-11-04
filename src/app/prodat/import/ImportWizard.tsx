@@ -111,12 +111,12 @@ export function ImportWizard() {
   };
 
   const stats = useMemo(() => {
-    let ready = 0, fix = 0;
+    let ready = 0, fix = 0, noPrice = 0;
     for (const r of rows) {
       if (skipped.has(r.line)) continue;
-      if (problemsOf(r).length) fix++; else ready++;
+      if (problemsOf(r).length) fix++; else { ready++; if (r.price == null) noPrice++; }
     }
-    return { ready, fix, skipped: skipped.size };
+    return { ready, fix, noPrice, skipped: skipped.size };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, matches, skipped]);
 
@@ -153,7 +153,7 @@ export function ImportWizard() {
         cardId: matches[r.line].card!.id,
         condition: r.condition!,
         language: r.language!,
-        price: r.price!,
+        price: r.price ?? null,
         quantity: r.quantity!,
         graded: r.graded,
         note: r.note,
@@ -302,7 +302,7 @@ export function ImportWizard() {
           </div>
 
           {!canMatch ? <p className={styles.error} role="alert">Přiřaďte aspoň sloupec s názvem karty, nebo sadu a číslo karty.</p> : null}
-          {mapping.price == null ? <p className="t-small muted">Sloupec s cenou není přiřazený, ceny pak vyplníte v dalším kroku ručně.</p> : null}
+          {mapping.price == null ? <p className="t-small muted">Sloupec s cenou není přiřazený. Ceny vyplníte v dalším kroku, karty bez ceny přijdou do skladu mimo prodej.</p> : null}
           <div className={styles.actions}>
             <Button variant="ghost" onClick={() => setStep(0)}>Zpět</Button>
             <Button size="lg" disabled={!canMatch || (settings.currency === 'EUR' && !(settings.rate > 0))} onClick={runMatching}>
@@ -385,7 +385,8 @@ export function ImportWizard() {
                         <input
                           className={`tz-cell-input tz-num ${styles.priceInput}`}
                           aria-label="Cena za kus v Kč"
-                          aria-invalid={r.price == null}
+                          placeholder="bez ceny"
+                          title="Bez ceny přijde karta do skladu mimo prodej"
                           inputMode="numeric"
                           value={r.price ?? ''}
                           onChange={(e) => {
@@ -439,6 +440,7 @@ export function ImportWizard() {
                 <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
                 Jen do skladu, zatím neprodávat
               </label>
+              {!keep && stats.noPrice ? <span className="t-small muted">{plural(stats.noPrice, ['karta bez ceny přijde', 'karty bez ceny přijdou', 'karet bez ceny přijde'])} do skladu mimo prodej.</span> : null}
               {stats.fix ? <span className="t-small muted">{plural(stats.fix, ['řádek', 'řádky', 'řádků'])} k opravě se nevystaví.</span> : null}
               <Button size="lg" disabled={!!progress || saving || !stats.ready} onClick={save}>
                 {saving ? 'Ukládám…' : `${keep ? 'Přidat do skladu' : 'Vystavit'} ${plural(stats.ready, ['kartu', 'karty', 'karet'])}`}

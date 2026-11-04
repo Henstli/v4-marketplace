@@ -71,7 +71,8 @@ export interface ImportItem {
   cardId: string;
   condition: string;
   language: string;
-  price: number;
+  /** null = bez ceny: karta jde do skladu/sbírky mimo prodej */
+  price: number | null;
   quantity: number;
   graded?: string;
   note?: string;
@@ -89,20 +90,22 @@ export async function createImportedListings(items: ImportItem[], keep = false):
 
   const rows = [];
   for (const it of items) {
-    const price = Number(it.price);
+    const price = it.price == null ? null : Number(it.price);
     const quantity = Number(it.quantity);
     if (!UUID.test(String(it.cardId))) return { error: 'U některého řádku chybí karta.' };
     if (!CONDITIONS.includes(it.condition as never)) return { error: 'U některého řádku chybí stav.' };
     if (!(it.language in LANGUAGE_NAMES)) return { error: 'U některého řádku chybí jazyk.' };
-    if (!Number.isInteger(price) || price <= 0) return { error: 'Cena musí být celé číslo v korunách.' };
+    if (price != null && (!Number.isInteger(price) || price <= 0)) return { error: 'Cena musí být celé číslo v korunách.' };
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > QUANTITY_MAX) return { error: `Počet kusů musí být 1 až ${QUANTITY_MAX}.` };
     rows.push({
       card_id: it.cardId,
       seller_id: auth.user.id,
       price_czk: price,
+      negotiable: price == null,
       condition: it.condition,
       language: it.language,
-      quantity: keep ? 0 : quantity,
+      // Bez ceny nejde na prodej: všechny kusy jsou mimo prodej.
+      quantity: keep || price == null ? 0 : quantity,
       graded: String(it.graded ?? '').trim().slice(0, 20) || null,
       note: String(it.note ?? '').trim().slice(0, 200) || null,
     });
@@ -115,7 +118,7 @@ export async function createImportedListings(items: ImportItem[], keep = false):
     if (!error && inserted) {
       // Řádek skladu vznikne s nabídkou, tady jen doplníme zdroj a kusy mimo prodej (pořadí vložených řádků se drží).
       await supabase.rpc('stock_set_keep', {
-        p_rows: inserted.map((r, j) => ({ id: r.id, keep: keep ? Number(items[i + j].quantity) : 0, source: 'import' })),
+        p_rows: inserted.map((r, j) => ({ id: r.id, keep: keep || items[i + j].price == null ? Number(items[i + j].quantity) : 0, source: 'import' })),
       });
     }
     if (error) {
