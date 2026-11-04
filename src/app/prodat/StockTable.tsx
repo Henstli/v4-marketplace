@@ -539,7 +539,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         onOk={(list, text) => { setModal(null); bulk(list, text, text, 'price'); }} /> : null}
       {modal === 'attr' ? <AttrModal n={n} onClose={() => setModal(null)}
         onOk={(c, l) => { setModal(null); bulk(selItems.map((x) => ({ id: x.id, ...(c ? { condition: c } : {}), ...(l ? { language: l } : {}) })), `Stav a jazyk · ${pl1(n)}`, 'Stav a jazyk uloženy'); }} /> : null}
-      {modal === 'loc' ? <LocModal n={n} places={[...LOCG.keys()].filter((k) => k !== '—').sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }))} onClose={() => setModal(null)}
+      {modal === 'loc' ? <LocModal n={n} places={[...LOCG].filter(([k]) => k !== '—').sort((a, b) => b[1] - a[1]).map(([k]) => k)} onClose={() => setModal(null)}
         onOk={(v) => { setModal(null); run(() => stockChange(selItems.map((x) => x.id), 'location', v), 'Umístění uloženo'); }} /> : null}
       {modal === 'del' ? (
         <Modal title={`Odebrat ${plA(n)}?`} onClose={() => setModal(null)} foot={<>
@@ -560,7 +560,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         </Modal>
       ) : null}
 
-      {current ? <Drawer key={current.id} i={current} places={[...LOCG.keys()].filter((k) => k !== '—').sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }))} shop={shop} canPrice={canPrice} canAdd={canAdd} onClose={() => setOpen(null)}
+      {current ? <Drawer key={current.id} i={current} places={[...LOCG].filter(([k]) => k !== '—').sort((a, b) => b[1] - a[1]).map(([k]) => k)} shop={shop} canPrice={canPrice} canAdd={canAdd} onClose={() => setOpen(null)}
         onDone={(r, text) => { done(r, text); if (!r.error) setOpen(null); }} /> : null}
 
       {toast ? <div className={`toast${toast.err ? ' err' : ''}`} role="status">{toast.t}{toast.undo ? <> · Vrátit to jde v Historii</> : null}</div> : null}
@@ -712,24 +712,55 @@ function AttrModal({ n, onClose, onOk }: { n: number; onClose: () => void; onOk:
   );
 }
 
+/** Výběr místa: při pár místech všechna jako čipy, při mnoha hledání (8 nejpoužívanějších) a přidání nového z hledání. */
+function PlacePicker({ places, value, onPick }: { places: string[]; value: string; onPick: (v: string) => void }) {
+  const MANY = 8;
+  const known = places.includes(value);
+  const [creating, setCreating] = useState(!!value && !known);
+  const [q, setQ] = useState('');
+  const cz = (a: string, b: string) => a.localeCompare(b, 'cs', { numeric: true });
+  const pick = (l: string) => { setCreating(false); setQ(''); onPick(value === l && known ? '' : l); };
+  if (places.length <= MANY) {
+    return <>
+      <div className="ipgc">
+        {[...places].sort(cz).map((l) => <button key={l} type="button" className={`chip${!creating && value === l ? ' on' : ''}`} onClick={() => pick(l)}>{l}</button>)}
+        <button type="button" className={`chip${creating ? ' on' : ''}`} onClick={() => { setCreating(true); onPick(''); }}>+ Nové místo</button>
+      </div>
+      {creating ? <div className="inp" style={{ marginTop: 8 }}><input value={value} maxLength={40} autoFocus placeholder="Název místa, např. Vitrína nebo A3" style={{ font: '500 14px var(--fs)' }} onChange={(e) => onPick(e.target.value)} /></div> : null}
+    </>;
+  }
+  const qq = q.trim().toLowerCase();
+  const hits = qq ? places.filter((l) => l.toLowerCase().includes(qq)).sort(cz).slice(0, 12) : places.slice(0, MANY).sort(cz);
+  if (value && !hits.includes(value)) hits.unshift(value);
+  const exact = places.some((l) => l.toLowerCase() === qq);
+  return <>
+    <div className="inp"><input value={q} maxLength={40} placeholder="Najít nebo přidat místo" style={{ font: '500 14px var(--fs)' }}
+      onChange={(e) => setQ(e.target.value)}
+      onKeyDown={(e) => { if (e.key === 'Enter' && qq) { e.preventDefault(); const h = places.find((l) => l.toLowerCase() === qq) ?? (hits.length === 1 && hits[0] !== value ? hits[0] : null); if (h) pick(h); else { setCreating(true); setQ(''); onPick(q.trim()); } } }} /></div>
+    <div className="ipgc" style={{ marginTop: 8 }}>
+      {hits.map((l) => <button key={l} type="button" className={`chip${value === l ? ' on' : ''}`} onClick={() => pick(l)}>{l}{!places.includes(l) ? ' (nové)' : ''}</button>)}
+      {qq && !exact ? <button type="button" className="chip" onClick={() => { setCreating(true); setQ(''); onPick(q.trim()); }}>+ Přidat „{q.trim()}“</button> : null}
+    </div>
+  </>;
+}
+
 function LocModal({ n, places, onClose, onOk }: { n: number; places: string[]; onClose: () => void; onOk: (v: string) => void }) {
   const [cur, setCur] = useState(places[0] ?? '');
   const [pos, setPos] = useState('');
-  const v = cur ? (pos.trim() ? `${cur} · ${pos.trim()}` : cur) : pos.trim();
+  const v = cur.trim() ? (pos.trim() && pos.trim() !== cur.trim() ? `${cur.trim()} · ${pos.trim()}` : cur.trim()) : '';
   return (
     <Modal title={`Umístění: ${pl1(n)}`} onClose={onClose} foot={<>
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
       <button type="button" className="btn p" disabled={!v} onClick={() => onOk(v)}>Uložit</button>
     </>}>
       <div className="f"><label>Umístění</label>
-        {places.length ? <div className="ipgc">{places.map((l) => <button key={l} type="button" className={`chip${cur === l ? ' on' : ''}`} onClick={() => setCur(cur === l ? '' : l)}>{l}</button>)}</div>
-          : <small style={{ color: 'var(--ink-muted)', fontSize: 12 }}>Zatím nemáte žádné místo. Napište ho níže.</small>}
+        <PlacePicker places={places} value={cur} onPick={(v) => { if (v !== cur && (v === '' || places.includes(v))) setPos(''); setCur(v); }} />
         <small style={{ color: 'var(--ink-muted)', fontSize: 12, display: 'block', marginTop: 6 }}>Místa a skupiny spravujete v Inventuře → Upravit místa.</small>
       </div>
-      <div className="f"><label>{cur ? 'Pozice v umístění' : 'Umístění'} <span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}>{cur ? '(nepovinné)' : ''}</span></label>
-        <div className="inp"><input value={pos} maxLength={40} style={{ font: '500 14px var(--fs)' }} placeholder={cur ? 'Např. 04, strana 3, řada 2' : 'Např. A1 nebo Vitrína'} onChange={(e) => setPos(e.target.value)} /></div>
-        <small style={{ color: 'var(--ink-muted)', fontSize: 12, display: 'block', marginTop: 6 }}>{cur ? `Pozice pomáhá při vychystávání. Když ji nevyplníte, bude jen „${cur}“.` : ''}</small>
-      </div>
+      {cur.trim() ? <div className="f"><label>Pozice v umístění <span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}>(nepovinné)</span></label>
+        <div className="inp"><input value={pos} maxLength={40} style={{ font: '500 14px var(--fs)' }} placeholder="Např. 04, strana 3, řada 2" onChange={(e) => setPos(e.target.value)} /></div>
+        <small style={{ color: 'var(--ink-muted)', fontSize: 12, display: 'block', marginTop: 6 }}>Pozice pomáhá při vychystávání. Když ji nevyplníte, bude jen „{cur.trim()}“.</small>
+      </div> : null}
     </Modal>
   );
 }
@@ -760,9 +791,8 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
   // Umístění = místo (výběr z existujících, nebo nové) + nepovinná pozice v něm.
   const [loc0, pos0] = (() => { const [a, ...b] = (i.loc ?? '').split(' · '); return [a ?? '', b.join(' · ')]; })();
   const [place, setPlace] = useState(loc0);
-  const [newPlace, setNewPlace] = useState(!!loc0 && !places.includes(loc0));
-  const [pos, setPos] = useState(pos0);
-  const loc = place.trim() ? (pos.trim() ? `${place.trim()} · ${pos.trim()}` : place.trim()) : '';
+  const [pos, setPos] = useState(pos0 === loc0 ? '' : pos0);
+  const loc = place.trim() ? (pos.trim() && pos.trim() !== place.trim() ? `${place.trim()} · ${pos.trim()}` : place.trim()) : '';
   const [buy, setBuy] = useState(i.buy != null ? String(i.buy) : '');
   const [info, setInfo] = useState<CardInfo | null>(null);
   const [del, setDel] = useState(false);
@@ -835,11 +865,7 @@ function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
           </div>
           <div className="grid2">
             <div className="f"><label>Umístění</label>
-              <div className="ipgc">
-                {places.map((l) => <button key={l} type="button" className={`chip${!newPlace && place === l ? ' on' : ''}`} onClick={() => { setNewPlace(false); setPlace(place === l && !newPlace ? '' : l); }}>{l}</button>)}
-                <button type="button" className={`chip${newPlace ? ' on' : ''}`} onClick={() => { setNewPlace(true); setPlace(''); }}>+ Nové místo</button>
-              </div>
-              {newPlace ? <div className="inp" style={{ marginTop: 8 }}><input value={place} maxLength={40} autoFocus placeholder="Název místa, např. Vitrína nebo A3" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPlace(e.target.value)} /></div> : null}
+              <PlacePicker places={places} value={place} onPick={(v) => { if (v !== place && (v === '' || places.includes(v))) setPos(''); setPlace(v); }} />
               {place.trim() ? <div className="inp" style={{ marginTop: 8 }}><input value={pos} maxLength={40} placeholder="Pozice, nepovinné (např. 04)" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPos(e.target.value)} /></div> : null}
             </div>
             <div className="f"><label>Nákupní cena</label><div className="inp"><input value={buy} placeholder="Za kolik jste ji koupili" style={{ fontSize: 14 }} onChange={(e) => setBuy(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div>
