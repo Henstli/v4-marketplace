@@ -15,7 +15,7 @@ import { saveUnmatched } from '../unmatched-actions';
 import styles from './import.module.css';
 
 const STEPS = ['Soubor', 'Sloupce', 'Kontrola', 'Hotovo'];
-const PAGE = 100;
+const PAGE = 20;
 const MATCH_CHUNK = 200;
 const SAVE_CHUNK = 250;
 
@@ -148,6 +148,8 @@ export function ImportWizard({ shop = true }: { shop?: boolean }) {
   });
   const pages = Math.max(1, Math.ceil(visible.length / PAGE));
   const shown = visible.slice(page * PAGE, page * PAGE + PAGE);
+  // Po přepnutí stránky zpátky na začátek kontroly, ať se nemusí scrollovat nahoru.
+  const goPage = (x: number) => { setPage(x); document.getElementById('import-check')?.scrollIntoView({ block: 'start' }); };
 
   function updateRow(line: number, patch: Partial<ImportRow>) {
     setRows((rs) => rs.map((r) => (r.line === line ? { ...r, ...patch } : r)));
@@ -363,7 +365,7 @@ export function ImportWizard({ shop = true }: { shop?: boolean }) {
       ) : null}
 
       {step === 2 ? (
-        <section className={styles.stack}>
+        <section id="import-check" className={styles.stack} style={{ scrollMarginTop: 80 }}>
           <div className={styles.summary}>
             {(['all', 'fix', 'ready', 'missing'] as Filter[]).map((f) => (
               <button
@@ -477,10 +479,14 @@ export function ImportWizard({ shop = true }: { shop?: boolean }) {
           </div>
 
           {pages > 1 ? (
-            <div className={styles.pager}>
-              <Button variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>Předchozí</Button>
-              <span className="t-small muted">Strana {page + 1} z {pages}</span>
-              <Button variant="ghost" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>Další</Button>
+            <div className={`tz-sk ${styles.pager}`}>
+              <div className="pager">
+                <button type="button" className="pgn ar" disabled={page === 0} onClick={() => goPage(page - 1)} title="Předchozí">‹</button>
+                {pageNums(page, pages).map((x, k) => x < 0
+                  ? <span key={`d${k}`} className="pgd">…</span>
+                  : <button key={x} type="button" className={`pgn${x === page ? ' on' : ''}`} onClick={() => goPage(x)}>{x + 1}</button>)}
+                <button type="button" className="pgn ar" disabled={page >= pages - 1} onClick={() => goPage(page + 1)} title="Další">›</button>
+              </div>
             </div>
           ) : null}
 
@@ -638,4 +644,11 @@ function CardSearch({ defaultQuery, game, onPick, onCancel }: { defaultQuery: st
       ) : null}
     </div>
   );
+}
+
+/** Čísla stránek: první, poslední a okolí aktuální; -1 = vynechané (…). */
+function pageNums(cur: number, n: number): number[] {
+  const set = new Set([0, n - 1, cur - 1, cur, cur + 1].filter((x) => x >= 0 && x < n));
+  const a = [...set].sort((x, y) => x - y);
+  return a.flatMap((x, k) => (k === 0 ? [x] : x - a[k - 1] === 2 ? [x - 1, x] : x - a[k - 1] > 2 ? [-1, x] : [x]));
 }
