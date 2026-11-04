@@ -306,7 +306,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
     <div className="strip">
       <div className="stc" onClick={det(1)} title="Podrobnosti"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
       <div className="stc" onClick={valOpen} title="Vývoj hodnoty"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
-      <div className="stc" onClick={() => { resetF(); setDup(true); }} title="Zobrazit duplicity">
+      <div className="stc" onClick={() => { if (dup) setDup(false); else { resetF(); setDup(true); } }} title={dup ? 'Zrušit filtr duplicit' : 'Zobrazit duplicity'}>
         <small>Duplicity<em style={{ color: 'var(--ink-muted)' }}>{t.tradeN ? `${t.tradeN} na výměnu` : 'k prodeji nebo výměně'}</em></small><b>{nf(t.dups)}</b>
       </div>
     </div>
@@ -390,7 +390,11 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
               <button type="button" className="frow" onClick={() => setAttn(!attn)}>
                 <span><i className="adot" />Jen co potřebuje pozornost <em>{nAttn}</em></span><span className={`fsw${attn ? ' on' : ''}`} />
               </button>
-            ) : null}
+            ) : (
+              <button type="button" className="frow" onClick={() => setDup(!dup)}>
+                <span>Jen duplicity <em>{nf(t.dups)}</em></span><span className={`fsw${dup ? ' on' : ''}`} />
+              </button>
+            )}
             <div className="ffoot">
               <button type="button" className="btn sm g" disabled={!nF} onClick={resetF}>Vymazat vše</button>
               <button type="button" className="btn sm p" onClick={() => setFp(false)}>Zobrazit {plA(pg_.nRows)}</button>
