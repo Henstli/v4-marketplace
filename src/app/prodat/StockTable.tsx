@@ -380,7 +380,6 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     </span>
   );
   const priceCell = (i: Item) => {
-    if (!shop) return <span className="pr"><b>{kc(i.market)}</b><small>tržní</small></span>;
     if (edit === i.id) return priceEdit([i], i.id, i.price ?? i.market, 'Enter uložit · Esc zpět');
     return (
       <span className="pr pdbl" title="Kliknutím upravíte cenu" onClick={(e) => { e.stopPropagation(); if (canPrice && !i.locked) setEdit(i.id); }}>
@@ -421,13 +420,10 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     const gAll = ids.length > 0 && ids.every((id) => sel.has(id)), gSome = ids.some((id) => sel.has(id));
     const have = g.reduce((a, x) => a + x.have, 0), s = g.reduce((a, x) => a + x.sale, 0);
     const ps = g.filter((x) => x.price != null).map((x) => x.price!), lo = Math.min(...ps), hi = Math.max(...ps);
-    const mk = g.filter((x) => x.market != null);
-    const pr = shop
-      ? edit === `g:${k}` ? priceEdit(g, `g:${k}`, ps.length ? lo : i.market, `Přepíše cenu všem ${g.length} variantám`)
+    const pr = edit === `g:${k}` ? priceEdit(g, `g:${k}`, ps.length ? lo : i.market, `Přepíše cenu všem ${g.length} variantám`)
         : <span className="pr pdbl" title="Kliknutím nastavíte cenu všem variantám" onClick={(e) => { e.stopPropagation(); if (canPrice) setEdit(`g:${k}`); }}>
           {ps.length ? <><b>{lo === hi ? kc(lo) : `od ${kc(lo)}`}</b>{lo === hi ? null : <small>do {kc(hi)}</small>}</> : <b style={{ color: 'var(--ink-muted)' }}>—</b>}
-        </span>
-      : <span className="pr"><b>{mk.length ? kc(mk.reduce((a, x) => a + x.market! * x.have, 0) / Math.max(1, mk.reduce((a, x) => a + x.have, 0))) : '—'}</b><small>průměr</small></span>;
+        </span>;
     const conds = [...new Set(g.map((x) => x.cond))];
     const L = [...new Set(g.map((x) => langCode(x.lang)))];
     const langs_ = L.length > 3 ? `${L.slice(0, 2).join(' · ')} +${L.length - 2}` : L.join(' · ');
@@ -488,7 +484,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
       <table>
         <thead><tr>
           <th style={{ width: 40 }}>{cb(allSel, someSel, () => toggle(pageIds, !allSel), 'Vybrat vše na stránce')}</th>
-          {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th(shop ? 'Cena' : 'Hodnota', 'price', 'r')}
+          {th('Karta', 'name')}{th('Stav', '')}{th('Jazyk', '')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'r')}
           {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '')}<th />
         </tr></thead>
         <tbody>{shown.flatMap((g) => (g.length === 1 ? [trow(g[0])] : grow(g)))}</tbody>
@@ -821,8 +817,8 @@ function Drawer({ i, shop, canPrice, canAdd, onClose, onDone }: {
             {shop ? null : <small className="wsm" style={{ display: 'block', marginTop: 6 }}>Kusy na výměnu uvidí ostatní na vašem profilu a můžou vám nabídnout svou kartu. Jeden kus může být na prodej i na výměnu zároveň.</small>}
           </div>
           <div>
-            <p className="lbl">{shop ? 'Cena' : 'Hodnota a cena'}</p>
-            <div className="inp"><input value={price} disabled={i.locked || !canPrice} placeholder={shop ? 'Nastavit cenu' : 'Cena, pokud nabízíte'} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} /><em>Kč / ks</em></div>
+            <p className="lbl">Cena</p>
+            <div className="inp"><input value={price} disabled={i.locked || !canPrice} placeholder="Nastavit cenu" onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} /><em>Kč / ks</em></div>
             <div className="mk">Tržní cena <b>{kc(i.market)}</b>{tr != null ? <> <span className={`tr ${tr < 0 ? 'dn' : 'up'}`}>{tr > 0 ? '+' : tr < 0 ? '−' : ''}{Math.abs(tr)} %</span> za 30 dní</> : null}
               {i.market && canPrice ? <button type="button" onClick={() => setPrice(String(i.market))}>Použít tržní</button> : null}</div>
             {info ? <Spark v={info.series} down={(tr ?? 0) < 0} /> : null}
