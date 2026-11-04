@@ -308,17 +308,18 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
             {srcs.length ? <div className="fsec"><h6>Zdroj</h6><div className="fops">{srcs.map((k) => op('s', k, SRC[k]?.[1] ?? k))}</div></div> : null}
             <div className="fsec"><h6>Umístění</h6>
               {f.p.size ? <div className="ftags">{[...f.p].map((v) => <span key={v} className="fpill">{v === '—' ? 'Bez umístění' : v}<button type="button" className="xx" onClick={() => flip('p', v)} title="Odebrat">×</button></span>)}</div> : null}
-              <button type="button" className={`fsel${locOpen ? ' open' : ''}`} onClick={() => { setLocOpen(!locOpen); setFq(''); }}>{f.p.size ? 'Přidat další umístění' : 'Vybrat umístění'}{Ico.chev}</button>
-              {locOpen ? <div className="fsdd">
-                <label className="floc">{Ico.s}<input autoFocus placeholder="Hledat místo nebo pozici" value={fq} onChange={(e) => setFq(e.target.value)} autoComplete="off" /></label>
-                <div className="flist">
+              <div className={`fcombo${locOpen ? ' open' : ''}`}>
+                {locOpen
+                  ? <div className="fch">{Ico.s}<input autoFocus placeholder="Hledat místo nebo pozici" value={fq} onChange={(e) => setFq(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setLocOpen(false); } }} autoComplete="off" /><button type="button" className="fcx" onClick={() => setLocOpen(false)} title="Zavřít">{Ico.chev}</button></div>
+                  : <button type="button" className="fch" onClick={() => { setLocOpen(true); setFq(''); }}><span>{f.p.size ? 'Přidat další umístění' : 'Vybrat umístění'}</span>{Ico.chev}</button>}
+                {locOpen ? <div className="flist">
                   {lops.length ? lops.map(([k, c]) => (
                     <button key={k} type="button" className={f.p.has(k) ? 'on' : ''} onClick={() => flip('p', k)}>
                       <span className={`cb${f.p.has(k) ? ' on' : ''}`} />{k === '—' ? 'Bez umístění' : k}<em>{nf(c)}</em>
                     </button>))
                     : <span className="fnone">Žádné místo neodpovídá</span>}
-                </div>
-              </div> : null}
+                </div> : null}
+              </div>
             </div>
             {shop ? (
               <button type="button" className="frow" onClick={() => setAttn(!attn)}>
