@@ -40,6 +40,8 @@ export interface AlbumSummary {
   total: number;
   value: number;
   updatedAt: string;
+  /** Kolik karet se do alba doplnilo ze skladu od posledního otevření */
+  newCount?: number;
 }
 
 export interface AlbumDetail extends AlbumSummary {
@@ -77,7 +79,7 @@ interface CardRow {
 }
 
 const CARD_COLS = 'id, slug, name, number, rarity, image_url, game_id, card_sets(name, game_id)';
-const ALBUM_COLS = 'id, name, design, sleeve, kind, set_id, on_profile, updated_at, card_sets(name, code, game_id, released_on)';
+const ALBUM_COLS = 'id, name, design, sleeve, kind, set_id, on_profile, updated_at, auto_fill, seen_at, card_sets(name, code, game_id, released_on)';
 
 function chunks<T>(a: T[], n = 150): T[][] {
   const out: T[][] = [];
@@ -222,6 +224,7 @@ export async function getCollectionOverview(): Promise<CollectionOverview> {
   const weekAgo = Date.now() - 7 * 86400_000;
   // karty všech alb naráz a pak jeden společný dotaz na ceny; vlastnictví už známe z `own`
   const ownQty = new Map(own.map((o) => [o.card_id, o.quantity]));
+  const ownAt = new Map(own.map((o) => [o.card_id, Date.parse(o.added_at)]));
   const rowsOf = await Promise.all((albumRows_ ?? []).map((a) => albumRows(supabase, a)));
   const allStats = await offerStats(supabase, [...own.map((o) => o.card_id), ...rowsOf.flat().map((r) => r.id)]);
   const value = own.reduce((s, o) => s + (allStats.get(o.card_id)?.min ?? 0) * o.quantity, 0);
@@ -235,8 +238,10 @@ export async function getCollectionOverview(): Promise<CollectionOverview> {
     for (const r of rowsOf[ai]) (cardAlbums[r.id] ??= []).includes(a.id) || cardAlbums[r.id].push(a.id);
     const cards = rowsOf[ai].map((r) => toCard(r, ownQty.get(r.id) ?? 0, allStats.get(r.id)));
     const have = cards.filter((c) => c.owned > 0).length;
+    const seen = a.seen_at ? Date.parse(a.seen_at) : null;
+    const fresh = seen == null ? 0 : cards.filter((c) => c.owned && (ownAt.get(c.id) ?? 0) > seen).length;
     albums.push({
-      ...summaryOf(a), have, total: cards.length,
+      ...summaryOf(a), have, total: cards.length, newCount: fresh,
       value: cards.reduce((s, c) => s + (c.owned && c.minPrice ? c.minPrice * c.owned : 0), 0),
     });
     if (a.kind === 'set') {

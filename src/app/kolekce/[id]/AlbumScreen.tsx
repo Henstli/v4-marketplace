@@ -14,6 +14,7 @@ import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { addCards, cardOffers, deleteAlbum, markAlbumSeen, setAlbumAutoFill, removeCard, searchForAlbum, setAlbumOnProfile, stockInfo, updateAlbum, type AddOpts, type CheapOffer, type PickCard, type StockInfo } from '../actions';
 import { HaveForm } from '../HaveForm';
+import { AutoFill } from '../AutoFill';
 import { AlbumLook } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
 import s from '../kolekce.module.css';
@@ -257,15 +258,13 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
       ) : null}
       {drawer === 'look' ? (
         <Drawer title="Vzhled alba" onClose={() => setDrawer(null)}>
-          <label className={s.hint} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', margin: '0 0 14px' }}>
-            <input type="checkbox" checked={autoFill} onChange={async (e) => {
-              const on = e.target.checked;
+          <div style={{ marginBottom: 18 }}>
+            <AutoFill kind={album.kind} checked={autoFill} onChange={async (on) => {
               setAutoFill(on);
               const r = await setAlbumAutoFill(album.id, on);
               if ('error' in r) setAutoFill(!on);
             }} />
-            Doplňovat samo: kartu {album.kind === 'set' ? 'této sady' : 'z tohoto alba'}, kterou naskladníte, vložíme do alba
-          </label>
+          </div>
           <AlbumLook
             value={look}
             onSave={async (v) => {

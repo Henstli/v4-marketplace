@@ -24,6 +24,7 @@ function AlbumTile({ a }: { a: AlbumSummary }) {
   const full = a.kind === 'set' && a.total > 0 && a.have >= a.total;
   return (
     <Link href={`/kolekce/${a.id}`} className={s.album}>
+      {a.newCount ? <span className={s.newb} title="Karty doplněné ze skladu, které jste v albu ještě neviděli"><i />{a.newCount === 1 ? '1 nová karta' : `${a.newCount} ${a.newCount < 5 ? 'nové karty' : 'nových karet'}`}</span> : null}
       <div className={s.shelf}><AlbumBook design={a.design} name={a.name} lift /></div>
       <h3 title={a.name}>{shortAlbumName(a.name)}</h3>
       <div className={s.meta}>
