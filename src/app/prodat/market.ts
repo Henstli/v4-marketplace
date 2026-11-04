@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadStock } from './data';
+import { mapRow, type LoadRow } from './data';
 
 export type MarketView = 'poptavka' | 'trh' | 'ceny' | 'automaticke';
 
@@ -51,7 +51,10 @@ export async function loadMarket(supabase: SupabaseClient, days: number) {
  * nikdy pod nejlevnější nabídkou jiného prodejce ve stejném stavu a jazyce.
  */
 export async function loadPrices(supabase: SupabaseClient, owner: string): Promise<PriceRow[]> {
-  const [stock, { data }] = await Promise.all([loadStock(supabase, owner), supabase.rpc('market_prices', { p_owner: owner })]);
+  // Jen karty na prodej s cenou (stock_sale_rows), ne celý sklad.
+  const [{ data: rows, error }, { data }] = await Promise.all([supabase.rpc('stock_sale_rows', { p_owner: owner }), supabase.rpc('market_prices', { p_owner: owner })]);
+  if (error) console.error('stock_sale_rows', error.message);
+  const stock = ((rows ?? []) as LoadRow[]).map(mapRow);
   const low = new Map(((data ?? []) as { listing_id: string; low_same: number | null; low_any: number | null }[]).map((r) => [r.listing_id, r.low_same]));
   return stock.filter((r) => r.quantity > 0 && r.price != null && !r.removed && r.hidden == null).map((r) => {
     const days = r.listedAt ? Math.floor((Date.now() - new Date(r.listedAt).getTime()) / 86400000) : null;

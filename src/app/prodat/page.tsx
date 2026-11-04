@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/ComingSoon';
 import { CardThumb } from '@/components/trezor';
 import { getCurrentUser } from '@/lib/auth';
-import { getAccountSummary } from '@/lib/account';
 import { getCardBySlug } from '@/lib/catalog';
 import { GAMES, getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
@@ -18,7 +17,6 @@ import { StockActions } from './StockModals';
 import { StockHistory, type HistoryEntry } from './StockHistory';
 import { WantsView, type Want } from './Wants';
 import { SetsView } from './SetsView';
-import { loadStock, owned } from './data';
 import { EMPTY_SUMMARY, countsId, toPage, type StockPageRaw, type StockSummary } from './stock-view';
 import { LiveCount } from './LiveCount';
 import { loadStrip } from './strip';
@@ -54,28 +52,35 @@ export default async function StockPage({ searchParams }: Props) {
 
   const sp = await searchParams;
   const supabase = await createClient();
-  const accountP = getAccountSummary();
-  // Vlastní sklad, nebo sklad obchodu, kde je přihlášený v týmu (?obchod=…).
-  const ctx = await loadCtx(supabase, user, sp.obchod);
-  // Souhrny skladu (počty v záložkách, pruh, filtry) a první stránka tabulky počítá databáze; práva hlídá ona.
+  // Všechno, co stránka potřebuje, se načítá najednou (ne dotaz za dotazem). U vlastního skladu je majitel jasný hned,
+  // u skladu obchodu (?obchod=…) až po načtení týmu. Práva hlídá databáze (stock_perm), ne tento odhad.
+  const isTable = !sp.zalozka || sp.zalozka === 'vse' || sp.zalozka === 'prodej';
   const tab0 = sp.zalozka === 'prodej' ? 'sale' : 'all';
-  const canStock = !sp.karta && (ctx.isOwner || ctx.perms.has('view') || ctx.perms.has('price'));
-  const accountShop = accountP.then((a) => (ctx.isOwner ? a?.kind === 'shop' : true));
-  const getSummary = (mode: 'all' | 'sale') => accountShop
-    .then((shop) => supabase.rpc('stock_summary', { p_owner: ctx.owner, p_mode: mode, p_shop: shop }))
+  const ctxP = loadCtx(supabase, user, sp.obchod);
+  const ownerP = sp.obchod ? ctxP.then((c) => c.owner) : Promise.resolve(user.id);
+  const getSummary = (mode: 'all' | 'sale') => ownerP
+    .then((owner) => supabase.rpc('stock_summary', { p_owner: owner, p_mode: mode, p_shop: true }))
     .then(({ data, error }) => { if (error) console.error('stock_summary', error.message); return (data as StockSummary | null) ?? EMPTY_SUMMARY; });
-  const getPage = (mode: 'all' | 'sale') => accountShop
-    .then((shop) => supabase.rpc('stock_query', { p_owner: ctx.owner, p: { mode, shop, page: 1, size: 10 } }))
+  // Záložky mimo tabulku potřebují jen počty, ne celý souhrn s tržními cenami.
+  const getCounts = () => ownerP
+    .then((owner) => supabase.rpc('stock_counts', { p_owner: owner }))
+    .then(({ data, error }) => { if (error) console.error('stock_counts', error.message); return { ...EMPTY_SUMMARY, ...((data as Partial<StockSummary> | null) ?? {}) }; });
+  const getPage = (mode: 'all' | 'sale') => ownerP
+    .then((owner) => supabase.rpc('stock_query', { p_owner: owner, p: { mode, page: 1, size: 10 } }))
     .then(({ data, error }) => { if (error) console.error('stock_query', error.message); return toPage(data as StockPageRaw | null); });
-  const summaryP = canStock ? getSummary(tab0) : Promise.resolve(EMPTY_SUMMARY);
-  const pageP = canStock && (!sp.zalozka || sp.zalozka === 'vse' || sp.zalozka === 'prodej') ? getPage(tab0) : Promise.resolve(toPage(null));
-  summaryP.catch(() => undefined); pageP.catch(() => undefined);
-  const [account, ready, { data: restriction }] = await Promise.all([
-    accountP,
-    ctx.isOwner ? loadReadiness(supabase, user.id) : Promise.resolve({ ready: true } as Awaited<ReturnType<typeof loadReadiness>>),
+  const summaryP = sp.karta ? Promise.resolve(EMPTY_SUMMARY) : isTable ? getSummary(tab0) : getCounts();
+  const pageP = !sp.karta && isTable ? getPage(tab0) : Promise.resolve(toPage(null));
+  const stripP = !sp.karta && isTable ? ownerP.then((owner) => loadStrip(supabase, owner, true, { watchers: sp.zalozka === 'prodej' })) : Promise.resolve(null);
+  for (const p of [summaryP, pageP, stripP]) p.catch(() => undefined);
+  const [ctx, { data: me }, ready, { data: restriction }] = await Promise.all([
+    ctxP,
+    supabase.from('profiles').select('kind').eq('id', user.id).maybeSingle(),
+    // Doprava a platba jsou potřeba jen u tabulky a přidání karty (výzva před vystavením).
+    (isTable || sp.karta) && !sp.obchod ? loadReadiness(supabase, user.id) : Promise.resolve({ ready: true } as Awaited<ReturnType<typeof loadReadiness>>),
     supabase.from('account_restrictions').select('kind, until').eq('user_id', user.id).is('ended_at', null).maybeSingle(),
   ]);
-  const shop = ctx.isOwner ? account?.kind === 'shop' : true;
+  const myKind = (me as { kind?: string } | null)?.kind;
+  const shop = ctx.isOwner ? myKind === 'shop' : true;
   const has = (p: Perm) => ctx.perms.has(p);
   const href = (zalozka?: string, extra: Record<string, string> = {}) => stockHref(ctx, { zalozka, ...extra });
 
@@ -110,18 +115,22 @@ export default async function StockPage({ searchParams }: Props) {
 
   // Záložka se mohla kvůli právům změnit: souhrny a první stránka musí být pro tu, která se ukáže.
   const tabMode = tab === 'prodej' ? 'sale' : 'all';
-  const same = tabMode === tab0 && (tab !== 'vse' || !sp.zalozka || sp.zalozka === 'vse');
-  const summary = tab === 'vse' || tab === 'prodej' || can.vse ? await (same ? summaryP : getSummary(tabMode)) : EMPTY_SUMMARY;
-  const firstPage = tab === 'vse' || tab === 'prodej' ? await (same ? pageP : getPage(tabMode)) : toPage(null);
+  const tabTable = tab === 'vse' || tab === 'prodej';
+  const same = tabTable === isTable && (!tabTable || tabMode === tab0);
+  const [summary, firstPage, strip0] = same
+    ? await Promise.all([summaryP, pageP, stripP])
+    : await Promise.all([tabTable ? getSummary(tabMode) : getCounts(), tabTable ? getPage(tabMode) : toPage(null),
+      tabTable ? loadStrip(supabase, ctx.owner, true, { watchers: tab === 'prodej' }) : null]);
+  // „Hlídá vaše karty“ je jen u obchodu.
+  const strip = strip0 && !shop ? { ...strip0, watchers: null } : strip0;
   const ship = tab === 'odeslat' ? await loadShipping(supabase, ctx.owner) : null;
-  const [toShip, demandN, wantsN, team, auto, strip, unm] = await Promise.all([
+  const [toShip, demandN, wantsN, team, auto, unm] = await Promise.all([
     ship ? ship.orders.filter((o) => o.ready).length : can.odeslat ? supabase.from('orders').select('id', { count: 'exact', head: true })
       .eq('seller_id', ctx.owner).or('status.eq.paid,and(status.eq.confirmed,payment.in.(cod,cash))').then((r) => r.count ?? 0) : 0,
     can.trh ? supabase.rpc('market_demand', { p_owner: ctx.owner }).then((r) => (r.data ?? []).length) : 0,
     shop ? 0 : supabase.from('stock_wants').select('card_id', { count: 'exact', head: true }).eq('user_id', user.id).then((r) => r.count ?? 0),
     shop && has('staff') ? loadTeam(supabase, ctx.owner) : null,
     shop && has('conn') ? loadAuto(supabase, ctx.owner) : null,
-    tab === 'vse' || tab === 'prodej' ? loadStrip(supabase, ctx.owner, summary.total > 0, { watchers: shop && tab === 'prodej' }) : null,
     can.nesparovane ? loadUnmatched(supabase, tab === 'nesparovane') : { items: [] as Unm[], waiting: 0 },
   ]);
   const places = [...summary.places].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
@@ -138,7 +147,7 @@ export default async function StockPage({ searchParams }: Props) {
   const switcher = ctx.shops.length ? (
     <nav className="tz-stk-switch" aria-label="Čí sklad" style={{ marginBottom: 14 }}>
       <span className="t-small muted">Sklad:</span>
-      <Link href="/prodat" aria-current={ctx.isOwner ? 'page' : undefined}>{account?.kind === 'shop' ? 'Můj obchod' : 'Moje sbírka'}</Link>
+      <Link href="/prodat" aria-current={ctx.isOwner ? 'page' : undefined}>{myKind === 'shop' ? 'Můj obchod' : 'Moje sbírka'}</Link>
       {ctx.shops.map((s) => (
         <Link key={s.owner} href={`/prodat?obchod=${s.owner}`} aria-current={ctx.owner === s.owner ? 'page' : undefined}>
           {s.name}<small>{ROLE_NAMES[s.role] ?? ''}</small>
@@ -237,11 +246,8 @@ async function Market({ ctx, pohled, dni }: { ctx: StockCtx; pohled?: string; dn
     view === 'poptavka' ? loadDemand(supabase, ctx.owner) : undefined,
     view === 'trh' ? loadMarket(supabase, days) : undefined,
     view === 'ceny' ? loadPrices(supabase, ctx.owner) : undefined,
-    view === 'trh' ? loadStock(supabase, ctx.owner).then((rows) => {
-      const m: Record<string, number> = {};
-      for (const r of rows) if (r.cardId) m[r.cardId] = (m[r.cardId] ?? 0) + owned(r);
-      return m;
-    }) : undefined,
+    // Kusy podle karty počítá databáze (stock_have), ne celý sklad do serveru.
+    view === 'trh' ? supabase.rpc('stock_have', { p_owner: ctx.owner }).then(({ data }) => (data ?? {}) as Record<string, number>) : undefined,
   ]);
   return <MarketViews view={view} q={ctx.q} perms={[...ctx.perms]} owner={ctx.owner} days={days} demand={demand} market={market} prices={prices} have={have} />;
 }

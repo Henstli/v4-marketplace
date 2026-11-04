@@ -396,7 +396,11 @@ function mockSearch(query: CatalogQuery): CatalogPage {
 // ---------- Veřejné funkce ----------
 
 export async function searchCards(query: CatalogQuery): Promise<CatalogPage> {
-  return isSupabaseConfigured() ? dbSearch(query) : mockSearch(query);
+  if (!isSupabaseConfigured()) return mockSearch(query);
+  // Stejné hledání (výchozí katalog, hra, řazení) se z databáze načte nejvýš jednou za minutu pro všechny.
+  // Po změně nabídky ho hned obnoví refreshCatalog() (štítek HOME_TAG), stejně jako úvodní stránku.
+  const key = JSON.stringify(Object.entries(query).filter(([, v]) => v != null && v !== '').sort(([a], [b]) => a.localeCompare(b)));
+  return cachedSearch(key);
 }
 
 // Našeptávač: pár nejpodobnějších karet k rozepsanému dotazu (od 2 znaků, toleruje překlepy).
@@ -468,6 +472,12 @@ export const getSeller = cache(async (id: string): Promise<Seller | null> => {
 // Po změně nabídky ji hned obnoví refreshCatalog() (štítek HOME_TAG).
 export const HOME_TAG = 'home';
 const HOME_CACHE = { revalidate: 60, tags: [HOME_TAG] };
+
+const cachedSearch = unstable_cache(
+  async (key: string) => dbSearch(Object.fromEntries(JSON.parse(key) as [string, unknown][]) as CatalogQuery),
+  ['catalog-search'],
+  HOME_CACHE,
+);
 
 const dbTrending = unstable_cache(
   async (limit: number) => (await dbSearch({ sort: 'trend', onlyOffers: true, pageSize: limit })).cards,
