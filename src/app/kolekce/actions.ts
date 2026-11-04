@@ -164,6 +164,14 @@ export async function updateAlbum(id: string, p: { name?: string; design?: numbe
 }
 
 /** Vkládat novou kartu sady ze skladu do alba samo. */
+/** Album bylo otevřené: karty doplněné ze skladu se příště už znovu nevkládají s animací. */
+export async function markAlbumSeen(id: string): Promise<Result> {
+  const { supabase, uid } = await user();
+  if (!uid || !isId(id)) return { error: 'login' };
+  const { error } = await supabase.from('collection_albums').update({ seen_at: new Date().toISOString() }).eq('id', id);
+  return error ? { error: 'save' } : { ok: true };
+}
+
 export async function setAlbumAutoFill(id: string, on: boolean): Promise<Result> {
   const { supabase, uid } = await user();
   if (!uid || !isId(id)) return { error: 'login' };

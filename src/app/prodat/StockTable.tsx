@@ -213,11 +213,18 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       load(params());
     }
   }
-  const run = (fn: () => Promise<{ error?: string; count?: number }>, text: string, ids: string[], after?: () => void) => start(async () => {
-    const r = await fn();
-    done(r, text);
-    if (!r.error) { after?.(); await patch(ids); }
-  });
+  // Řádky, které se právě ukládají: jen ty nejdou znovu kliknout, ostatní zůstávají beze změny (žádné zašednutí).
+  const saving = useRef(new Set<string>());
+  const run = (fn: () => Promise<{ error?: string; count?: number }>, text: string, ids: string[], after?: () => void) => {
+    ids.forEach((id) => saving.current.add(id));
+    start(async () => {
+      try {
+        const r = await fn();
+        done(r, text);
+        if (!r.error) { after?.(); await patch(ids); }
+      } finally { ids.forEach((id) => saving.current.delete(id)); }
+    });
+  };
   const bulk = (list: BulkRow[], title: string, text: string, kind: 'stock' | 'price' = 'stock', after?: () => void) =>
     run(() => stockBulkSet(list, title, kind, true), text, list.map((x) => x.id), after);
   const needReady = (more: boolean) => {
@@ -469,6 +476,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
     const t = `${list[0].name}: ${n} ks na prodej${p != null ? ` za ${kc(p)}` : ''}`;
     bulk(rows, t, text ?? t);
   };
+  const isBusy = (list: Item[]) => list.some((x) => saving.current.has(x.id));
   const saleCell = (list: Item[], k: string) => {
     const have = list.reduce((s, x) => s + x.have, 0), s = list.reduce((a, x) => a + x.sale, 0);
     if (list.every((x) => x.locked)) return <span className="spill add" style={{ cursor: 'default' }}><DashBorder />Skryto podporou</span>;
@@ -477,12 +485,12 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       const al = list.find((x) => x.held)?.album ?? 'albu';
       return <button type="button" className="spill alb" title={`Poslední kus je v albu ${al}`} onClick={(e) => { e.stopPropagation(); if (needReady(true)) askAlbum(list, k, e); }}>{AlbIco}V albu</button>;
     }
-    if (!s) return <button type="button" className="spill add" onClick={(e) => { e.stopPropagation(); if (needReady(true)) sellAll(list); }}><DashBorder />+ Prodávat</button>;
+    if (!s) return <button type="button" className="spill add" onClick={(e) => { e.stopPropagation(); if (!isBusy(list) && needReady(true)) sellAll(list); }}><DashBorder />+ Prodávat</button>;
     return (
       <span className="spill" onClick={(e) => e.stopPropagation()}>
-        <button type="button" title="Méně" disabled={pending} onClick={() => (list.length > 1 ? gstep(list, -1) : step(list[0], -1))}>−</button>
-        <button type="button" className="sv" title="Stáhnout z prodeje" disabled={pending} onClick={() => stop(list)}><b>{nf(s)}</b><small>z {nf(have)}</small></button>
-        <button type="button" title={held && s >= have - held ? 'Poslední kus je v albu' : 'Více'} disabled={pending || s >= have} onClick={(e) => (list.length > 1 ? gstep(list, 1, e) : step(list[0], 1, e))}>+</button>
+        <button type="button" title="Méně" onClick={() => { if (!isBusy(list)) (list.length > 1 ? gstep(list, -1) : step(list[0], -1)); }}>−</button>
+        <button type="button" className="sv" title="Stáhnout z prodeje" onClick={() => { if (!isBusy(list)) stop(list); }}><b>{nf(s)}</b><small>z {nf(have)}</small></button>
+        <button type="button" title={held && s >= have - held ? 'Poslední kus je v albu' : 'Více'} disabled={s >= have} onClick={(e) => { if (!isBusy(list)) (list.length > 1 ? gstep(list, 1, e) : step(list[0], 1, e)); }}>+</button>
         <i style={{ '--w': `${(s / have) * 100}%` } as React.CSSProperties} />
       </span>
     );
