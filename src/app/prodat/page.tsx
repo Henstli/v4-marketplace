@@ -317,13 +317,20 @@ type SetRow = { set_id: string; code: string; name: string; game_id: string; own
 
 async function Sets() {
   const supabase = await createClient();
-  const { data } = await supabase.rpc('stock_sets');
-  const sets = ((data ?? []) as SetRow[]).filter((s) => s.total > 0 && s.owned < s.total)
-    .sort((a, b) => b.owned / b.total - a.owned / a.total || b.owned - a.owned).slice(0, 60);
-  const { data: extra } = sets.length ? await supabase.rpc('stock_sets_extra', { p_sets: sets.map((s) => s.set_id) }) : { data: [] };
+  const [{ data }, { data: albums }] = await Promise.all([
+    supabase.rpc('stock_sets'),
+    supabase.from('collection_albums').select('set_id').eq('kind', 'set').not('set_id', 'is', null).returns<{ set_id: string }[]>(),
+  ]);
+  const all = ((data ?? []) as SetRow[]).filter((s) => s.total > 0)
+    .sort((a, b) => b.owned / b.total - a.owned / a.total || b.owned - a.owned);
+  const sets = [...all.filter((s) => s.owned < s.total).slice(0, 60), ...all.filter((s) => s.owned >= s.total).slice(0, 40)];
+  const open = sets.filter((s) => s.owned < s.total);
+  const { data: extra } = open.length ? await supabase.rpc('stock_sets_extra', { p_sets: open.map((s) => s.set_id) }) : { data: [] };
   const ex = new Map(((extra ?? []) as { set_id: string; images: string[] | null; low_sum: number; watched: number; missing: number }[]).map((x) => [x.set_id, x]));
+  const alb = new Set((albums ?? []).map((a) => a.set_id));
   return <SetsView sets={sets.map((s) => {
     const x = ex.get(s.set_id);
-    return { id: s.set_id, name: s.name, code: s.code, owned: s.owned, total: s.total, images: x?.images ?? [], lowSum: x?.low_sum ?? 0, watched: x?.watched ?? 0, missing: x?.missing ?? s.total - s.owned };
+    return { id: s.set_id, name: s.name, code: s.code, game: getGame(s.game_id)?.name ?? '', owned: s.owned, total: s.total, images: x?.images ?? [],
+      lowSum: x?.low_sum ?? 0, watched: x?.watched ?? 0, missing: x?.missing ?? s.total - s.owned, album: alb.has(s.set_id) };
   })} />;
 }

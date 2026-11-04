@@ -17,7 +17,7 @@ export interface PickItem {
  * Mřížka karet k označení (5C): klik označí nebo zruší, tažením přes karty se označí víc najednou,
  * dvojklik přidá další kus. value = počet kusů k vložení.
  */
-export function CardPicker({ cards, value, onChange }: { cards: PickItem[]; value: Map<string, number>; onChange: (v: Map<string, number>) => void }) {
+export function CardPicker({ cards, value, onChange, readOnly }: { cards: PickItem[]; value: Map<string, number>; onChange: (v: Map<string, number>) => void; readOnly?: boolean }) {
   const paint = useRef<{ on: boolean; moved: boolean; start: string } | null>(null);
   const cur = useRef(value);
   cur.current = value;
@@ -45,8 +45,10 @@ export function CardPicker({ cards, value, onChange }: { cards: PickItem[]; valu
             className={`${s.pc} ${n ? s.on : ''}`}
             aria-pressed={n > 0}
             title={`${c.name} · #${c.number}`}
+            disabled={readOnly}
+            style={readOnly ? { cursor: 'default' } : undefined}
             onPointerDown={(e) => {
-              if (e.button) return;
+              if (e.button || readOnly) return;
               (e.currentTarget.parentElement as HTMLElement).releasePointerCapture?.(e.pointerId);
               e.currentTarget.releasePointerCapture?.(e.pointerId);
               const on = !n;
@@ -54,12 +56,13 @@ export function CardPicker({ cards, value, onChange }: { cards: PickItem[]; valu
               set(c.id, on ? 1 : 0);
             }}
             onPointerEnter={() => {
+              if (readOnly) return;
               const p = paint.current;
               if (!p) return;
               p.moved = true;
               set(c.id, p.on ? Math.max(1, cur.current.get(c.id) ?? 0) : 0);
             }}
-            onDoubleClick={() => set(c.id, Math.min(99, Math.max(1, n) + 1))}
+            onDoubleClick={() => { if (!readOnly) set(c.id, Math.min(99, Math.max(1, n) + 1)); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); set(c.id, n ? 0 : 1); } }}
           >
             <div className={s.mcImg}>
@@ -69,7 +72,7 @@ export function CardPicker({ cards, value, onChange }: { cards: PickItem[]; valu
             </div>
             <span className={s.ck} aria-hidden="true">✓</span>
             {n > 1 ? <span className={s.cnt}>×{n}</span> : null}
-            <small>{c.have ? `máš ${c.have} · ` : ''}{c.name}</small>
+            <small>{c.have ? `ve sbírce ${c.have} · ` : ''}{c.name}</small>
           </button>
         );
       })}

@@ -12,7 +12,8 @@ import type { AlbumCard, AlbumDetail } from '@/lib/collection';
 import { formatNumber } from '@/lib/format';
 import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
-import { addCards, cardOffers, deleteAlbum, removeCard, searchForAlbum, setAlbumOnProfile, updateAlbum, type CheapOffer, type PickCard } from '../actions';
+import { addCards, cardOffers, deleteAlbum, removeCard, searchForAlbum, setAlbumOnProfile, stockInfo, updateAlbum, type AddOpts, type CheapOffer, type PickCard, type StockInfo } from '../actions';
+import { HaveForm } from '../HaveForm';
 import { AlbumLook } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
 import s from '../kolekce.module.css';
@@ -30,6 +31,8 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
   const [drawer, setDrawer] = useState<null | 'add' | 'look'>(null);
   const [onProfile, setOnProfile] = useState(album.onProfile);
   const [err, setErr] = useState('');
+  // Karta, kterou ve sbírce nemáte (zeptáme se na stav a jazyk), nebo máte jen na prodeji.
+  const [need, setNeed] = useState<{ id: string; kind: 'missing' | 'sale' } | null>(null);
   const [pending, start] = useTransition();
   const cardsRef = useRef(cards);
   cardsRef.current = cards;
@@ -61,20 +64,23 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
   const apply = (next: AlbumCard[]) => { setCards(next); cardsRef.current = next; view.current?.setCards(next); };
 
   /** Uloží karty do sbírky a vloží je do alba s animací (1B jedna karta, 2B více karet). */
-  const insert = (ids: string[], extra: AlbumCard[] = []) =>
+  const insert = (ids: string[], extra: AlbumCard[] = [], o: AddOpts = {}) =>
     start(async () => {
       setErr('');
-      const r = await addCards(ids, album.id);
+      setNeed(null);
+      const r = await addCards(ids, album.id, o);
       if ('error' in r) { setErr(r.error === 'login' ? 'Přihlaste se znovu.' : r.error); return; }
-      const count = new Map<string, number>();
-      ids.forEach((id) => count.set(id, (count.get(id) ?? 0) + 1));
-      const base = [...cardsRef.current, ...extra.filter((e) => !cardsRef.current.some((c) => c.id === e.id))];
+      // Kolekce bere karty jen ze sbírky: co tam není, se nevloží.
+      if (ids.length === 1 && !r.added.length) { setNeed({ id: ids[0], kind: r.onSale.length ? 'sale' : 'missing' }); return; }
+      const skipped = r.onSale.length + r.missing.length;
+      if (skipped) setErr(`Nevloženo: ${skipped} ${cardsWord(skipped)}, ve sbírce ${skipped === 1 ? 'ji' : 'je'} nemáte mimo prodej.`);
+      const added = new Set(r.added);
+      const base = [...cardsRef.current, ...extra.filter((e) => added.has(e.id) && !cardsRef.current.some((c) => c.id === e.id))];
       const fresh: number[] = [];
       const next = base.map((c, i) => {
-        const n = count.get(c.id);
-        if (!n) return c;
+        if (!added.has(c.id)) return c;
         if (!c.owned) fresh.push(i);
-        return { ...c, owned: c.owned + n };
+        return { ...c, owned: 1 };
       });
       apply(next);
       setSel(null);
@@ -170,7 +176,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
             </div>
           </div>
           <div className={s.pBtns}>
-            <Button disabled={pending} onClick={() => insert([selCard.id])}>✓ Mám ji, vložit do alba</Button>
+            <Button disabled={pending} onClick={() => insert([selCard.id])}>Mám ji, vložit do alba</Button>
             {selCard.offers ? (
               <ButtonLink variant="secondary" href={`/karty/${selCard.slug}`}>
                 Zobrazit {selCard.offers} {selCard.offers === 1 ? 'nabídku' : selCard.offers <= 4 ? 'nabídky' : 'nabídek'}
@@ -178,6 +184,18 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
             ) : <ButtonLink variant="secondary" href={`/karty/${selCard.slug}`}>Detail karty</ButtonLink>}
             <WatchButton cardId={selCard.id} size="md" />
           </div>
+          {need?.id === selCard.id && need.kind === 'missing' ? (
+            <HaveForm name={selCard.name} pending={pending} onCancel={() => setNeed(null)} onSave={(cond, lang) => insert([selCard.id], [], { cond, lang })} />
+          ) : null}
+          {need?.id === selCard.id && need.kind === 'sale' ? (
+            <div className={s.have}>
+              <p className={s.hint} style={{ margin: 0 }}>Jediný kus máte na prodeji. Album si ho vezme a z prodeje se stáhne.</p>
+              <div className={s.haveBtns}>
+                <Button variant="ghost" size="md" onClick={() => setNeed(null)}>Nechat na prodeji</Button>
+                <Button size="md" disabled={pending} onClick={() => insert([selCard.id], [], { unsell: true })}>Stáhnout z prodeje a vložit</Button>
+              </div>
+            </div>
+          ) : null}
           {err ? <p className={s.err}>{err}</p> : null}
           {offers?.id === selCard.id && offers.list.length ? (
             <div className={s.offers}>
@@ -239,14 +257,16 @@ export function Drawer({ title, onClose, children, foot }: { title: string; onCl
   );
 }
 
-/** Přidat karty (2B): u alba sady chybějící karty, u vlastního alba hledání v katalogu. */
+/** Přidat karty (2B): u alba sady chybějící karty, u vlastního alba hledání v katalogu. Vložit jde jen karty ze sbírky. */
 function AddDrawer({ album, cards, pending, onClose, onAdd }: {
-  album: AlbumDetail; cards: AlbumCard[]; pending: boolean; onClose: () => void; onAdd: (ids: string[], extra?: AlbumCard[]) => void;
+  album: AlbumDetail; cards: AlbumCard[]; pending: boolean; onClose: () => void; onAdd: (ids: string[], extra?: AlbumCard[], o?: AddOpts) => void;
 }) {
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<Map<string, number>>(new Map());
   const [found, setFound] = useState<PickCard[]>([]);
   const [loading, setLoading] = useState(false);
+  const [st, setSt] = useState<Record<string, StockInfo> | null>(null);
+  const [mam, setMam] = useState<string | null>(null);
   const known = useRef(new Map<string, PickCard>());
 
   useEffect(() => {
@@ -259,24 +279,33 @@ function AddDrawer({ album, cards, pending, onClose, onAdd }: {
     return () => clearTimeout(t);
   }, [q, album.kind, album.game]);
 
-  const list = useMemo(() => {
-    if (album.kind === 'custom') return found.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }));
+  // U alba sady: kolik kusů chybějících karet je ve sbírce.
+  useEffect(() => {
+    if (album.kind !== 'set') return;
+    stockInfo(cards.filter((c) => !c.owned).map((c) => c.id)).then(setSt).catch(() => setSt({}));
+  }, [album.kind, cards]);
+
+  type Row = { id: string; name: string; number: string; image: string | null; have: number; keep: number; sale: number };
+  const rows: Row[] = useMemo(() => {
+    if (album.kind === 'custom') return found.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned, keep: c.keep ?? 0, sale: c.sale ?? 0 }));
     const needle = q.trim().toLocaleLowerCase('cs');
     return cards.filter((c) => !c.owned && (!needle || c.name.toLocaleLowerCase('cs').includes(needle) || c.number.toLowerCase().startsWith(needle)))
-      .map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image }));
-  }, [album.kind, cards, found, q]);
+      .map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: st?.[c.id]?.have ?? 0, keep: st?.[c.id]?.keep ?? 0, sale: st?.[c.id]?.sale ?? 0 }));
+  }, [album.kind, cards, found, q, st]);
+  const inStock = rows.filter((r) => r.have > 0);
+  const outside = rows.filter((r) => r.have === 0);
+  const saleOnly = [...picked.keys()].filter((id) => { const r = rows.find((x) => x.id === id); return r && r.keep === 0 && r.sale > 0; });
 
-  const total = [...picked.values()].reduce((a, b) => a + b, 0);
+  const total = picked.size;
+  const extraOf = (ids: string[]): AlbumCard[] => album.kind === 'custom'
+    ? ids.map((id) => known.current.get(id)).filter((c): c is PickCard => !!c).map((c) => ({
+      id: c.id, slug: c.slug, name: c.name, number: c.number, rarity: c.rarity, image: c.image, setName: c.setName,
+      game: album.game ?? 'pokemon', owned: 0, minPrice: c.minPrice ?? null, offers: 0,
+    }))
+    : [];
   const submit = () => {
-    const ids: string[] = [];
-    picked.forEach((n, id) => { for (let i = 0; i < n; i++) ids.push(id); });
-    const extra: AlbumCard[] = album.kind === 'custom'
-      ? [...picked.keys()].map((id) => known.current.get(id)).filter((c): c is PickCard => !!c).map((c) => ({
-        id: c.id, slug: c.slug, name: c.name, number: c.number, rarity: c.rarity, image: c.image, setName: c.setName,
-        game: album.game ?? 'pokemon', owned: 0, minPrice: c.minPrice ?? null, offers: 0,
-      }))
-      : [];
-    onAdd(ids, extra);
+    const ids = [...picked.keys()];
+    onAdd(ids, extraOf(ids), { unsell: saleOnly.length > 0 });
   };
 
   return (
@@ -299,14 +328,28 @@ function AddDrawer({ album, cards, pending, onClose, onAdd }: {
           autoFocus
         />
       </div>
-      <p className={s.hint}>
-        {album.kind === 'custom'
-          ? 'Karty se přidají na konec alba. Dvojklik přidá další kus.'
-          : `Chybí ${cards.filter((c) => !c.owned).length} karet. Tažením přes karty označíš víc najednou, dvojklik přidá další kus.`}
-      </p>
-      {loading ? <p className={s.hint}>Hledám…</p> : null}
-      <CardPicker cards={list} value={picked} onChange={setPicked} />
-      {album.kind === 'set' && !list.length ? <p className={s.hint}>{q ? 'Nic nenalezeno.' : 'Album je kompletní.'}</p> : null}
+      <p className={s.hint}>Do alba jdou karty ze sbírky, album si z každé vezme 1 kus. {album.kind === 'custom' ? 'Karty se přidají na konec alba.' : 'Tažením přes karty označíš víc najednou.'}</p>
+      {loading || (album.kind === 'set' && !st) ? <p className={s.hint}>Načítám…</p> : null}
+      {inStock.length ? <CardPicker cards={inStock.map((r) => ({ id: r.id, name: r.name, number: r.number, image: r.image, have: r.have }))} value={picked}
+        onChange={(m) => setPicked(new Map([...m.keys()].map((k) => [k, 1])))} /> : null}
+      {saleOnly.length ? <p className={s.saleNote}>{saleOnly.length === 1 ? '1 vybranou kartu máte jen na prodeji, vložením se stáhne z prodeje.' : `${saleOnly.length} vybrané karty máte jen na prodeji, vložením se stáhnou z prodeje.`}</p> : null}
+      {outside.length ? (
+        <div style={{ marginTop: 'var(--space-5)' }}>
+          <p className={s.hint} style={{ margin: '0 0 6px' }}>Nemáte ve sbírce ({outside.length})</p>
+          {outside.slice(0, 40).map((r) => (
+            <div key={r.id}>
+              <div className={s.miss}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {r.image ? <img src={thumbUrl(r.image) ?? r.image} alt="" /> : <span />}
+                <span><b>{r.name}</b><small>#{r.number}</small></span>
+                <Button variant="secondary" size="sm" onClick={() => setMam(mam === r.id ? null : r.id)}>Mám ji</Button>
+              </div>
+              {mam === r.id ? <HaveForm name={r.name} pending={pending} onCancel={() => setMam(null)} onSave={(cond, lang) => onAdd([r.id], extraOf([r.id]), { cond, lang })} /> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {album.kind === 'set' && !rows.length && st ? <p className={s.hint}>{q ? 'Nic nenalezeno.' : 'Album je kompletní.'}</p> : null}
     </Drawer>
   );
 }

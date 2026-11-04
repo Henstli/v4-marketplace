@@ -11,3 +11,4 @@
 .ok{font-size:13px;color:var(--accent);margin:var(--space-2) 0 0}
 .ok a{color:var(--accent);font-weight:600}
 .plus{display:grid;place-items:center;width:38px;height:46px;border:1.5px dashed var(--line-strong);border-radius:6px;color:var(--accent);flex:none}
+.linkBtn{border:0;background:none;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}

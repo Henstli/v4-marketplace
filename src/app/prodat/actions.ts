@@ -208,3 +208,14 @@ export async function removeWant(cardId: string): Promise<BulkResult> {
   revalidatePath('/ucet/hlidane');
   return { count: 1 };
 }
+
+// Vyjmout karty z alb (kolekce drží 1 kus ze skladu). Kus zůstane ve skladu mimo prodej, v albu po něm zůstane prázdné místo.
+export async function collectionRelease(ids: string[]): Promise<BulkResult> {
+  const list = cleanIds(ids);
+  if (!list.length) return { count: 0 };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('collection_release', { p_listings: list });
+  if (error) return { error: 'Kartu se nepodařilo vyjmout z alba. Zkuste to prosím znovu.' };
+  revalidatePath('/kolekce', 'layout');
+  return { count: Number(data ?? 0) };
+}

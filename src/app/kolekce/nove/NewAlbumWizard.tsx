@@ -8,7 +8,7 @@ import { cardsWord } from '@/components/album/engine';
 import { Button, ButtonLink, Chip, SearchField, Steps } from '@/components/trezor';
 import { GAMES, type GameId } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
-import { createAlbum, findSets, searchForAlbum, setCards, type PickCard, type SetOption } from '../actions';
+import { createAlbum, findSets, getSet, searchForAlbum, setCards, type PickCard, type SetOption } from '../actions';
 import { SleeveSprite } from '@/components/album/SleeveSprite';
 import { LookFields, type Look } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
@@ -16,11 +16,16 @@ import s from '../kolekce.module.css';
 
 const LIVE = GAMES.filter((g) => g.live);
 
-/** Průvodce založením alba: vzhled (5A), sada nebo vlastní výběr (5B), karty, které už máš (5C / 5D). */
-export function NewAlbumWizard() {
+/**
+ * Průvodce založením alba: vzhled (5A), sada nebo vlastní výběr (5B), karty ze sbírky (5C / 5D).
+ * Album bere karty jen ze sbírky (skladu). preset = otevřeno ze Sbírky u sady (Založit kolekci).
+ */
+export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: string; unsell?: boolean; autoFill?: boolean } }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [look, setLook] = useState<Look>({ name: '', design: 1, sleeve: 1 });
+  const [look, setLook] = useState<Look>({ name: preset?.name?.slice(0, 60) ?? '', design: 1, sleeve: 1 });
+  const [unsell, setUnsell] = useState(preset?.unsell ?? false);
+  const [autoFill, setAutoFill] = useState(preset?.autoFill ?? true);
   const [kind, setKind] = useState<'set' | 'custom'>('set');
   const [game, setGame] = useState<GameId>('pokemon');
   const [q, setQ] = useState('');
@@ -32,7 +37,12 @@ export function NewAlbumWizard() {
   const [tray, setTray] = useState<PickCard[]>([]);
   const [err, setErr] = useState('');
   const [pending, start] = useTransition();
-  const named = useRef(false);
+  const named = useRef(!!preset?.name);
+
+  useEffect(() => {
+    if (!preset?.setId) return;
+    getSet(preset.setId).then((o) => { if (o) { setGame(o.game); setSet(o); setLook((l) => (l.name ? l : { ...l, name: o.name.slice(0, 60) })); } });
+  }, [preset?.setId]);
 
   useEffect(() => {
     if (kind !== 'set' || step !== 1) return;
@@ -49,7 +59,7 @@ export function NewAlbumWizard() {
     setCards(set.id).then((r) => {
       if (!alive) return;
       setCardList(r);
-      // karty, které už ve sbírce jsou, jsou předem označené
+      // do alba jdou karty, které jsou ve sbírce (album si z každé vezme 1 kus)
       setPicked(new Map(r.filter((c) => c.owned > 0).map((c) => [c.id, 1])));
     });
     return () => { alive = false; };
@@ -68,15 +78,17 @@ export function NewAlbumWizard() {
     if (!named.current || !look.name.trim()) { setLook((l) => ({ ...l, name: o.name.slice(0, 60) })); named.current = false; }
   };
 
-  const total = kind === 'set' ? [...picked.values()].reduce((a, b) => a + b, 0) : tray.length;
+  // Karty sady, které máte jen na prodeji (žádný kus mimo prodej): bez stažení z prodeje zůstanou v albu prázdné.
+  const saleOnly = kind === 'set' ? (cards ?? []).filter((c) => c.owned > 0 && !c.keep && (c.sale ?? 0) > 0) : [];
+  const total = kind === 'set' ? picked.size - (unsell ? 0 : saleOnly.length) : tray.length;
 
   const create = () =>
     start(async () => {
       setErr('');
       let ids: string[] = [];
-      if (kind === 'set') picked.forEach((n, id) => { for (let i = 0; i < n; i++) ids.push(id); });
+      if (kind === 'set') ids = [...picked.keys()];
       else ids = tray.map((c) => c.id);
-      const r = await createAlbum({ name: look.name, design: look.design, sleeve: look.sleeve, kind, setId: set?.id ?? null, cardIds: ids });
+      const r = await createAlbum({ name: look.name, design: look.design, sleeve: look.sleeve, kind, setId: set?.id ?? null, cardIds: ids, unsell, autoFill });
       if ('error' in r) { setErr(r.error); return; }
       router.push(`/kolekce/${r.id}?zalozeno=1`);
     });
@@ -87,7 +99,7 @@ export function NewAlbumWizard() {
     <main className={s.wrap}>
       <div className={s.crumb}><Link href="/kolekce">Moje kolekce</Link><span>›</span><span>Nové album</span></div>
       <div className={s.head} style={{ marginTop: 'var(--space-3)' }}>
-        <div><h1>Nové album</h1><p>Vyber desky a obaly, sadu nebo vlastní karty a označ, co už máš.</p></div>
+        <div><h1>Nové album</h1><p>Vyber desky a obaly a sadu nebo vlastní karty. Do alba jdou karty ze tvé sbírky.</p></div>
         <Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} />
       </div>
 
@@ -132,14 +144,26 @@ export function NewAlbumWizard() {
 
           {step === 2 && kind === 'set' ? (
             <>
-              <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Které karty ze sady {set?.name} už máš?</h2>
-              <p className={s.hint}>Klikni na kartu, tažením označíš víc najednou, dvojklik přidá další kus. Neoznačené karty budou v albu jako prázdná místa.</p>
-              <div className={s.toolbar} style={{ marginTop: 'var(--space-3)' }}>
-                <Button variant="secondary" size="md" onClick={() => setPicked(new Map((cards ?? []).map((c) => [c.id, picked.get(c.id) ?? 1])))}>Označit vše</Button>
-                <Button variant="ghost" size="md" onClick={() => setPicked(new Map())}>Zrušit výběr</Button>
-              </div>
-              {cards === null ? <p className={s.hint}>Načítám karty…</p> : (
-                <CardPicker cards={cards.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))} value={picked} onChange={setPicked} />
+              <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Karty ze sbírky: {set?.name}</h2>
+              <p className={s.hint}>
+                {cards === null ? 'Načítám karty…' : `Do alba se vloží ${total} ${cardsWord(total)} ze sbírky, z každé 1 kus. ${(cards.length - total) || 'Žádné'} ${cards.length - total === 1 ? 'místo zůstane prázdné' : 'míst zůstane prázdných'}, karty, které chybí.`}
+              </p>
+              {saleOnly.length ? (
+                <div className={s.have}>
+                  <p className={s.hint} style={{ margin: 0 }}><b style={{ color: 'var(--ink)' }}>{saleOnly.length} {cardsWord(saleOnly.length)}</b> máte jen na prodeji.</p>
+                  <div className={s.seg} role="radiogroup" aria-label="Karty na prodeji" style={{ height: 'auto' }}>
+                    <button type="button" role="radio" aria-checked={!unsell} style={{ padding: '8px 10px' }} onClick={() => setUnsell(false)}>Nechat na prodeji (v albu zůstane prázdné místo)</button>
+                    <button type="button" role="radio" aria-checked={unsell} style={{ padding: '8px 10px' }} onClick={() => setUnsell(true)}>Stáhnout z prodeje a dát do alba</button>
+                  </div>
+                </div>
+              ) : null}
+              <label className={s.hint} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} />
+                Doplňovat samo: novou kartu této sady ve sbírce vložíme do alba
+              </label>
+              {cards === null ? null : (
+                <CardPicker readOnly cards={cards.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))}
+                  value={new Map([...picked].filter(([id]) => unsell || !saleOnly.some((x) => x.id === id)))} onChange={() => undefined} />
               )}
             </>
           ) : null}
@@ -147,12 +171,12 @@ export function NewAlbumWizard() {
           {step === 2 && kind === 'custom' ? (
             <>
               <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Vyber karty do alba</h2>
-              <p className={s.hint}>Hledej v celém katalogu. Karty ve sbírce jsou nahoře. Pořadí v albu je pořadí v zásobníku dole.</p>
+              <p className={s.hint}>Hledej ve své sbírce. Album si z každé karty vezme 1 kus. Kartu, kterou ve sbírce nemáš, přidáš v albu tlačítkem Mám ji. Pořadí v albu je pořadí v zásobníku dole.</p>
               <div style={{ marginTop: 'var(--space-3)' }}>
                 <SearchField label="Hledat kartu" placeholder="Název karty, sada nebo číslo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
               </div>
               <CardPicker
-                cards={found.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))}
+                cards={found.filter((c) => c.owned > 0).map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))}
                 value={new Map(tray.map((c) => [c.id, 1]))}
                 onChange={(m) => {
                   setTray((t) => {
@@ -183,9 +207,9 @@ export function NewAlbumWizard() {
 
           {err ? <p className={s.err}>{err}</p> : null}
           <div className={s.wizFoot}>
-            {step > 0 ? <Button variant="ghost" onClick={() => { setStep(step - 1); setQ(''); }}>← Zpět</Button> : <ButtonLink variant="secondary" href="/kolekce">Zrušit</ButtonLink>}
+            {step > 0 ? <Button variant="ghost" onClick={() => { setStep(preset && step === 2 ? 0 : step - 1); setQ(''); }}>← Zpět</Button> : <ButtonLink variant="secondary" href="/kolekce">Zrušit</ButtonLink>}
             {step < 2 ? (
-              <Button disabled={!canNext} onClick={() => { setStep(step + 1); setQ(''); }}>Pokračovat</Button>
+              <Button disabled={!canNext} onClick={() => { setStep(preset && set && step === 0 ? 2 : step + 1); setQ(''); }}>Pokračovat</Button>
             ) : (
               <Button disabled={pending || !look.name.trim() || (kind === 'set' && !set)} onClick={create}>
                 {pending ? 'Zakládám…' : total ? `Založit album a vložit ${total} ${cardsWord(total)}` : 'Založit prázdné album'}

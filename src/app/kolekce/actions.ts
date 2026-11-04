@@ -30,11 +30,15 @@ export interface NewAlbum {
   sleeve: number;
   kind: 'set' | 'custom';
   setId?: string | null;
-  /** Karty, které už uživatel má (u vlastního alba všechny karty alba v pořadí) */
+  /** Karty do alba (u alba sady všechny karty sady, vloží se jen ty ze skladu) */
   cardIds: string[];
+  /** Poslední kus, který je na prodeji, stáhnout z prodeje a dát do alba */
+  unsell?: boolean;
+  /** Novou kartu sady ve skladu vložit do alba samo */
+  autoFill?: boolean;
 }
 
-/** Založí album a rovnou do sbírky vloží karty, které uživatel označil. */
+/** Založí album a vloží do něj karty ze skladu (album drží vždy 1 kus). */
 export async function createAlbum(a: NewAlbum): Promise<Result<{ id: string }>> {
   const { supabase, uid } = await user();
   if (!uid) return { error: 'Přihlaste se' };
@@ -45,26 +49,76 @@ export async function createAlbum(a: NewAlbum): Promise<Result<{ id: string }>> 
   const { data, error } = await supabase.from('collection_albums').insert({
     user_id: uid, name, kind: a.kind, set_id: a.kind === 'set' ? a.setId : null,
     design: Math.min(20, Math.max(1, Math.round(a.design))), sleeve: Math.min(20, Math.max(1, Math.round(a.sleeve))),
+    ...(a.autoFill === false ? { auto_fill: false } : {}),
   }).select('id').single();
   if (error || !data) return { error: 'Album se nepodařilo založit' };
   if (ids.length) {
-    const { error: e2 } = await supabase.rpc('collection_add', { p_cards: ids, p_album: data.id });
+    const { error: e2 } = await supabase.rpc('collection_put', { p_cards: ids, p_album: data.id, p_unsell: a.unsell === true });
     if (e2) return { error: 'Album je založené, ale karty se nepodařilo vložit' };
   }
+  revalidatePath('/prodat');
   refresh(data.id);
   return { ok: true, id: data.id };
 }
 
-/** Vloží karty do sbírky (a na konec vlastního alba). Opakované id = další kus. */
-export async function addCards(cardIds: string[], albumId?: string | null): Promise<Result<{ added: number }>> {
+export interface AddOpts {
+  /** Karta není ve skladu: založit kus mimo prodej v tomto stavu a jazyce („Mám ji“) */
+  cond?: string;
+  lang?: string;
+  /** Jediný kus je na prodeji: stáhnout ho z prodeje a dát do alba */
+  unsell?: boolean;
+}
+
+/**
+ * Vloží karty do kolekce (a na konec vlastního alba). Bere jen karty ze skladu, album drží vždy 1 kus.
+ * onSale = jediný kus je na prodeji, missing = karta ve skladu není.
+ */
+export async function addCards(cardIds: string[], albumId?: string | null, o: AddOpts = {}): Promise<Result<{ added: string[]; onSale: string[]; missing: string[] }>> {
   const { supabase, uid } = await user();
   if (!uid) return { error: 'login' };
   const ids = cardIds.filter(isId).slice(0, 2000);
   if (!ids.length) return { error: 'Nic k přidání' };
-  const { data, error } = await supabase.rpc('collection_add', { p_cards: ids, p_album: isId(albumId) ? albumId : null });
+  const { data, error } = await supabase.rpc('collection_put', {
+    p_cards: ids, p_album: isId(albumId) ? albumId : null,
+    p_cond: o.cond ?? null, p_lang: o.cond ? (o.lang ?? 'en') : null, p_unsell: o.unsell === true,
+  });
   if (error) return { error: 'Karty se nepodařilo přidat' };
+  const r = (data ?? {}) as { added?: string[]; onSale?: string[]; missing?: string[] };
   refresh(isId(albumId) ? albumId : undefined);
-  return { ok: true, added: Number(data) || ids.length };
+  revalidatePath('/prodat');
+  return { ok: true, added: r.added ?? [], onSale: r.onSale ?? [], missing: r.missing ?? [] };
+}
+
+export interface StockInfo {
+  /** Kusů celkem (na prodej i mimo prodej) */
+  have: number;
+  /** Kusů mimo prodej (z nich si album bere) */
+  keep: number;
+  /** Kusů na prodeji */
+  sale: number;
+}
+
+/** Kolik kusů karet je ve skladu přihlášeného (kolekce bere karty jen ze skladu). */
+export async function stockInfo(cardIds: string[]): Promise<Record<string, StockInfo>> {
+  const { supabase, uid } = await user();
+  const ids = [...new Set(cardIds.filter(isId))].slice(0, 2000);
+  if (!uid || !ids.length) return {};
+  return stockMap(supabase, uid, ids);
+}
+
+async function stockMap(supabase: Awaited<ReturnType<typeof createClient>>, uid: string, ids: string[]): Promise<Record<string, StockInfo>> {
+  const out: Record<string, StockInfo> = {};
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data } = await supabase.from('listings').select('card_id, quantity, listing_stock(keep_qty)').eq('seller_id', uid)
+      .is('removed_at', null).in('card_id', ids.slice(i, i + 300))
+      .returns<Array<{ card_id: string; quantity: number; listing_stock: { keep_qty: number } | null }>>();
+    for (const r of data ?? []) {
+      const k = r.listing_stock?.keep_qty ?? 0;
+      const x = (out[r.card_id] ??= { have: 0, keep: 0, sale: 0 });
+      x.keep += k; x.sale += r.quantity; x.have += k + r.quantity;
+    }
+  }
+  return out;
 }
 
 /** Odebere jeden kus karty ze sbírky (poslední kus kartu odebere úplně, i z vlastních alb). */
@@ -104,6 +158,16 @@ export async function updateAlbum(id: string, p: { name?: string; design?: numbe
   if (p.design) patch.design = Math.min(20, Math.max(1, Math.round(p.design)));
   if (p.sleeve) patch.sleeve = Math.min(20, Math.max(1, Math.round(p.sleeve)));
   const { error } = await supabase.from('collection_albums').update(patch).eq('id', id);
+  if (error) return { error: 'Změnu se nepodařilo uložit' };
+  refresh(id);
+  return { ok: true };
+}
+
+/** Vkládat novou kartu sady ze skladu do alba samo. */
+export async function setAlbumAutoFill(id: string, on: boolean): Promise<Result> {
+  const { supabase, uid } = await user();
+  if (!uid || !isId(id)) return { error: 'login' };
+  const { error } = await supabase.from('collection_albums').update({ auto_fill: on }).eq('id', id);
   if (error) return { error: 'Změnu se nepodařilo uložit' };
   refresh(id);
   return { ok: true };
@@ -156,6 +220,17 @@ export async function findSets(game: GameId, q: string): Promise<SetOption[]> {
   return sets.map((s) => ({ ...s, owned: owned.get(s.id) ?? 0 }));
 }
 
+/** Jedna sada pro průvodce otevřený ze Sbírky (Založit kolekci u sady). */
+export async function getSet(id: string): Promise<SetOption | null> {
+  if (!isId(id)) return null;
+  const { supabase } = await user();
+  const { data } = await supabase.from('card_sets').select('id, name, code, released_on, game_id').eq('id', id)
+    .maybeSingle<{ id: string; name: string; code: string; released_on: string | null; game_id: GameId }>();
+  if (!data) return null;
+  const { count } = await supabase.from('cards').select('id', { count: 'exact', head: true }).eq('set_id', id).eq('hidden', false);
+  return { id: data.id, name: data.name, code: data.code, year: data.released_on ? Number(data.released_on.slice(0, 4)) : null, game: data.game_id, cards: count ?? 0, owned: 0 };
+}
+
 export interface PickCard {
   id: string;
   slug: string;
@@ -164,7 +239,11 @@ export interface PickCard {
   rarity: string | null;
   image: string | null;
   setName: string;
+  /** Kusů ve skladu (kolekce bere jen odtud) */
   owned: number;
+  /** Z toho mimo prodej / na prodeji */
+  keep?: number;
+  sale?: number;
   minPrice?: number | null;
 }
 
@@ -176,15 +255,10 @@ export async function setCards(setId: string): Promise<PickCard[]> {
     .eq('hidden', false).limit(1000)
     .returns<Array<{ id: string; slug: string; name: string; number: string; rarity: string | null; image_url: string | null; card_sets: { name: string } | null }>>();
   const rows = (data ?? []).sort((a, b) => compareCardNumbers(a.number, b.number));
-  const owned = new Map<string, number>();
-  if (uid && rows.length) {
-    const { data: o } = await supabase.from('collection_cards').select('card_id, quantity, cards!inner(set_id)').eq('cards.set_id', setId)
-      .returns<Array<{ card_id: string; quantity: number }>>();
-    for (const r of o ?? []) owned.set(r.card_id, r.quantity);
-  }
+  const st = uid && rows.length ? await stockMap(supabase, uid, rows.map((r) => r.id)) : {};
   return rows.map((r) => ({
     id: r.id, slug: r.slug, name: r.name, number: r.number, rarity: r.rarity, image: r.image_url,
-    setName: r.card_sets?.name ?? '', owned: owned.get(r.id) ?? 0,
+    setName: r.card_sets?.name ?? '', owned: st[r.id]?.have ?? 0, keep: st[r.id]?.keep ?? 0, sale: st[r.id]?.sale ?? 0,
   }));
 }
 
@@ -193,14 +267,10 @@ export async function searchForAlbum(q: string, game?: GameId | null): Promise<P
   if (q.trim().length < 2) return [];
   const { supabase, uid } = await user();
   const page = await searchCards({ q, game: game ?? undefined, pageSize: 30 });
-  const owned = new Map<string, number>();
-  if (uid && page.cards.length) {
-    const { data } = await supabase.from('collection_cards').select('card_id, quantity').in('card_id', page.cards.map((c) => c.id));
-    for (const r of (data ?? []) as Array<{ card_id: string; quantity: number }>) owned.set(r.card_id, r.quantity);
-  }
+  const st = uid && page.cards.length ? await stockMap(supabase, uid, page.cards.map((c) => c.id)) : {};
   return page.cards.map((c) => ({
     id: c.id, slug: c.slug, name: c.name, number: c.number, rarity: c.rarity || null, image: c.image ?? null,
-    setName: c.setName, owned: owned.get(c.id) ?? 0, minPrice: c.minPrice,
+    setName: c.setName, owned: st[c.id]?.have ?? 0, keep: st[c.id]?.keep ?? 0, sale: st[c.id]?.sale ?? 0, minPrice: c.minPrice,
   })).sort((a, b) => Number(b.owned > 0) - Number(a.owned > 0));
 }
 

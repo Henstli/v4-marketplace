@@ -29,6 +29,8 @@ export interface StockRow {
   removed: boolean;
   /** Tržní cena za kus: poslední průměr z historie cen, jinak nejnižší nabídka */
   market: number | null;
+  /** Album, které drží 1 kus tohoto řádku (kolekce bere karty ze skladu), jinak null */
+  album: string | null;
   card: { slug: string; name: string; setName: string; setCode: string; number: string; image: string | null; game: string | null } | null;
 }
 
@@ -38,6 +40,8 @@ export type LoadRow = {
   k: number | null; t: number | null; lo: string | null; b: number | null; li: string | null; so: string | null; u: string | null;
   c: { slug: string; name: string; number: string; image: string | null; game: string | null; code: string | null; set: string | null } | null;
   m: number | null;
+  /** Název alba, které drží 1 kus (null = kolekce kus nedrží) */
+  al?: string | null;
 };
 
 /**
@@ -78,6 +82,7 @@ export const mapRow = (l: LoadRow): StockRow => ({
   hidden: l.h,
   removed: l.rm,
   market: l.m ?? null,
+  album: l.al ?? null,
   card: l.c
     ? { slug: l.c.slug, name: l.c.name, number: l.c.number, image: l.c.image, game: l.c.game, setCode: l.c.code ?? '', setName: l.c.set ?? '' }
     : null,

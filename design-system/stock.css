@@ -1000,3 +1000,63 @@
 .tz-sk .wadd .inp input::placeholder{font:500 14px var(--fs)}.tz-sk .wadd .wres~*,.tz-sk .wadd>.inp input{font:500 14px var(--fs)}
 /* Hlídané karty: štítek nového upozornění u názvu */
 .tz-sk .wnew{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font:700 10.5px var(--fs);letter-spacing:.04em;text-transform:uppercase;vertical-align:2px}
+
+/* Kolekce bere karty ze skladu: kus, který drží album (štítek V albu, zamčený prodej). */
+.tz-sk .albb{display:inline-flex;align-items:center;gap:4px;font:600 10.5px var(--fs);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:5px;padding:0 6px;height:17px;line-height:15px;margin:3px 4px 0 0;vertical-align:top;box-sizing:border-box;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tz-sk .albb svg{width:11px;height:11px;flex:none}
+.tz-sk .albb.m{color:var(--ink-muted);border-color:var(--line-strong)}
+.tz-sk .spill.alb{background:var(--surface-sunken);border:0;padding:0 12px;gap:6px;color:var(--ink-muted);font:600 12.5px var(--fs)}
+.tz-sk .spill.alb:hover{color:var(--ink)}
+
+/* Chybí do sad: sada jako jedna karta bez tlačítek (klik otevře okno sady) */
+.tz-sk .ssg{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:12px}
+.tz-sk .ssc{display:grid;grid-template-columns:92px minmax(0,1fr) 16px;gap:16px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:14px 14px 14px 12px;background:var(--surface);text-align:left;color:var(--ink)}
+.tz-sk .ssc:hover{border-color:var(--line-strong);background:color-mix(in srgb,var(--surface) 92%,var(--ink))}
+.tz-sk .ssf{position:relative;height:88px;display:block}
+.tz-sk .ssf img,.tz-sk .ssf i{position:absolute;top:4px;width:56px;aspect-ratio:63/88;border-radius:3px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));object-fit:contain}
+.tz-sk .ssf i{background:var(--surface-sunken);border:1px dashed var(--line-strong)}
+.tz-sk .ssf>:nth-child(1){left:0;transform:rotate(-8deg)}
+.tz-sk .ssf>:nth-child(2){left:18px}
+.tz-sk .ssf>:nth-child(3){left:36px;transform:rotate(8deg)}
+.tz-sk .ssb{display:flex;flex-direction:column;min-width:0}
+.tz-sk .ssh{display:flex;align-items:center;gap:8px;min-height:22px}
+.tz-sk .ssh b{font:600 15px var(--fs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tz-sk .sst{display:flex;gap:6px;margin-left:auto;flex:none}
+.tz-sk .sst span{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font:600 11.5px var(--fs);color:var(--ink-muted);background:var(--surface-sunken)}
+.tz-sk .sst span.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.tz-sk .ssk{font:500 12px var(--fs);color:var(--ink-muted);margin-top:2px}
+.tz-sk .ssb .prog{margin:10px 0 8px}
+.tz-sk .ssl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-muted)}
+.tz-sk .ssl b{color:var(--ink);font-weight:600}
+.tz-sk .ssl .mono{margin-left:auto;font-size:12.5px}
+.tz-sk .ssv{color:var(--ink-muted);transform:rotate(-90deg);display:flex}
+
+/* Okno sady: záložky nahoře, mřížka karet, založení alba */
+.tz-sk .mtabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0 -22px;padding:0 22px}
+.tz-sk .mtabs button{padding:10px 0;margin-bottom:-1px;border-bottom:2px solid transparent;font:600 14px var(--fs);color:var(--ink-muted)}
+.tz-sk .mtabs button.on{color:var(--ink);border-color:var(--accent)}
+.tz-sk .ssum{margin-right:auto;font-size:13px;color:var(--ink-muted)}
+.tz-sk .ssum b{color:var(--ink);font-family:var(--fm)}
+.tz-sk .ssgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:12px}
+.tz-sk .sst2{display:flex;flex-direction:column;gap:3px;color:var(--ink);text-decoration:none;min-width:0}
+.tz-sk .sst2 .im{position:relative;display:block;aspect-ratio:63/88}
+.tz-sk .sst2 img,.tz-sk .sst2 .im i{width:100%;height:100%;display:block;object-fit:contain;border-radius:4.8%/3.45%}
+.tz-sk .sst2 .im i{background:var(--surface-sunken)}
+.tz-sk .sst2.ms img{opacity:.35;filter:grayscale(.85)}
+.tz-sk .sst2:hover.ms img{opacity:.6}
+.tz-sk .sst2 .bd{position:absolute;right:5px;top:5px;font:700 10.5px var(--fm);background:rgba(0,0,0,.72);color:#fff;border-radius:5px;padding:2px 5px}
+.tz-sk .sst2 .wt{position:absolute;left:5px;top:5px;display:flex;background:rgba(0,0,0,.72);color:var(--accent);border-radius:5px;padding:3px}
+.tz-sk .sst2 .ov{position:absolute;inset:auto 6px 6px 6px;height:24px;border-radius:7px;background:var(--surface);border:1px solid var(--line-strong);font:600 11px var(--fs);display:none;align-items:center;justify-content:center}
+.tz-sk .sst2:hover .ov{display:flex}
+.tz-sk .sst2 small{font-size:11.5px;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tz-sk .sst2 small.hv{font-size:11px}
+.tz-sk .sst2 b{font:600 12px var(--fm)}
+.tz-sk .sst2 b.na{color:var(--ink-muted);font:500 11.5px var(--fs)}
+.tz-sk .ssnew{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:22px;align-items:start}
+.tz-sk .ssspread{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;border-radius:16px;background:linear-gradient(180deg,#3a2f22,#2a2218);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.tz-sk .sspage{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px;border-radius:12px;background:#1b2330;border:1px solid var(--line)}
+.tz-sk .sspage .slot{aspect-ratio:63/88;border-radius:5px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.tz-sk .sspage .slot.f{border:1px solid rgba(255,255,255,.12)}
+.tz-sk .sspage .slot img{width:100%;height:100%;object-fit:contain}
+.tz-sk .sspage .slot em{font:600 11px var(--fm);font-style:normal;color:rgba(255,255,255,.45)}
+.tz-sk .sspage .slot .wl{position:absolute;inset:auto 0 0 0;padding:3px 0;background:rgba(0,0,0,.72);text-align:center;color:var(--down);font:600 9.5px var(--fs)}
