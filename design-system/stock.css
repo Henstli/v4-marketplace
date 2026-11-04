@@ -969,3 +969,5 @@
 .tz-sk .ost{font-style:normal;justify-self:start;font:600 11px/16px var(--fs);padding:2px 8px;border-radius:6px;color:var(--ink-muted);background:var(--surface-sunken);white-space:nowrap}.tz-sk .ost.ok{color:var(--accent);background:var(--up-tint)}.tz-sk .ost.wait{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}.tz-sk .ost.pay{color:var(--down);background:var(--down-tint)}
 /* Filtr Duplicity: počet za názvem volby */
 .tz-sk .fop .fcnt{font:500 11.5px var(--fm);opacity:.75}
+/* Řazení podle sloupce: šipka směru za nadpisem */
+.tz-sk th .sdir{margin-left:5px;font:600 11px var(--fm)}

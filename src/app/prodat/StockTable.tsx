@@ -31,13 +31,16 @@ export interface StripStats {
   riser: { name: string; pct: number; cardId: string; from: number; to: number } | null;
 }
 
-type Sort = 'chg' | 'name' | 'have' | 'price';
+type Sort = 'chg' | 'name' | 'cond' | 'lang' | 'have' | 'sale' | 'price' | 'loc';
+/** Výchozí směr po prvním kliknutí: abecedně a od nejlepšího stavu vzestupně, počty a ceny od největších. */
+const ASC_FIRST: Sort[] = ['name', 'cond', 'lang', 'loc'];
 type F = { g: Set<string>; c: Set<string>; l: Set<string>; s: Set<string>; p: Set<string> };
 type BulkModal = 'sell' | 'price' | 'attr' | 'loc' | 'del' | 'export' | 'bmore' | null;
 
 /** Hodnota, podle které se řádek řadí (pro zamrznutí pořadí po úpravě). */
-const sortKey = (i: Item, s: Sort): string | number | null =>
-  s === 'chg' ? i.upd : s === 'have' ? i.have : s === 'price' ? (i.price ?? i.market ?? 0) : null;
+const sortKey = (i: Item, s: Sort): string | number =>
+  s === 'chg' ? i.upd : s === 'have' ? i.have : s === 'sale' ? i.sale : s === 'price' ? (i.price ?? i.market ?? 0)
+    : s === 'name' ? i.name : s === 'cond' ? i.cond : s === 'lang' ? i.lang : i.loc;
 
 function issues(i: Item, shop: boolean): string[] {
   const o: string[] = [];
@@ -69,10 +72,17 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const [locOpen, setLocOpen] = useState(false);
   const [view, setView] = useState<'list' | 'text'>('list');
   const [sort, setSortRaw] = useState<Sort>('chg');
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   // Pořadí je zamrzlé od chvíle, kdy se zvolilo řazení: upravená karta se dál řadí podle hodnoty před úpravou
   // (fz posílá databázi), takže zůstane na svém místě; nová karta jde nahoru.
   const fz = useRef<Record<string, string | number>>({});
-  const setSort = (s: Sort) => { fz.current = {}; setSortRaw(s); };
+  const setSort = (s: Sort, d: 'asc' | 'desc' = ASC_FIRST.includes(s) ? 'asc' : 'desc') => { fz.current = {}; setSortRaw(s); setDir(d); };
+  // Kliknutí na nadpis: řadit podle sloupce, podruhé obráceně, potřetí zpět na naposledy změněné.
+  const clickSort = (k: Sort) => {
+    if (sort !== k) setSort(k);
+    else if (dir === (ASC_FIRST.includes(k) ? 'asc' : 'desc')) setSort(k, dir === 'asc' ? 'desc' : 'asc');
+    else setSort('chg');
+  };
   const [page, setPage] = useState(1);
   const [more, setMore] = useState(0);
   const [exp, setExp] = useState<Set<string>>(new Set());
@@ -117,7 +127,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const fAny = !!q || nF > 0;
   const PG = view === 'text' ? 15 : 10;
   const params = (over: Partial<StockParams> = {}): StockParams => ({
-    mode, shop, q: qd.trim(), g: [...f.g], c: [...f.c], l: [...f.l], s: [...f.s], p: [...f.p], forSale, attn, dup, old, sort,
+    mode, shop, q: qd.trim(), g: [...f.g], c: [...f.c], l: [...f.l], s: [...f.s], p: [...f.p], forSale, attn, dup, old, sort, dir,
     page, size: PG, more, ...(Object.keys(fz.current).length ? { fz: fz.current } : {}), ...over,
   });
   // Klíč filtru (bez stránky): pro výběr všech podle filtru; s velikostí stránky pro návrat na první stránku.
@@ -183,7 +193,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   // Po úpravě se z databáze načtou jen upravené řádky: nahradí se na svém místě, souhrny se dopočítají.
   async function patch(ids: string[]) {
     const before = ids.map((id) => known.current.get(id)).filter((i): i is Item => !!i);
-    if (sort !== 'name') for (const i of before) if (!(i.id in fz.current)) fz.current[i.id] = sortKey(i, sort)!;
+    for (const i of before) if (!(i.id in fz.current)) fz.current[i.id] = sortKey(i, sort);
     try {
       const { items, cards } = await fetchPatch(owner, ids, [...new Set(before.map((i) => i.key))]);
       const now = new Map(items.map((i) => [i.id, i]));
@@ -550,7 +560,10 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
     );
   })();
   const th = (label: string, k: Sort | '', cls = '') => (
-    <th className={`${cls} ${k ? 'sort' : ''} ${sort === k ? 'sorted' : ''}`} onClick={k ? () => setSort(sort === k ? 'chg' : k) : undefined}>{label}</th>
+    <th className={`${cls} ${k ? 'sort' : ''} ${sort === k ? 'sorted' : ''}`} onClick={k ? () => clickSort(k) : undefined}
+      title={k ? (sort === k ? 'Seřadit obráceně' : 'Seřadit podle sloupce') : undefined}>
+      {label}{k && sort === k ? <span className="sdir">{dir === 'asc' ? '↑' : '↓'}</span> : null}
+    </th>
   );
 
   const table = !pg_.nRows ? (
@@ -560,13 +573,13 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       <table>
         <thead><tr>
           <th style={{ width: 40 }}>{cb(allSel, someSel, selectAll, `Vybrat všech ${pg_.nIds} podle filtru`)}</th>
-          {th('Karta', 'name')}{th('Stav', '', 'c')}{th('Jazyk', '', 'c')}{th('Mám', 'have', 'c')}{th('Na prodej', '', 'c')}{th('Cena', 'price', 'c')}
-          {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', '', 'c')}<th />
+          {th('Karta', 'name')}{th('Stav', 'cond', 'c')}{th('Jazyk', 'lang', 'c')}{th('Mám', 'have', 'c')}{th('Na prodej', 'sale', 'c')}{th('Cena', 'price', 'c')}
+          {shop ? th('Zdroj', '', 'c') : null}{th('Umístění', 'loc', 'c')}<th />
         </tr></thead>
         <tbody>{shown.flatMap((g) => (g.length === 1 ? [trow(g[0])] : grow(g)))}</tbody>
       </table>
       <div className="foot">
-        <span className="fl">{nG ? nf(st + 1) : 0}–{nf(en)} z {nf(nG)} {fAny ? '(filtrováno)' : ''} · {{ chg: 'naposledy změněné', name: 'podle názvu', have: 'podle počtu', price: 'podle ceny' }[sort]}</span>
+        <span className="fl">{nG ? nf(st + 1) : 0}–{nf(en)} z {nf(nG)} {fAny ? '(filtrováno)' : ''} · {{ chg: 'naposledy změněné', name: 'podle názvu', cond: 'podle stavu', lang: 'podle jazyka', have: 'podle počtu', sale: 'podle nabídky', price: 'podle ceny', loc: 'podle umístění' }[sort]}{sort !== 'chg' && dir !== (ASC_FIRST.includes(sort) ? 'asc' : 'desc') ? ' (obráceně)' : ''}</span>
         {pager}
         <span className="fr">{en < nG ? <button type="button" className="btn sm" disabled={busy} onClick={showMore}>Zobrazit dalších {Math.min(PG, nG - en)}</button> : null}</span>
       </div>
