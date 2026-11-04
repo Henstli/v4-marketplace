@@ -271,15 +271,12 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     if (!i.loc) { LOCG.set('—', (LOCG.get('—') ?? 0) + i.have); return; }
     const g = locOf(i); LOCG.set(g, (LOCG.get(g) ?? 0) + i.have); LOCF.set(i.loc, (LOCF.get(i.loc) ?? 0) + i.have);
   });
+  // Umístění ve filtru: posuvný seznam všech míst se zaškrtáváním, hledání zúží seznam (i na pozice).
   const fqq = fq.trim().toLowerCase();
-  let lops: [string, number][]; let lmore = 0;
-  if (fqq) {
-    const cand = [...[...LOCG].filter(([k]) => k !== '—'), ...[...LOCF].filter(([k]) => k.includes(' · '))].filter(([k]) => k.toLowerCase().includes(fqq));
-    lops = cand.slice(0, 8); lmore = cand.length - lops.length;
-  } else {
-    const top = [...LOCG].filter(([k]) => k !== '—').sort((a, b) => b[1] - a[1]);
-    lops = top.slice(0, 5); lmore = top.length - 5;
-  }
+  const czs = (x: [string, number], y: [string, number]) => x[0].localeCompare(y[0], 'cs', { numeric: true });
+  const lops: [string, number][] = fqq
+    ? [...[...LOCG].filter(([k]) => k !== '—'), ...[...LOCF].filter(([k]) => k.includes(' · '))].filter(([k]) => k.toLowerCase().includes(fqq)).sort(czs)
+    : [...(LOCG.get('—') ? [['—', LOCG.get('—')!] as [string, number]] : []), ...[...LOCG].filter(([k]) => k !== '—').sort(czs)];
   [...f.p].forEach((v) => { if (!lops.some((x) => x[0] === v)) lops.unshift([v, LOCG.get(v) ?? LOCF.get(v) ?? 0]); });
   const pills: [React.ReactNode, () => void, string][] = [
     ...[...f.g].map((v) => [<><i style={{ '--c': `var(--game-${v})` } as React.CSSProperties} />{getGame(v)?.name}</>, () => flip('g', v), `g${v}`] as [React.ReactNode, () => void, string]),
@@ -310,13 +307,15 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
             {langs.length ? <div className="fsec"><h6>Jazyk</h6><div className="fops">{langs.map((l) => op('l', l, langCode(l)))}</div></div> : null}
             {srcs.length ? <div className="fsec"><h6>Zdroj</h6><div className="fops">{srcs.map((k) => op('s', k, SRC[k]?.[1] ?? k))}</div></div> : null}
             <div className="fsec"><h6>Umístění</h6>
-              <label className="floc">{Ico.s}<input placeholder="Hledat místo, např. A2 nebo Vitrína" value={fq} onChange={(e) => setFq(e.target.value)} autoComplete="off" /></label>
-              <div className="fops">
-                {lops.length ? lops.map(([k, c]) => <button key={k} type="button" className={`fop${f.p.has(k) ? ' on' : ''}`} onClick={() => flip('p', k)}>{k === '—' ? 'Bez umístění' : k}<em>{c}</em></button>)
+              <label className="floc">{Ico.s}<input placeholder="Hledat místo nebo pozici" value={fq} onChange={(e) => setFq(e.target.value)} autoComplete="off" /></label>
+              <div className="flist">
+                {lops.length ? lops.map(([k, c]) => (
+                  <button key={k} type="button" className={f.p.has(k) ? 'on' : ''} onClick={() => flip('p', k)}>
+                    <span className={`cb${f.p.has(k) ? ' on' : ''}`} />{k === '—' ? 'Bez umístění' : k}<em>{nf(c)}</em>
+                  </button>))
                   : <span className="fnone">Žádné místo neodpovídá</span>}
-                {!fqq && LOCG.get('—') && !f.p.has('—') ? <button type="button" className="fop" onClick={() => flip('p', '—')}>Bez umístění<em>{LOCG.get('—')}</em></button> : null}
               </div>
-              {lmore > 0 ? <p className="fhint">{fqq ? `a ${lmore} dalších, zpřesněte hledání` : `Nejčastější místa. Dalších ${lmore} najdete hledáním.`}</p> : null}
+              {f.p.size ? <p className="fhint">Vybráno {f.p.size} · <button type="button" className="lnk" onClick={() => setF((x) => ({ ...x, p: new Set() }))}>Zrušit výběr míst</button></p> : null}
             </div>
             {shop ? (
               <button type="button" className="frow" onClick={() => setAttn(!attn)}>
@@ -717,34 +716,23 @@ function AttrModal({ n, onClose, onOk }: { n: number; onClose: () => void; onOk:
 const posClash = (pos: string, places: string[]) => { const p = pos.trim().toLowerCase(); return !!p && places.some((l) => l.toLowerCase() === p); };
 const PosClash = ({ pos }: { pos: string }) => <small style={{ color: 'var(--warn,#f0a24a)', fontSize: 12, display: 'block', marginTop: 6 }}>„{pos.trim()}“ je název místa. Zvolte ho nahoře jako místo, nebo pozici pojmenujte jinak.</small>;
 
-/** Výběr místa: při pár místech všechna jako čipy, při mnoha hledání (8 nejpoužívanějších) a přidání nového z hledání. */
+/** Výběr místa: hledání + posuvný seznam všech míst (jedno vybrané), nové místo se přidá přímo z hledání. */
 function PlacePicker({ places, value, onPick }: { places: string[]; value: string; onPick: (v: string) => void }) {
-  const MANY = 8;
-  const known = places.includes(value);
-  const [creating, setCreating] = useState(!!value && !known);
   const [q, setQ] = useState('');
-  const cz = (a: string, b: string) => a.localeCompare(b, 'cs', { numeric: true });
-  const pick = (l: string) => { setCreating(false); setQ(''); onPick(value === l && known ? '' : l); };
-  if (places.length <= MANY) {
-    return <>
-      <div className="ipgc">
-        {[...places].sort(cz).map((l) => <button key={l} type="button" className={`chip${!creating && value === l ? ' on' : ''}`} onClick={() => pick(l)}>{l}</button>)}
-        <button type="button" className={`chip${creating ? ' on' : ''}`} onClick={() => { setCreating(true); onPick(''); }}>+ Nové místo</button>
-      </div>
-      {creating ? <div className="inp" style={{ marginTop: 8 }}><input value={value} maxLength={40} autoFocus placeholder="Název místa, např. Vitrína nebo A3" style={{ font: '500 14px var(--fs)' }} onChange={(e) => onPick(e.target.value)} /></div> : null}
-    </>;
-  }
   const qq = q.trim().toLowerCase();
-  const hits = qq ? places.filter((l) => l.toLowerCase().includes(qq)).sort(cz).slice(0, 12) : places.slice(0, MANY).sort(cz);
-  if (value && !hits.includes(value)) hits.unshift(value);
-  const exact = places.some((l) => l.toLowerCase() === qq);
+  const list = places.filter((l) => !qq || l.toLowerCase().includes(qq)).sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
+  if (value && !places.includes(value)) list.unshift(value);
+  const exact = places.find((l) => l.toLowerCase() === qq);
+  const add = () => { onPick(q.trim()); setQ(''); };
   return <>
-    <div className="inp"><input value={q} maxLength={40} placeholder="Najít nebo přidat místo" style={{ font: '500 14px var(--fs)' }}
+    <div className="floc">{Ico.s}<input value={q} maxLength={40} placeholder="Najít nebo přidat místo" autoComplete="off"
       onChange={(e) => setQ(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter' && qq) { e.preventDefault(); const h = places.find((l) => l.toLowerCase() === qq) ?? (hits.length === 1 && hits[0] !== value ? hits[0] : null); if (h) pick(h); else { setCreating(true); setQ(''); onPick(q.trim()); } } }} /></div>
-    <div className="ipgc" style={{ marginTop: 8 }}>
-      {hits.map((l) => <button key={l} type="button" className={`chip${value === l ? ' on' : ''}`} onClick={() => pick(l)}>{l}{!places.includes(l) ? ' (nové)' : ''}</button>)}
-      {qq && !exact ? <button type="button" className="chip" onClick={() => { setCreating(true); setQ(''); onPick(q.trim()); }}>+ Přidat „{q.trim()}“</button> : null}
+      onKeyDown={(e) => { if (e.key === 'Enter' && qq) { e.preventDefault(); if (exact) { onPick(exact); setQ(''); } else add(); } }} /></div>
+    <div className="flist">
+      {list.map((l) => <button key={l} type="button" className={value === l ? 'on' : ''} onClick={() => onPick(value === l ? '' : l)}>
+        <span className={`cb rd${value === l ? ' on' : ''}`} />{l}{!places.includes(l) ? <em>nové</em> : null}</button>)}
+      {qq && !exact ? <button type="button" className="add" onClick={add}>+ Přidat místo „{q.trim()}“</button> : null}
+      {!list.length && !qq ? <span className="fnone">Zatím žádné místo. Napište název a přidejte ho.</span> : null}
     </div>
   </>;
 }
