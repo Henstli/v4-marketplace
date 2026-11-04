@@ -19,13 +19,15 @@ import { StockManager } from './StockManager';
 import { StockHistory, type HistoryEntry } from './StockHistory';
 import { WantButton, WantForm, WantsList, type Want } from './Wants';
 import { loadStock } from './data';
+import { loadShipping } from './ship';
+import { ShipManager } from './ShipManager';
 import styles from './sell.module.css';
 
 export const metadata: Metadata = { title: 'Sklad' };
 
 type Props = { searchParams: Promise<{ zalozka?: string; karta?: string; hledat?: string; sada?: string }> };
 
-const TABS: StockTab[] = ['vse', 'prodej', 'hledam', 'sady', 'historie', 'pridat'];
+const TABS: StockTab[] = ['vse', 'prodej', 'odeslat', 'hledam', 'sady', 'historie', 'pridat'];
 const SOLD = ['confirmed', 'pending_payment', 'paid', 'shipped', 'delivered'];
 
 export default async function StockPage({ searchParams }: Props) {
@@ -46,6 +48,11 @@ export default async function StockPage({ searchParams }: Props) {
   // Dřívější odkazy /prodat?karta=… a ?hledat=… vedou na Přidat kartu.
   let tab = (TABS.includes(sp.zalozka as StockTab) ? sp.zalozka : sp.karta || sp.hledat ? 'pridat' : 'vse') as StockTab;
   if (shop && (tab === 'hledam' || tab === 'sady')) tab = 'vse';
+  if (!shop && tab === 'odeslat') redirect('/objednavky?tab=prodeje');
+  // Počet k odeslání v záložce (zaplacené, dobírka, hotově); celý seznam se načte jen v záložce.
+  const ship = shop && tab === 'odeslat' ? await loadShipping(supabase, user.id) : null;
+  const toShip = ship ? ship.orders.filter((o) => o.ready).length : shop ? (await supabase.from('orders').select('id', { count: 'exact', head: true })
+    .eq('seller_id', user.id).or('status.eq.paid,and(status.eq.confirmed,payment.in.(cod,cash))')).count ?? 0 : 0;
 
   return (
     <div className={`container ${styles.page}`}>
@@ -58,7 +65,7 @@ export default async function StockPage({ searchParams }: Props) {
             <ButtonLink href="/prodat?zalozka=pridat" variant="secondary">Přidat kartu</ButtonLink>
           </div>
         </div>
-        <StockTabs current={tab} shop={shop} onSale={account?.listings ?? 0} />
+        <StockTabs current={tab} shop={shop} onSale={account?.listings ?? 0} toShip={toShip} />
       </div>
 
       {restriction ? (
@@ -76,6 +83,7 @@ export default async function StockPage({ searchParams }: Props) {
         </>
       ) : null}
       {tab === 'pridat' ? <AddCard q={sp.hledat?.trim()} karta={sp.karta} ready={ready.ready} shop={shop} gate={ready.ready ? null : <SellGate r={ready} back="prodat" />} /> : null}
+      {tab === 'odeslat' && ship ? <ShipManager orders={ship.orders} toConfirm={ship.toConfirm} /> : null}
       {tab === 'historie' ? <History userId={user.id} shop={shop} /> : null}
       {tab === 'hledam' ? <Wanted q={sp.hledat?.trim()} karta={sp.karta} /> : null}
       {tab === 'sady' ? <Sets set={sp.sada} /> : null}
