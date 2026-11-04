@@ -169,7 +169,9 @@ export async function markAlbumSeen(id: string): Promise<Result> {
   const { supabase, uid } = await user();
   if (!uid || !isId(id)) return { error: 'login' };
   const { error } = await supabase.from('collection_albums').update({ seen_at: new Date().toISOString() }).eq('id', id);
-  return error ? { error: 'save' } : { ok: true };
+  if (error) return { error: 'save' };
+  revalidatePath('/kolekce'); // zmizí štítek „nové karty“ u alba v přehledu
+  return { ok: true };
 }
 
 export async function setAlbumAutoFill(id: string, on: boolean): Promise<Result> {
