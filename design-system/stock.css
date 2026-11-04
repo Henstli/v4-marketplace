@@ -958,3 +958,5 @@
 .tz-sk .tabs a{justify-content:flex-start}
 /* Kompaktní seznam: Stav, Jazyk a Mám mají mezi sebou víc místa */
 .tz-sk .tbl.txt th:nth-child(3),.tz-sk .tbl.txt td:nth-child(3),.tz-sk .tbl.txt th:nth-child(4),.tz-sk .tbl.txt td:nth-child(4),.tz-sk .tbl.txt th:nth-child(5),.tz-sk .tbl.txt td:nth-child(5){padding-left:20px;padding-right:20px}
+/* Kompaktní seznam: sloupec Mám pro čtyřmístné počty (1 005) celý a na středu */
+.tz-sk .tbl.txt thead th:nth-child(5){width:84px}.tz-sk .tbl.txt th:nth-child(5),.tz-sk .tbl.txt td:nth-child(5){padding-left:8px;padding-right:8px;white-space:nowrap}

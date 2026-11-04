@@ -8,6 +8,7 @@ import { CONDITIONS } from '@/lib/types';
 import { stockChange, stockSet } from './actions';
 import { cardInfo, stockBulkSet, type BulkRow, type CardInfo } from './sk-actions';
 import { ExportModal } from './StockModals';
+import { StockDetailModal, ValueModal } from './StripModals';
 import {
   applyDelta, countsId, fetchAll, fetchCard, fetchIds, fetchPage, fetchPatch, liveCounts, SLOW,
   type Item, type StockPage, type StockParams, type StockSummary,
@@ -51,9 +52,9 @@ function issues(i: Item, shop: boolean): string[] {
   return o;
 }
 
-export function StockTable({ owner, initial, summary, mode, shop, ready, canPrice, canAdd, stats, unmatched, napojeni, ordersHref, demandHref }: {
+export function StockTable({ owner, initial, summary, mode, shop, ready, canPrice, canAdd, stats, unmatched, napojeni, ordersHref, salesHref, demandHref }: {
   owner: string; initial: StockPage; summary: StockSummary; mode: 'all' | 'sale'; shop: boolean; ready: boolean; canPrice: boolean; canAdd: boolean;
-  stats: StripStats; unmatched: number; napojeni: string | null; ordersHref: string; demandHref: string | null;
+  stats: StripStats; unmatched: number; napojeni: string | null; ordersHref: string; salesHref: string; demandHref: string | null;
 }) {
   const [q, setQ] = useState('');
   const [qd, setQd] = useState('');
@@ -80,6 +81,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const [edit, setEdit] = useState<string | null>(null);
   const [pop, setPop] = useState<{ k: string; x: number; y: number } | null>(null);
   const [modal, setModal] = useState<BulkModal>(null);
+  const [stripModal, setStripModal] = useState<0 | 1 | 2 | 'val' | null>(null);
   const [toast, setToast] = useState<{ t: string; err?: boolean; undo?: boolean } | null>(null);
   const [pending, start] = useTransition();
   const fwrap = useRef<HTMLSpanElement>(null);
@@ -267,23 +269,23 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   const sgn = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('cs-CZ')}`;
   const resetF = () => { setF({ g: new Set(), c: new Set(), l: new Set(), s: new Set(), p: new Set() }); setForSale(''); setAttn(false); setDup(false); setOld(false); setQ(''); };
 
-  // Dlaždice v pruhu: počty ukážou celý sklad, hodnota seřadí od nejdražší karty.
-  const showAll = () => { resetF(); setSort('chg'); };
-  const byValue = () => { resetF(); setSort('price'); };
+  // Dlaždice v pruhu podle prototypu: počty otevřou Podrobnosti, hodnota okno Hodnota v čase.
+  const det = (k: 0 | 1 | 2) => () => setStripModal(k);
+  const valOpen = () => setStripModal('val');
 
   let strip: React.ReactNode;
   if (!shop && sale) strip = (
     <div className="strip">
-      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % sbírky</em></small><b>{nf(t.onSale)} ks</b></div>
-      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
-      <div className="stc" onClick={() => (location.href = ordersHref)} title="Objednávky"><small>Prodáno<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b>{pl1(stats.sold30.pcs)} · {kc(stats.sold30.sum)}</b></div>
+      <div className="stc" onClick={det(2)} title="Podrobnosti"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % sbírky</em></small><b>{nf(t.onSale)} ks</b></div>
+      <div className="stc" onClick={valOpen} title="Vývoj hodnoty"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
+      <Link className="stc" href={salesHref} title="Prodeje v historii" style={{ display: 'block', padding: '12px 18px', borderLeft: '1px solid var(--line)' }}><small>Prodáno<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b>{pl1(stats.sold30.pcs)} · {kc(stats.sold30.sum)}</b></Link>
       <Link className="stc" href={ordersHref} style={{ display: 'block', padding: '12px 18px', borderLeft: '1px solid var(--line)' }}><small>Objednávky{stats.ordersWaiting ? <em>{stats.ordersWaiting} čeká na vás</em> : null}</small><b>{nf(stats.orders)}</b></Link>
     </div>
   );
   else if (shop && sale) strip = (
     <div className="strip">
-      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % skladu</em></small><b>{nf(t.onSale)} ks</b></div>
-      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
+      <div className="stc" onClick={det(2)} title="Podrobnosti"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % skladu</em></small><b>{nf(t.onSale)} ks</b></div>
+      <div className="stc" onClick={valOpen} title="Vývoj hodnoty"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
       {stats.watchers != null ? (
         <div className="stc" onClick={() => demandHref && (location.href = demandHref)} title="Kdo co hledá"><small>Hlídá vaše karty</small><b>{plw(stats.watchers, ['člověk', 'lidé', 'lidí'])}</b></div>
       ) : null}
@@ -293,29 +295,17 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
   );
   else if (shop) strip = (
     <div className="strip">
-      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Kusů celkem</small><b>{nf(t.pcs)}</b></div>
-      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Druhů</small><b>{nf(t.kinds)}</b></div>
-      <div className="stc" onClick={() => { resetF(); setForSale('on'); }}><small>Na prodej<em>{pct(t.onSale, t.pcs)} %</em></small><b>{nf(t.onSale)}</b></div>
-      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota podle trhu{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} %</em> : null}</small><b>{kc(t.val)}</b></div>
+      <div className="stc" onClick={det(0)} title="Podrobnosti"><small>Kusů celkem</small><b>{nf(t.pcs)}</b></div>
+      <div className="stc" onClick={det(1)} title="Podrobnosti"><small>Druhů</small><b>{nf(t.kinds)}</b></div>
+      <div className="stc" onClick={det(2)} title="Podrobnosti"><small>Na prodej<em>{pct(t.onSale, t.pcs)} %</em></small><b>{nf(t.onSale)}</b></div>
+      <div className="stc" onClick={valOpen} title="Vývoj hodnoty skladu"><small>Hodnota podle trhu{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} %</em> : null}</small><b>{kc(t.val)}</b></div>
       <div className="sync"><span>Žádný e-shop nenapojen</span>{napojeni ? <Link className="btn sm" href={napojeni}>Napojit</Link> : null}</div>
     </div>
   );
   else strip = (
     <div className="strip">
-      <div className="stc" onClick={showAll} title="Zobrazit vše"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
-      <div className="stc" onClick={byValue} title="Seřadit od nejdražší"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
-      {stats.riser ? (
-        <div className="stc" onClick={() => openCard(stats.riser!.cardId)}
-          title={`${stats.riser.name}: ${kc(stats.riser.from)} → ${kc(stats.riser.to)} za 30 dní`}>
-          <small>Nejvíc zdražila<em>+{nf(stats.riser.to - stats.riser.from)} Kč · +{stats.riser.pct} %</em></small>
-          <b style={{ fontSize: 15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stats.riser.name}</b>
-        </div>
-      ) : (
-        // Bez dat není kam prokliknout: dlaždice nesmí vypadat jako tlačítko.
-        <div className="stc" style={{ cursor: 'default', background: 'none' }} title="Tržní ceny se zapisují každou noc, první porovnání bude zítra">
-          <small>Nejvíc zdražila<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b style={{ fontSize: 15, color: 'var(--ink-muted)' }}>Zatím málo dat</b>
-        </div>
-      )}
+      <div className="stc" onClick={det(1)} title="Podrobnosti"><small>Druhů ve sbírce</small><b>{nf(t.kinds)}</b></div>
+      <div className="stc" onClick={valOpen} title="Vývoj hodnoty"><small>Hodnota sbírky{stats.trend != null ? <em style={stats.trend < 0 ? { color: 'var(--down)' } : undefined}>{sgn(stats.trend)} % za 30 dní</em> : null}</small><b>{kc(t.val)}</b></div>
       <div className="stc" onClick={() => { resetF(); setDup(true); }} title="Zobrazit duplicity">
         <small>Duplicity<em style={{ color: 'var(--ink-muted)' }}>{t.tradeN ? `${t.tradeN} na výměnu` : 'k prodeji nebo výměně'}</em></small><b>{nf(t.dups)}</b>
       </div>
@@ -630,6 +620,8 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
           <p style={{ margin: 0, color: 'var(--ink-muted)' }}>Karty zmizí ze {shop ? 'skladu i z prodeje' : 'sbírky i z nabídky'}. Odebrání už vrátit nejde.</p>
         </Modal>
       ) : null}
+      {stripModal === 'val' ? <ValueModal owner={owner} off={sale} shop={shop} onClose={() => setStripModal(null)} onCard={openCard} /> : null}
+      {stripModal != null && stripModal !== 'val' ? <StockDetailModal owner={owner} k={stripModal} shop={shop} onClose={() => setStripModal(null)} /> : null}
       {modal === 'export' ? <ExportModal shop={shop} selected={selItems.map((x) => x.id)} filtered={exportIds} total={sum.total} onClose={() => setModal(null)} /> : null}
       {modal === 'bmore' ? (
         <Modal title="Další akce" onClose={() => setModal(null)} foot={<button type="button" className="btn" onClick={() => setModal(null)}>Zavřít</button>}>

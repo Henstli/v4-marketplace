@@ -35,7 +35,7 @@ import styles from './sell.module.css';
 export const metadata: Metadata = { title: 'Sklad' };
 
 type Props = { searchParams: Promise<{
-  zalozka?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string;
+  zalozka?: string; druh?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string;
 }> };
 
 type Tab = 'vse' | 'prodej' | 'odeslat' | 'trh' | 'nesparovane' | 'inventura' | 'historie' | 'hledam' | 'sady' | 'napojeni';
@@ -196,12 +196,12 @@ export default async function StockPage({ searchParams }: Props) {
           {ready.ready || !ctx.isOwner ? null : <SellGate r={ready} back="prodat" />}
           <StockTable key={`${ctx.owner}:${tab}`} owner={ctx.owner} initial={firstPage} summary={summary} mode={tab === 'prodej' ? 'sale' : 'all'} shop={shop} ready={ready.ready}
             canPrice={has('price')} canAdd={has('add')} stats={strip} unmatched={unm.waiting}
-            napojeni={has('conn') ? href('napojeni') : null} ordersHref={shop && can.odeslat ? href('odeslat') : '/objednavky?tab=prodeje'}
+            napojeni={has('conn') ? href('napojeni') : null} ordersHref={shop && can.odeslat ? href('odeslat') : '/objednavky?tab=prodeje'} salesHref={href('historie', { druh: 'prodeje' })}
             demandHref={can.trh ? href('trh') : null} />
         </>
       ) : null}
       {tab === 'odeslat' && ship ? <ShipManager orders={ship.orders} toConfirm={ctx.isOwner ? ship.toConfirm : 0} q={ctx.q} /> : null}
-      {tab === 'historie' ? <History userId={ctx.owner} shop={shop} /> : null}
+      {tab === 'historie' ? <History userId={ctx.owner} shop={shop} sales={sp.druh === 'prodeje'} /> : null}
       {tab === 'inventura' ? (
         <InventoryViews data={await loadInventory(supabase, ctx.owner, user.id, ctx.ownerName, Math.max(-52, Math.min(52, Number(sp.tyden) || 0)))}
           view={view} invId={sp.inventura ? Number(sp.inventura) : undefined} owner={ctx.owner} me={user.id} perms={[...ctx.perms]} q={ctx.q}
@@ -272,7 +272,7 @@ async function AddCard({ karta, ready, shop, gate, owner }: { karta: string; rea
   );
 }
 
-async function History({ userId, shop }: { userId: string; shop: boolean }) {
+async function History({ userId, shop, sales }: { userId: string; shop: boolean; sales: boolean }) {
   const supabase = await createClient();
   const since = new Date(Date.now() - 365 * 86400000).toISOString();
   const [{ data: events }, { data: orders }, { data: invs }] = await Promise.all([
@@ -310,7 +310,7 @@ async function History({ userId, shop }: { userId: string; shop: boolean }) {
       };
     }),
   ].sort((a, b) => b.at.localeCompare(a.at));
-  return <StockHistory entries={entries} shop={shop} />;
+  return <StockHistory entries={entries} shop={shop} initialKind={sales ? 'sale' : 'all'} />;
 }
 
 async function Wanted() {
