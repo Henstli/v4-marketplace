@@ -9,11 +9,12 @@ import styles from './sell.module.css';
 /**
  * Přidání karty do skladu/sbírky: hned prodávat, nebo jen mít (mimo prodej, cena nepovinná).
  * `ready`: prodejce má dopravu a platbu; bez nich jde kartu jen přidat mimo prodej.
+ * `owner`: sklad obchodu, kam přidává člověk z týmu (jen mimo prodej, na prodej ji dá kdo smí měnit ceny).
  */
-export function ListingForm({ cardId, ready, shop }: { cardId: string; ready: boolean; shop: boolean }) {
+export function ListingForm({ cardId, ready, shop, owner }: { cardId: string; ready: boolean; shop: boolean; owner?: string }) {
   const [state, action, pending] = useActionState<ListingState, FormData>(createListing, {});
   const formRef = useRef<HTMLFormElement>(null);
-  const [mode, setMode] = useState<'sell' | 'keep'>(ready ? 'sell' : 'keep');
+  const [mode, setMode] = useState<'sell' | 'keep'>(ready && !owner ? 'sell' : 'keep');
   // Cena dohodou: bez ceny, kupující pošle návrh (DS OfferTable).
   const [negotiable, setNegotiable] = useState(false);
   const [done, setDone] = useState<'sell' | 'keep' | null>(null);
@@ -26,10 +27,13 @@ export function ListingForm({ cardId, ready, shop }: { cardId: string; ready: bo
     <form ref={formRef} action={(fd) => { setDone(mode); action(fd); }} className={styles.form}>
       <input type="hidden" name="card" value={cardId} />
       <input type="hidden" name="mode" value={mode} />
-      <div className={`${styles.wide} tz-stk-tools`} role="radiogroup" aria-label="Co s kartou">
-        <button type="button" className="tz-stk-fbtn" aria-pressed={sell} onClick={() => setMode('sell')}>Hned prodávat</button>
-        <button type="button" className="tz-stk-fbtn" aria-pressed={!sell} onClick={() => setMode('keep')}>Jen do {shop ? 'skladu' : 'sbírky'}, zatím neprodávat</button>
-      </div>
+      {owner ? <input type="hidden" name="owner" value={owner} /> : (
+        <div className={`${styles.wide} tz-stk-tools`} role="radiogroup" aria-label="Co s kartou">
+          <button type="button" className="tz-stk-fbtn" aria-pressed={sell} onClick={() => setMode('sell')}>Hned prodávat</button>
+          <button type="button" className="tz-stk-fbtn" aria-pressed={!sell} onClick={() => setMode('keep')}>Jen do {shop ? 'skladu' : 'sbírky'}, zatím neprodávat</button>
+        </div>
+      )}
+      {owner ? <p className={`${styles.wide} t-small muted`}>Karta se přidá do skladu obchodu mimo prodej. Na prodej ji dá ten, kdo smí měnit ceny.</p> : null}
       <label className={styles.field}>
         <span className="t-label muted">STAV</span>
         <select name="condition" required defaultValue="NM" className={styles.input}>

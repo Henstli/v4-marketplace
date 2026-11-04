@@ -5,34 +5,38 @@ import { createClient } from '@/lib/supabase/server';
 import { formatDate, formatPrice } from '@/lib/format';
 import { LANGUAGE_NAMES, type Language } from '@/lib/types';
 import { loadShipping, type ShipOrder } from '../ship';
+import { loadCtx } from '../team';
 import { PrintButton } from './PrintButton';
 
 export const metadata: Metadata = { title: 'Tisk', robots: { index: false } };
 
-type Props = { searchParams: Promise<{ druh?: string; o?: string }> };
+type Props = { searchParams: Promise<{ druh?: string; o?: string; obchod?: string }> };
 
 /** Tisk z K odeslání: dodací listy (co je v balíku) a adresní štítky (zásilky na adresu). */
 export default async function PrintPage({ searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/prihlaseni?dalsi=/prodat?zalozka=odeslat');
-  const { druh, o } = await searchParams;
+  const { druh, o, obchod } = await searchParams;
   const want = new Set((o ?? '').split(',').map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100));
   const supabase = await createClient();
+  // Sklad obchodu, kde je přihlášený v týmu (?obchod=…): tiskne za obchod.
+  const ctx = await loadCtx(supabase, user, obchod);
+  if (!ctx.perms.has('ord')) redirect('/prodat');
   const [{ orders }, { data: page }] = await Promise.all([
-    loadShipping(supabase, user.id),
-    supabase.from('shop_pages').select('store, contact').eq('user_id', user.id).maybeSingle(),
+    loadShipping(supabase, ctx.owner),
+    supabase.from('shop_pages').select('store, contact').eq('user_id', ctx.owner).maybeSingle(),
   ]);
   const labels = druh === 'adresy';
   const list = orders.filter((x) => want.has(x.number) && (!labels || (x.delivery === 'ship' && x.address && !x.address.point_name)));
   const store = (page?.store ?? {}) as { address?: string };
   const contact = (page?.contact ?? {}) as { email?: string; phone?: string; web?: string };
-  const sender = { name: user.displayName, address: store.address ?? '', contact: [contact.email, contact.phone, contact.web].filter(Boolean).join(' · ') };
+  const sender = { name: ctx.ownerName, address: store.address ?? '', contact: [contact.email, contact.phone, contact.web].filter(Boolean).join(' · ') };
 
   return (
     <div className="container" style={{ paddingTop: 'var(--space-8)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="tz-stk-shiphead tz-stk-noprint">
         <div><b>{labels ? 'Adresní štítky' : 'Dodací listy'} · {list.length}</b></div>
-        <div className="tz-stk-hacts"><a className="tz-btn tz-btn-ghost tz-btn-md" href="/prodat?zalozka=odeslat">← K odeslání</a><PrintButton /></div>
+        <div className="tz-stk-hacts"><a className="tz-btn tz-btn-ghost tz-btn-md" href={`/prodat?zalozka=odeslat${ctx.q ? `&${ctx.q}` : ''}`}>← K odeslání</a><PrintButton /></div>
       </div>
       {!list.length ? <div className="tz-stk-empty"><b>Nic k tisku</b>Objednávky už jsou odeslané nebo nepatří k vašemu skladu.</div> : null}
       <div className="tz-stk-print">

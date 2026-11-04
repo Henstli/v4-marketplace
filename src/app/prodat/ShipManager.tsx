@@ -29,7 +29,8 @@ function addressText(o: ShipOrder): string {
 }
 
 /** K odeslání: objednávky k zabalení a odeslání, vychystání podle míst, dodací listy a adresní štítky. */
-export function ShipManager({ orders, toConfirm }: { orders: ShipOrder[]; toConfirm: number }) {
+export function ShipManager({ orders, toConfirm, q = '' }: { orders: ShipOrder[]; toConfirm: number; q?: string }) {
+  const qs = q ? `&${q}` : '';
   const [picking, setPicking] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const ready = orders.filter((o) => o.ready);
@@ -52,8 +53,8 @@ export function ShipManager({ orders, toConfirm }: { orders: ShipOrder[]; toConf
           <span className="tz-stk-pills">{carriers.map(([c, n]) => <span key={c} className="tz-stk-src">{c} {n}</span>)}</span>
         </div>
         <div className="tz-stk-hacts">
-          {ready.length ? <a className="tz-btn tz-btn-ghost tz-btn-md" href={`/prodat/tisk?druh=dodaci&o=${ready.map((o) => o.number).join(',')}`} target="_blank" rel="noopener">Dodací listy ({ready.length})</a> : null}
-          {toPost.length ? <a className="tz-btn tz-btn-ghost tz-btn-md" href={`/prodat/tisk?druh=adresy&o=${toPost.map((o) => o.number).join(',')}`} target="_blank" rel="noopener">Adresní štítky ({toPost.length})</a> : null}
+          {ready.length ? <a className="tz-btn tz-btn-ghost tz-btn-md" href={`/prodat/tisk?druh=dodaci&o=${ready.map((o) => o.number).join(',')}${qs}`} target="_blank" rel="noopener">Dodací listy ({ready.length})</a> : null}
+          {toPost.length ? <a className="tz-btn tz-btn-ghost tz-btn-md" href={`/prodat/tisk?druh=adresy&o=${toPost.map((o) => o.number).join(',')}${qs}`} target="_blank" rel="noopener">Adresní štítky ({toPost.length})</a> : null}
           <Button disabled={!ready.length} onClick={() => setPicking(true)}>Vychystat {karet(readyPcs)}</Button>
         </div>
       </div>
@@ -72,9 +73,9 @@ export function ShipManager({ orders, toConfirm }: { orders: ShipOrder[]; toConf
                 </span>
                 <span><b>{o.carrierName}</b><small>{o.address?.point_name ?? o.address?.city ?? ''}</small></span>
                 <span><Pay o={o} /></span>
-                <span onClick={(e) => e.stopPropagation()}><Send o={o} /></span>
+                <span onClick={(e) => e.stopPropagation()}><Send o={o} crew={!!q} /></span>
               </div>
-              {open === o.id ? <Detail o={o} /> : null}
+              {open === o.id ? <Detail o={o} q={q} /> : null}
             </Fragment>
           ))}
         </div>
@@ -94,9 +95,9 @@ function Pay({ o }: { o: ShipOrder }) {
 }
 
 /** Odeslání: číslo zásilky + Odesláno (zásilka), Předáno (hotově při předání), jinak co se čeká. */
-function Send({ o }: { o: ShipOrder }) {
+function Send({ o, crew }: { o: ShipOrder; crew?: boolean }) {
   if (!o.ready) {
-    return o.buyerPaidAt ? <Link className="tz-btn tz-btn-secondary tz-btn-sm" href={`/objednavky/${o.number}`}>Potvrdit platbu</Link> : <span className="tz-stk-muted t-small">čeká na zaplacení</span>;
+    return o.buyerPaidAt && !crew ? <Link className="tz-btn tz-btn-secondary tz-btn-sm" href={`/objednavky/${o.number}`}>Potvrdit platbu</Link> : <span className="tz-stk-muted t-small">čeká na zaplacení</span>;
   }
   if (o.delivery === 'pickup') {
     return o.payment === 'cash' ? (
@@ -115,7 +116,7 @@ function Send({ o }: { o: ShipOrder }) {
   );
 }
 
-function Detail({ o }: { o: ShipOrder }) {
+function Detail({ o, q = '' }: { o: ShipOrder; q?: string }) {
   const sum = o.items.reduce((s, i) => s + i.price * i.qty, 0);
   const addr = addressText(o);
   return (
@@ -145,8 +146,8 @@ function Detail({ o }: { o: ShipOrder }) {
           </div>
         ) : o.delivery === 'pickup' ? <p className="t-small muted">Osobní předání, místo a čas domluvte ve zprávách.</p> : null}
         <div className="tz-stk-hacts">
-          <Link className="tz-btn tz-btn-ghost tz-btn-sm" href={`/objednavky/${o.number}`}>Otevřít objednávku</Link>
-          <a className="tz-btn tz-btn-secondary tz-btn-sm" href={`/prodat/tisk?druh=dodaci&o=${o.number}`} target="_blank" rel="noopener">Dodací list</a>
+          {q ? null : <Link className="tz-btn tz-btn-ghost tz-btn-sm" href={`/objednavky/${o.number}`}>Otevřít objednávku</Link>}
+          <a className="tz-btn tz-btn-secondary tz-btn-sm" href={`/prodat/tisk?druh=dodaci&o=${o.number}${q ? `&${q}` : ''}`} target="_blank" rel="noopener">Dodací list</a>
         </div>
       </div>
     </div>

@@ -27,13 +27,25 @@ export function PageTabs({ tabs, current, label }: { tabs: PageTab[]; current: s
   );
 }
 
-export type StockTab = 'vse' | 'prodej' | 'odeslat' | 'hledam' | 'sady' | 'historie' | 'pridat' | 'import';
+export type StockTab = 'vse' | 'prodej' | 'odeslat' | 'hledam' | 'sady' | 'historie' | 'inventura' | 'tym' | 'pridat' | 'import';
 
-/** Záložky Skladu (obchod) nebo Sbírky (sběratel). Sběratel má navíc Hledám a Chybí do sad. */
-export function StockTabs({ current, shop, onSale, toShip }: { current: StockTab; shop: boolean; onSale?: number; toShip?: number }) {
+/**
+ * Záložky Skladu (obchod) nebo Sbírky (sběratel). Sběratel má navíc Hledám a Chybí do sad, obchod Inventuru a Zaměstnance.
+ * `allowed`: záložky, na které má přihlášený právo (ve skladu cizího obchodu); `q`: 'obchod=…' pro sklad obchodu.
+ */
+export function StockTabs({ current, shop, onSale, toShip, toReview, allowed, q = '' }: {
+  current: StockTab; shop: boolean; onSale?: number; toShip?: number; toReview?: number; allowed?: StockTab[]; q?: string;
+}) {
+  const at = (zalozka?: string) => {
+    const sp = new URLSearchParams();
+    if (zalozka) sp.set('zalozka', zalozka);
+    if (q) sp.set('obchod', q.slice('obchod='.length));
+    const x = sp.toString();
+    return x ? `/prodat?${x}` : '/prodat';
+  };
   const href: Record<StockTab, string> = {
-    vse: '/prodat', prodej: '/prodat?zalozka=prodej', odeslat: '/prodat?zalozka=odeslat', hledam: '/prodat?zalozka=hledam', sady: '/prodat?zalozka=sady',
-    historie: '/prodat?zalozka=historie', pridat: '/prodat?zalozka=pridat', import: '/prodat/import',
+    vse: at(), prodej: at('prodej'), odeslat: at('odeslat'), hledam: at('hledam'), sady: at('sady'),
+    historie: at('historie'), inventura: at('inventura'), tym: at('tym'), pridat: at('pridat'), import: '/prodat/import',
   };
   const tabs: (PageTab & { key: StockTab })[] = [
     { key: 'vse', label: 'Všechny karty', href: href.vse },
@@ -43,10 +55,14 @@ export function StockTabs({ current, shop, onSale, toShip }: { current: StockTab
       { key: 'sady' as const, label: 'Chybí do sad', href: href.sady },
     ]),
     { key: 'historie', label: 'Historie', href: href.historie },
+    ...(shop ? [
+      { key: 'inventura' as const, label: 'Inventura', href: href.inventura, count: toReview },
+      { key: 'tym' as const, label: 'Zaměstnanci a role', href: href.tym },
+    ] : []),
     { key: 'pridat', label: 'Přidat kartu', href: href.pridat },
     { key: 'import', label: 'Nahrát tabulku', href: href.import },
   ];
-  return <PageTabs label={shop ? 'Sklad' : 'Sbírka'} current={href[current]} tabs={tabs} />;
+  return <PageTabs label={shop ? 'Sklad' : 'Sbírka'} current={href[current]} tabs={allowed ? tabs.filter((t) => allowed.includes(t.key)) : tabs} />;
 }
 
 /** Záložky Podpory: dotaz na podporu a vlastní hlášení. */
