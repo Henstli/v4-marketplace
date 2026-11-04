@@ -158,18 +158,30 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
           >
             {onProfile ? 'Skrýt z profilu' : 'Ukázat na profilu'}
           </Button>
-          {stockIds.length ? (
-            <Button variant="secondary" disabled={pending} title="Karty alba, které máte ve skladu mimo prodej" onClick={() => insert(stockIds)}>
-              <PlusIcon />Přidat {stockIds.length} ze skladu
-            </Button>
-          ) : null}
           <Button variant="secondary" onClick={() => setDrawer('look')}>Vzhled alba</Button>
           <Button onClick={() => setDrawer('add')}><PlusIcon />Přidat karty</Button>
         </div>
       </div>
 
       <div className={s.full}>
-        <div className={s.stage}>
+        <div className={s.stage} style={{ position: 'relative' }}>
+          {stockIds.length ? (
+            // Hromádka karet ze skladu na místě, odkud karty při vkládání létají (album se samo nedoplňuje).
+            <button type="button" className={s.stockPile} disabled={pending} onClick={() => insert(stockIds)}
+              title="Karty alba, které máte ve skladu mimo prodej">
+              <span className={s.spCards}>
+                {stockIds.slice(0, 3).reverse().map((id, i, a) => {
+                  const c = cards.find((x) => x.id === id);
+                  const k = a.length - 1 - i;
+                  // eslint-disable-next-line @next/next/no-img-element
+                  return c?.image ? <img key={id} src={thumbUrl(c.image) ?? c.image} alt="" style={{ transform: `translate(${k * -5}px, ${k * -4}px) rotate(${k * -4}deg)` }} /> : null;
+                })}
+              </span>
+              <b>{stockIds.length}</b>
+              <small>{stockIds.length === 1 ? 'karta' : stockIds.length < 5 ? 'karty' : 'karet'} ze skladu</small>
+              <em>Vložit do alba</em>
+            </button>
+          ) : null}
           <AlbumViewer
             key={`${look.design}-${look.sleeve}`}
             ref={view}
