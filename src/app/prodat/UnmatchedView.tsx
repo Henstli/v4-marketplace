@@ -35,7 +35,36 @@ const MX = 8;
 const raw = (u: Unm) => [u.name, [u.setCode || u.setName, u.number].filter(Boolean).join(' ')].filter(Boolean).join(' · ') || `Řádek ${u.line ?? ''}`;
 const sub = (c: CardLite) => `${[c.setCode, c.number].filter(Boolean).join(' ')} · ${getGame(c.game)?.name ?? ''}`;
 
-/** Co u položky chybí (pro sloupec místo shody v prototypu). */
+const norm = (x: string | null | undefined) => (x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const numKey = (x: string | null | undefined) => norm((x ?? '').split('/')[0]).replace(/\s/g, '').replace(/^0+(?=\d)/, '');
+/** Podobnost názvů 0–1 (Dice nad dvojicemi písmen). */
+function dice(a: string, b: string) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const bi = (x: string) => { const m = new Map<string, number>(); for (let i = 0; i < x.length - 1; i++) { const k = x.slice(i, i + 2); m.set(k, (m.get(k) ?? 0) + 1); } return m; };
+  const A = bi(a), B = bi(b);
+  let both = 0;
+  A.forEach((n, k) => { both += Math.min(n, B.get(k) ?? 0); });
+  const tot = Math.max(1, a.length - 1 + b.length - 1);
+  return (2 * both) / tot;
+}
+/** Shoda řádku tabulky s kartou z katalogu v % (název, sada, číslo; co v tabulce chybí, se nepočítá). */
+export function matchScore(u: Pick<Unm, 'name' | 'setCode' | 'setName' | 'number'>, c: CardLite) {
+  const parts: [number, number][] = [];
+  if (norm(u.name)) parts.push([50, dice(norm(u.name), norm(c.name))]);
+  if (norm(u.setCode) || norm(u.setName)) {
+    const code = norm(u.setCode) && norm(u.setCode) === norm(c.setCode);
+    parts.push([25, code ? 1 : norm(u.setName) ? dice(norm(u.setName), norm(c.setName)) : 0]);
+  }
+  if (numKey(u.number)) parts.push([25, numKey(u.number) === numKey(c.number) ? 1 : 0]);
+  const w = parts.reduce((t, [x]) => t + x, 0);
+  return w ? Math.round((parts.reduce((t, [x, v]) => t + x * v, 0) / w) * 100) : 0;
+}
+/** Shoda navržené karty: u víc možných verzí nejvýš 70 %, protože nevíme, která to je. */
+const scoreOf = (u: Unm) => { const c = u.candidates[0]; if (!c) return 0; const sc = matchScore(u, c); return u.reason === 'multi' ? Math.min(sc, 70) : sc; };
+const toneOf = (sc: number): 'lo' | 'md' | '' => (sc >= 80 ? '' : sc >= 50 ? 'md' : 'lo');
+
+/** Co u položky chybí (pod shodou). */
 function why(u: Unm): [string, 'lo' | 'md' | ''] {
   if (u.reason === 'none') return ['Nenalezeno', 'lo'];
   if (u.reason === 'multi') return [`${u.candidates.length} možnosti`, 'md'];
@@ -72,7 +101,7 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
 
   function confirm(u: Unm) {
     const c = u.candidates[0];
-    if (u.reason !== 'data' || !c || !u.condition || !u.language) { setPick(u); return; }
+    if (u.reason === 'multi' || !c || !u.condition || !u.language) { setPick(u); return; }
     run(async () => {
       const r = await resolveUnmatched(u.id, c.id, u.condition!, u.language!, u.quantity, u.price);
       return r.error ? r : {};
@@ -131,7 +160,7 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
   const row = (u: Unm) => {
     const c = u.candidates[0];
     const [w, tone] = why(u);
-    const sure = u.reason === 'data' && !!c && !!u.condition && !!u.language;
+    const sure = u.reason !== 'multi' && !!c && !!u.condition && !!u.language && scoreOf(u) >= 80;
     return (
       <div key={u.id} className="um2">
         {origin(u)}
@@ -140,7 +169,10 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
           {c ? <>{c.image ? <img src={thumbUrl(c.image) ?? c.image} alt="" /> : null}<span><b>{c.name}</b><small className="mono">{sub(c)}</small></span></>
             : <span><b style={{ color: 'var(--ink-muted)' }}>V katalogu nenalezeno</b><small>Najděte kartu ručně</small></span>}
         </div>
-        <div className={`ump ${tone}`}><b className="mono" style={{ width: 'auto', textAlign: 'left' }}>{w}</b></div>
+        <div>
+          {c ? <div className={`ump ${toneOf(scoreOf(u))}`} title="Jak moc karta z katalogu odpovídá názvu, sadě a číslu v tabulce"><i style={{ '--w': `${scoreOf(u)}%` } as React.CSSProperties} /><b className="mono">{scoreOf(u)} %</b></div> : null}
+          <small style={{ display: 'block', fontSize: 11.5, marginTop: c ? 3 : 0, color: tone === 'lo' ? 'var(--down)' : 'var(--ink-muted)' }}>{w}</small>
+        </div>
         <div className="ua2">
           <button type="button" className="btn sm g" onClick={() => setPick(u)}>{c ? 'Jiná karta' : 'Najít kartu'}</button>
           <button type="button" className="btn sm g mut" disabled={pending} onClick={() => run(() => ignoreUnmatched([u.id], true), `Ignorováno: ${raw(u)}. Najdete to v záložce Ignorované.`)}>Ignorovat</button>
@@ -160,10 +192,10 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
       </>
     );
   };
-  const none = U.filter((u) => u.reason === 'none');
-  const multi = U.filter((u) => u.reason === 'multi');
-  const data = U.filter((u) => u.reason === 'data');
-  const ready = data.filter((u) => u.candidates[0] && u.condition && u.language);
+  // Jako v prototypu: Zkontrolujte (pod 80 % nebo něco chybí, nejnejistější první) a Skoro jisté (jde rovnou potvrdit).
+  const isSure = (u: Unm) => u.reason !== 'multi' && !!u.candidates[0] && !!u.condition && !!u.language && scoreOf(u) >= 80;
+  const check = U.filter((u) => !isSure(u)).sort((a, b) => scoreOf(a) - scoreOf(b));
+  const ready = U.filter(isSure).sort((a, b) => scoreOf(a) - scoreOf(b));
 
   function confirmAll() {
     run(async () => {
@@ -182,11 +214,10 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
       {top}
       {U.length ? (
         <div className="tbl">
-          <div className="um2 oth"><span>Z tabulky</span><span /><span>Navrhujeme</span><span>Co chybí</span><span /></div>
-          {sec('none', 'Nenalezeno v katalogu', 'Najděte kartu podle názvu, sady nebo čísla, nebo řádek ignorujte.', none)}
-          {sec('multi', 'Vyberte verzi', 'Sadě a číslu odpovídá víc karet, vyberte tu správnou.', multi)}
-          {sec('data', 'Doplňte údaje', 'Karta sedí, chybí jen stav, jazyk nebo počet.', data,
-            ready.length > 1 ? <button type="button" className="btn sm p" disabled={pending} onClick={confirmAll}>Potvrdit všech {nf(ready.length)}</button> : null)}
+          <div className="um2 oth"><span>Z tabulky</span><span /><span>Navrhujeme</span><span>Shoda</span><span /></div>
+          {sec('check', 'Zkontrolujte', 'Shoda pod 80 %, víc možných verzí nebo chybí stav či jazyk. Nejnejistější jsou nahoře.', check)}
+          {sec('sure', 'Skoro jisté', 'Karta sedí a údaje jsou kompletní. Stačí potvrdit.', ready,
+            <button type="button" className="btn sm p" disabled={pending} onClick={confirmAll}>{ready.length > 1 ? `Potvrdit všech ${nf(ready.length)}` : 'Potvrdit'}</button>)}
         </div>
       ) : <div className="tbl"><div className="none">{wait.length ? 'V tomto filtru nic nečeká.' : 'Všechno je spárované nebo ignorované.'}</div></div>}
       {pick ? <PickModal u={pick} shop={shop} onClose={() => setPick(null)} onDone={(t, err) => { setToast({ t, err }); if (!err) { setPick(null); router.refresh(); } }} /> : null}
@@ -260,6 +291,7 @@ function PickModal({ u, shop, onClose, onDone }: { u: Unm; shop: boolean; onClos
           <div key={c.id} className="umar">
             {c.image ? <img src={thumbUrl(c.image) ?? c.image} alt="" /> : <span style={{ width: 30 }} />}
             <span><b>{c.name}</b><small className="mono">{sub(c)}</small></span>
+            <span className="mono" style={{ fontSize: 12, color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>shoda {matchScore(u, c)} %</span>
             {k < u.candidates.length ? <span className="usrc">Náš návrh</span> : null}
             <button type="button" className="btn sm" disabled={pending || !okQty} onClick={() => choose(c)}>Vybrat</button>
           </div>
