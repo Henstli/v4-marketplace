@@ -51,7 +51,7 @@ export function WantsView({ wants }: { wants: Want[] }) {
       ) : (
         <span className="wnm" title="Změnit" onClick={() => setEdit(w.cardId)} style={{ cursor: 'pointer' }}><small>Chci do</small><b className="mono">{w.maxPrice != null ? kc(w.maxPrice) : 'bez limitu'}</b></span>
       )}
-      <span className="wnl"><small>Nejlevněji teď</small>{w.low == null ? <b className="mut">nikdo neprodává</b> : <b className={`mono${ok(w) ? ' acc' : ''}`}>{kc(w.low)}</b>}
+      <span className="wnl"><small>{w.low == null ? 'Nabídky' : 'Nejlevněji teď'}</small>{w.low == null ? <b className="mut">zatím žádné</b> : <b className={`mono${ok(w) ? ' acc' : ''}`}>{kc(w.low)}</b>}
         <small>{w.offers ? offers(w.offers) : 'dáme vědět, až se objeví'}</small></span>
       <span className="wna">
         {ok(w) ? <Link className="btn sm p" href={`/karty/${w.slug}`}>Zobrazit nabídky</Link> : null}
