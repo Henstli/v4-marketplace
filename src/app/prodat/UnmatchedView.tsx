@@ -101,7 +101,7 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
 
   function confirm(u: Unm) {
     const c = u.candidates[0];
-    if (u.reason !== 'data' || !c || !u.condition || !u.language) { setPick(u); return; }
+    if (u.reason === 'multi' || !c || !u.condition || !u.language) { setPick(u); return; }
     run(async () => {
       const r = await resolveUnmatched(u.id, c.id, u.condition!, u.language!, u.quantity, u.price);
       return r.error ? r : {};
@@ -160,7 +160,7 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
   const row = (u: Unm) => {
     const c = u.candidates[0];
     const [w, tone] = why(u);
-    const sure = u.reason === 'data' && !!c && !!u.condition && !!u.language;
+    const sure = u.reason !== 'multi' && !!c && !!u.condition && !!u.language && scoreOf(u) >= 80;
     return (
       <div key={u.id} className="um2">
         {origin(u)}
@@ -192,10 +192,10 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
       </>
     );
   };
-  const none = U.filter((u) => u.reason === 'none');
-  const multi = U.filter((u) => u.reason === 'multi').sort((a, b) => scoreOf(a) - scoreOf(b));
-  const data = U.filter((u) => u.reason === 'data').sort((a, b) => scoreOf(a) - scoreOf(b));
-  const ready = data.filter((u) => u.candidates[0] && u.condition && u.language);
+  // Jako v prototypu: Zkontrolujte (pod 80 % nebo něco chybí, nejnejistější první) a Skoro jisté (jde rovnou potvrdit).
+  const isSure = (u: Unm) => u.reason !== 'multi' && !!u.candidates[0] && !!u.condition && !!u.language && scoreOf(u) >= 80;
+  const check = U.filter((u) => !isSure(u)).sort((a, b) => scoreOf(a) - scoreOf(b));
+  const ready = U.filter(isSure).sort((a, b) => scoreOf(a) - scoreOf(b));
 
   function confirmAll() {
     run(async () => {
@@ -215,10 +215,9 @@ export function UnmatchedView({ items, shop }: { items: Unm[]; shop: boolean }) 
       {U.length ? (
         <div className="tbl">
           <div className="um2 oth"><span>Z tabulky</span><span /><span>Navrhujeme</span><span>Shoda</span><span /></div>
-          {sec('none', 'Nenalezeno v katalogu', 'Najděte kartu podle názvu, sady nebo čísla, nebo řádek ignorujte.', none)}
-          {sec('multi', 'Vyberte verzi', 'Sadě a číslu odpovídá víc karet, vyberte tu správnou.', multi)}
-          {sec('data', 'Doplňte údaje', 'Karta sedí, chybí jen stav, jazyk nebo počet.', data,
-            ready.length > 1 ? <button type="button" className="btn sm p" disabled={pending} onClick={confirmAll}>Potvrdit všech {nf(ready.length)}</button> : null)}
+          {sec('check', 'Zkontrolujte', 'Shoda pod 80 %, víc možných verzí nebo chybí stav či jazyk. Nejnejistější jsou nahoře.', check)}
+          {sec('sure', 'Skoro jisté', 'Karta sedí a údaje jsou kompletní. Stačí potvrdit.', ready,
+            <button type="button" className="btn sm p" disabled={pending} onClick={confirmAll}>{ready.length > 1 ? `Potvrdit všech ${nf(ready.length)}` : 'Potvrdit'}</button>)}
         </div>
       ) : <div className="tbl"><div className="none">{wait.length ? 'V tomto filtru nic nečeká.' : 'Všechno je spárované nebo ignorované.'}</div></div>}
       {pick ? <PickModal u={pick} shop={shop} onClose={() => setPick(null)} onDone={(t, err) => { setToast({ t, err }); if (!err) { setPick(null); router.refresh(); } }} /> : null}
