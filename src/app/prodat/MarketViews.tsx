@@ -76,7 +76,7 @@ function Demand({ list, owner, canSell }: { list: DemandCard[]; owner: string; c
     setMsg(r.error ? { ok: false, t: r.error } : { ok: true, t: r.text ?? 'Karta je na prodej.' });
     if (!r.error) router.refresh();
   });
-  if (!list.length) return <div className="tbl"><div className="none">Zatím nikdo nic nehledá. Jakmile si sběratelé přidají karty do Hledám nebo je začnou hlídat, uvidíte tady, co chtějí.</div></div>;
+  if (!list.length) return <div className="tbl"><div className="none">Zatím nikdo nic nehledá. Jakmile si sběratelé začnou karty hlídat, uvidíte tady, co chtějí.</div></div>;
   const buy = (d: DemandCard) => Math.round((d.market ?? 0) * 0.6);
   return (
     <>
@@ -121,7 +121,7 @@ function Demand({ list, owner, canSell }: { list: DemandCard[]; owner: string; c
           </div>
         </div>
       ) : null}
-      <p className="onote">Jen souhrnná čísla: kolik lidí kartu hledá (Hledám) nebo hlídá (Dát vědět, až se objeví). Kdo konkrétně, neukazujeme.</p>
+      <p className="onote">Jen souhrnná čísla: kolik lidí kartu hlídá. Kdo konkrétně, neukazujeme.</p>
     </>
   );
 }

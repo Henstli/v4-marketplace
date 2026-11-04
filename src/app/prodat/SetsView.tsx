@@ -91,7 +91,7 @@ function WatchModal({ s, onClose }: { s: SetCard; onClose: () => void }) {
       <button type="button" className="btn" onClick={onClose}>Zavřít</button>
       <button type="button" className="btn p" disabled={pending} onClick={() => go(c)}>{on ? 'Uložit' : 'Hlídat'}</button>
     </>}>
-      <p className="ixlead">Hlídáme všech {nf(s.missing)} karet, které vám v sadě chybí. Přidáme je do Hledám a dáme vědět, když se objeví nabídka. Když kartu přidáte do sbírky, můžete ji z Hledám odebrat.</p>
+      <p className="ixlead">Hlídáme všech {nf(s.missing)} karet, které vám v sadě chybí. Najdete je v Hlídání a příkazech a dáme vědět, když se objeví nabídka.</p>
       <div className="sgrp">
         <div className="sgh">Jaké karty</div>
         <div className="srow"><div><b>Nejhorší stav</b><small>Horší kusy vám neukážeme.</small></div>

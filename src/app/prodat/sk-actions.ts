@@ -121,7 +121,7 @@ export async function setMissing(setId: string): Promise<MissingCard[]> {
     .map((c) => ({ id: c.card_id, slug: c.slug, name: c.name, number: c.number, image: thumbUrl(c.image_url ?? undefined) ?? null, low: c.low_czk, offers: c.offers }));
 }
 
-/** Hlídat ceny sady: všechny chybějící karty do Hledám (nejhorší stav), nebo hlídání zrušit. */
+/** Hlídat ceny sady: všechny chybějící karty do Hlídaných karet (nejhorší stav), nebo hlídání zrušit. */
 export async function watchSet(setId: string, cond: string | null): Promise<SkResult> {
   if (!UUID.test(setId)) return { error: 'Sada nenalezena.' };
   const supabase = await createClient();
@@ -131,13 +131,14 @@ export async function watchSet(setId: string, cond: string | null): Promise<SkRe
   const ids = ((data ?? []) as { card_id: string }[]).map((c) => c.card_id);
   if (!ids.length) return { count: 0 };
   if (cond == null) {
-    const { error } = await supabase.from('stock_wants').delete().eq('user_id', auth.user.id).in('card_id', ids);
+    const { error } = await supabase.from('card_watches').delete().eq('user_id', auth.user.id).in('card_id', ids);
     if (error) return { error: 'Hlídání se nepodařilo zrušit.' };
   } else {
     if (!CONDITIONS.includes(cond as never)) return { error: 'Vyberte stav.' };
-    const { error } = await supabase.from('stock_wants').upsert(ids.map((id) => ({ user_id: auth.user!.id, card_id: id, min_condition: cond })), { onConflict: 'user_id,card_id', ignoreDuplicates: true });
+    const { error } = await supabase.from('card_watches').upsert(ids.map((id) => ({ user_id: auth.user!.id, card_id: id, min_condition: cond })), { onConflict: 'user_id,card_id', ignoreDuplicates: true });
     if (error) return { error: 'Hlídání se nepodařilo zapnout.' };
   }
   revalidatePath('/prodat');
+  revalidatePath('/ucet/hlidane');
   return { count: ids.length };
 }
