@@ -207,3 +207,5 @@
 @keyframes newbP{50%{opacity:.35}}
 .album:has(.newb){border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
 .wizSteps{width:340px;flex:none}
+.prevCol{position:sticky;top:calc(var(--site-header-h,64px) + 16px);display:flex;flex-direction:column;gap:var(--space-3)}
+.prevCol .prev{position:static}

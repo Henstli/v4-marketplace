@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import { AlbumBook, Sleeve } from '@/components/album/AlbumBook';
 import { cardsWord } from '@/components/album/engine';
 import { Button, ButtonLink, Chip, SearchField, Steps } from '@/components/trezor';
@@ -26,6 +26,9 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
   const [step, setStep] = useState(0);
   // Další krok průvodce vždy začíná nahoře (seznam sad bývá dlouhý).
   const firstStep = useRef(true);
+  // Náhled alba začíná ve výšce prvního boxu v hlavním sloupci (pole názvu, volba obsahu nebo hledání).
+  const mainRef = useRef<HTMLDivElement>(null);
+  const [prevTop, setPrevTop] = useState(0);
   useEffect(() => {
     if (firstStep.current) { firstStep.current = false; return; }
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -100,6 +103,11 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
       router.push(`/kolekce/${r.id}?zalozeno=1`);
     });
 
+  useLayoutEffect(() => {
+    const m = mainRef.current;
+    const f = m?.querySelector<HTMLElement>(`.tz-search, input.${s.input}, .${s.kinds}, .${s.pick}`);
+    setPrevTop(m && f ? Math.max(0, Math.round(f.getBoundingClientRect().top - m.getBoundingClientRect().top)) : 0);
+  }, [step, kind]);
   const canNext = step === 0 ? true : step === 1 ? (kind === 'custom' || !!set) : !!look.name.trim();
 
   return (
@@ -111,7 +119,7 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
       </div>
 
       <div className={s.wiz}>
-        <div className={s.wizMain}>
+        <div className={s.wizMain} ref={mainRef}>
           {step === 0 ? (
             <LookFields value={look} onChange={(v) => { if (v.name !== look.name) named.current = true; setLook(v); }} />
           ) : null}
@@ -221,19 +229,19 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
           </div>
         </div>
 
-        <aside className={s.prev}>
-          {step !== 0 ? <SleeveSprite /> : null}
-          <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
-          <div className={s.prevSl}>
-            <Sleeve sleeve={look.sleeve} image={tray[0]?.image ?? cards?.find((c) => picked.has(c.id))?.image ?? null} scale={0.55} />
-            <Sleeve sleeve={look.sleeve} image={null} scale={0.55} back />
-          </div>
-          <h3>{look.name || 'Moje album'}</h3>
-          <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
-          <div style={{ marginTop: 'var(--space-4)', textAlign: 'left' }}>
-            <AutoFill kind={kind} checked={autoFill} onChange={setAutoFill} />
-          </div>
-        </aside>
+        <div className={s.prevCol} style={{ marginTop: prevTop }}>
+          <aside className={s.prev}>
+            {step !== 0 ? <SleeveSprite /> : null}
+            <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
+            <div className={s.prevSl}>
+              <Sleeve sleeve={look.sleeve} image={tray[0]?.image ?? cards?.find((c) => picked.has(c.id))?.image ?? null} scale={0.55} />
+              <Sleeve sleeve={look.sleeve} image={null} scale={0.55} back />
+            </div>
+            <h3>{look.name || 'Moje album'}</h3>
+            <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
+          </aside>
+          <AutoFill kind={kind} checked={autoFill} onChange={setAutoFill} />
+        </div>
       </div>
     </main>
   );
