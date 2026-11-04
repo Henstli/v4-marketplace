@@ -720,23 +720,29 @@ function AttrModal({ n, onClose, onOk }: { n: number; onClose: () => void; onOk:
 const posClash = (pos: string, places: string[]) => { const p = pos.trim().toLowerCase(); return !!p && places.some((l) => l.toLowerCase() === p); };
 const PosClash = ({ pos }: { pos: string }) => <small style={{ color: 'var(--warn,#f0a24a)', fontSize: 12, display: 'block', marginTop: 6 }}>„{pos.trim()}“ je název místa. Zvolte ho nahoře jako místo, nebo pozici pojmenujte jinak.</small>;
 
-/** Výběr místa: hledání + posuvný seznam všech míst (jedno vybrané), nové místo se přidá přímo z hledání. */
+/** Výběr místa (stejně jako filtr): vybrané místo jako zelený štítek s křížkem, pole se rozbalí na hledání + posuvný seznam. */
 function PlacePicker({ places, value, onPick }: { places: string[]; value: string; onPick: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const qq = q.trim().toLowerCase();
   const list = places.filter((l) => !qq || l.toLowerCase().includes(qq)).sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
-  if (value && !places.includes(value)) list.unshift(value);
   const exact = places.find((l) => l.toLowerCase() === qq);
-  const add = () => { onPick(q.trim()); setQ(''); };
+  const pick = (v: string) => { onPick(v); setQ(''); setOpen(false); };
   return <>
-    <div className="floc">{Ico.s}<input value={q} maxLength={40} placeholder="Najít nebo přidat místo" autoComplete="off"
-      onChange={(e) => setQ(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter' && qq) { e.preventDefault(); if (exact) { onPick(exact); setQ(''); } else add(); } }} /></div>
-    <div className="flist">
-      {list.map((l) => <button key={l} type="button" className={value === l ? 'on' : ''} onClick={() => onPick(value === l ? '' : l)}>
-        <span className={`cb rd${value === l ? ' on' : ''}`} />{l}{!places.includes(l) ? <em>nové</em> : null}</button>)}
-      {qq && !exact ? <button type="button" className="add" onClick={add}>+ Přidat místo „{q.trim()}“</button> : null}
-      {!list.length && !qq ? <span className="fnone">Zatím žádné místo. Napište název a přidejte ho.</span> : null}
+    {value ? <div className="ftags"><span className="fpill">{value}{!places.includes(value) ? <b>nové</b> : null}<button type="button" className="xx" onClick={() => onPick('')} title="Odebrat">×</button></span></div> : null}
+    <div className={`fcombo${open ? ' open' : ''}`}>
+      {open
+        ? <div className="fch">{Ico.s}<input autoFocus value={q} maxLength={40} placeholder="Hledat nebo přidat místo" autoComplete="off"
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } if (e.key === 'Enter' && qq) { e.preventDefault(); pick(exact ?? q.trim()); } }} />
+          <button type="button" className="fcx" onClick={() => setOpen(false)} title="Zavřít">{Ico.chev}</button></div>
+        : <button type="button" className="fch" onClick={() => { setOpen(true); setQ(''); }}><span>{value ? 'Změnit umístění' : 'Vybrat umístění'}</span>{Ico.chev}</button>}
+      {open ? <div className="flist">
+        {list.map((l) => <button key={l} type="button" className={value === l ? 'on' : ''} onClick={() => pick(value === l ? '' : l)}>
+          <span className={`cb rd${value === l ? ' on' : ''}`} />{l}</button>)}
+        {qq && !exact ? <button type="button" className="add" onClick={() => pick(q.trim())}>+ Přidat místo „{q.trim()}“</button> : null}
+        {!list.length && !qq ? <span className="fnone">Zatím žádné místo. Napište název a přidejte ho.</span> : null}
+      </div> : null}
     </div>
   </>;
 }
