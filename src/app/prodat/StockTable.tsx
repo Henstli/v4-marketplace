@@ -38,6 +38,13 @@ type F = { g: Set<string>; c: Set<string>; l: Set<string>; s: Set<string>; p: Se
 type BulkModal = 'sell' | 'price' | 'attr' | 'loc' | 'del' | 'export' | 'bmore' | null;
 
 const SLOW = 60;
+const SO: Record<Sort, (x: Item, y: Item) => number> = {
+  chg: (x, y) => y.upd.localeCompare(x.upd),
+  name: (x, y) => x.name.localeCompare(y.name, 'cs'),
+  have: (x, y) => y.have - x.have,
+  price: (x, y) => (y.price ?? y.market ?? 0) - (x.price ?? x.market ?? 0),
+};
+const rankOf = (list: Item[], s: Sort) => new Map(list.slice().sort(SO[s]).map((i, n) => [i.id, n]));
 const days = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 0);
 const toItem = (r: StockRow): Item => ({
   r, id: r.id, key: r.cardId, name: r.card?.name ?? 'Karta', set: `${r.card?.setCode ?? ''} ${r.card?.number ?? ''}`.trim(),
@@ -78,7 +85,9 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
   const [fq, setFq] = useState('');
   const [locOpen, setLocOpen] = useState(false);
   const [view, setView] = useState<'list' | 'text'>('list');
-  const [sort, setSort] = useState<Sort>('chg');
+  const [sort, setSortRaw] = useState<Sort>('chg');
+  const [rank, setRank] = useState(() => rankOf(rows.map(toItem), 'chg'));
+  const setSort = (s: Sort) => { setSortRaw(s); setRank(rankOf(all, s)); };
   const [page, setPage] = useState(1);
   const [more, setMore] = useState(0);
   const [exp, setExp] = useState<Set<string>>(new Set());
@@ -118,14 +127,14 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
     if (forSale === 'on') a = a.filter((i) => i.sale > 0);
     if (forSale === 'off') a = a.filter((i) => !i.sale);
     if (q) { const t = fold(q); a = a.filter((i) => fold(`${i.name} ${i.set} ${i.loc}`).includes(t)); }
-    const so: Record<Sort, (x: Item, y: Item) => number> = {
-      chg: (x, y) => y.upd.localeCompare(x.upd),
-      name: (x, y) => x.name.localeCompare(y.name, 'cs'),
-      have: (x, y) => y.have - x.have,
-      price: (x, y) => (y.price ?? y.market ?? 0) - (x.price ?? x.market ?? 0),
-    };
-    return a.slice().sort(so[sort]);
-  }, [base, f, attn, dup, old, forSale, q, sort, shop]);
+    // Pořadí je zamrzlé od chvíle, kdy se zvolilo řazení: upravená karta zůstane na svém místě a nová jde nahoru.
+    const live = SO[sort];
+    return a.slice().sort((x, y) => {
+      const rx = rank.get(x.id), ry = rank.get(y.id);
+      if (rx == null || ry == null) return rx == null && ry == null ? live(x, y) : rx == null ? -1 : 1;
+      return rx - ry;
+    });
+  }, [base, f, attn, dup, old, forSale, q, sort, shop, rank]);
 
   const groups = useMemo(() => {
     const m = new Map<string, Item[]>();
