@@ -177,7 +177,7 @@ export async function markAlbumSeen(id: string): Promise<Result> {
 export async function setAlbumAutoFill(id: string, on: boolean): Promise<Result> {
   const { supabase, uid } = await user();
   if (!uid || !isId(id)) return { error: 'login' };
-  const { error } = await supabase.from('collection_albums').update({ auto_fill: on }).eq('id', id);
+  const { error } = await supabase.rpc('collection_album_autofill', { p_album: id, p_on: on });
   if (error) return { error: 'Změnu se nepodařilo uložit' };
   refresh(id);
   return { ok: true };
