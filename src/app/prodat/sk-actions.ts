@@ -39,8 +39,11 @@ export async function stockBulkSet(rows: BulkRow[], title: string, kind: 'stock'
   const { data, error } = await supabase.rpc('stock_bulk_set', { p_rows: clean, p_title: String(title).slice(0, 200), p_kind: kind });
   if (error) return { error: dbError(error) };
   revalidatePath('/prodat');
-  refreshCatalog();
-  revalidatePath('/prodejci', 'layout');
+  // Jen kusy mimo prodej: veřejný katalog se nemění, nemusí se přegenerovat.
+  if (clean.some((r) => r.quantity !== undefined || r.price_czk !== undefined || r.condition !== undefined || r.language !== undefined)) {
+    refreshCatalog();
+    revalidatePath('/prodejci', 'layout');
+  }
   if (clean.some((r) => r.quantity || r.price_czk)) await scheduleWatchFlush();
   return { count: Number(data ?? 0) };
 }
