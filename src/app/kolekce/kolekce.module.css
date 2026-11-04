@@ -206,3 +206,4 @@
 .newb i{width:7px;height:7px;border-radius:50%;background:var(--on-accent);animation:newbP 1.6s ease-in-out infinite}
 @keyframes newbP{50%{opacity:.35}}
 .album:has(.newb){border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.wizSteps{width:340px;flex:none}

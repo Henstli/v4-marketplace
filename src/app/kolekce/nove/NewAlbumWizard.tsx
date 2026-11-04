@@ -107,7 +107,7 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
       <div className={s.crumb}><Link href="/kolekce">Moje kolekce</Link><span>›</span><span>Nové album</span></div>
       <div className={s.head} style={{ marginTop: 'var(--space-3)' }}>
         <div><h1>Nové album</h1><p>Vyber desky a obaly a sadu nebo vlastní karty. Do alba jdou karty ze tvé sbírky.</p></div>
-        <Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} />
+        <Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} className={s.wizSteps} />
       </div>
 
       <div className={s.wiz}>
