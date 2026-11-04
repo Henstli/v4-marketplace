@@ -3,9 +3,9 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
 /**
- * Čárkovaný okraj, který vypadá všude stejně: plné rohy a na každé straně rovnoměrně rozložené čárky,
- * které začínají i končí v rohu (CSS border dashed se láme podle velikosti a zvětšení stránky).
- * Dává se dovnitř prvku s position: relative; barvu bere z CSS (.dash { stroke }).
+ * Čárkovaný okraj se stejně dlouhými čárkami všude, i v rozích: v každém rohu je čárka vystředěná na oblouk
+ * a na každé straně mezi nimi rovnoměrně rozložené další (CSS border dashed se láme podle velikosti a zvětšení).
+ * Dává se dovnitř prvku s position: relative; barvu bere z CSS (.dash path { stroke }).
  */
 export function DashBorder({ r = 10, dash = 4, gap = 4 }: { r?: number; dash?: number; gap?: number }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -19,35 +19,30 @@ export function DashBorder({ r = 10, dash = 4, gap = 4 }: { r?: number; dash?: n
   }, []);
 
   let d = '';
+  let arr = '';
   if (box && box.w > 2 * r && box.h > 2 * r) {
-    const { w, h } = box;
-    const a = 0.5, R = r - a, x1 = w - a, y1 = h - a;
-    // Rovné strany: čárky od rohu k rohu, mezery dopočítané, aby vyšly přesně.
-    const side = (sx: number, sy: number, ex: number, ey: number) => {
-      const L = Math.hypot(ex - sx, ey - sy);
-      const n = Math.max(2, Math.round((L + gap) / (dash + gap)));
-      const g = (L - n * dash) / (n - 1);
-      const ux = (ex - sx) / L, uy = (ey - sy) / L;
-      let out = '';
-      for (let k = 0; k < n; k++) {
-        const s = k * (dash + g), e = s + dash;
-        out += `M${(sx + ux * s).toFixed(2)} ${(sy + uy * s).toFixed(2)}L${(sx + ux * e).toFixed(2)} ${(sy + uy * e).toFixed(2)}`;
-      }
-      return out;
-    };
-    // Rohy plné, s krátkým přesahem do strany (jako první a poslední čárka).
-    const corners = `M${a} ${a + R}A${R} ${R} 0 0 1 ${a + R} ${a}`
-      + `M${x1 - R} ${a}A${R} ${R} 0 0 1 ${x1} ${a + R}`
-      + `M${x1} ${y1 - R}A${R} ${R} 0 0 1 ${x1 - R} ${y1}`
-      + `M${a + R} ${y1}A${R} ${R} 0 0 1 ${a} ${y1 - R}`;
-    d = corners
-      + side(a + R, a, x1 - R, a) + side(x1, a + R, x1, y1 - R)
-      + side(x1 - R, y1, a + R, y1) + side(a, y1 - R, a, a + R);
+    const a = 0.5, R = r - a, x1 = box.w - a, y1 = box.h - a;
+    const k = R * (1 - Math.SQRT1_2); // střed oblouku (45°) od rohu
+    const q = (Math.PI * R) / 2; // délka oblouku rohu
+    const W = x1 - a - 2 * R, H = y1 - a - 2 * R;
+    // Cesta začíná ve středu levého horního oblouku a jde po směru hodinových ručiček.
+    d = `M${a + k} ${a + k}A${R} ${R} 0 0 1 ${a + R} ${a}H${x1 - R}A${R} ${R} 0 0 1 ${x1} ${a + R}`
+      + `V${y1 - R}A${R} ${R} 0 0 1 ${x1 - R} ${y1}H${a + R}A${R} ${R} 0 0 1 ${a} ${y1 - R}`
+      + `V${a + R}A${R} ${R} 0 0 1 ${a + k} ${a + k}`;
+    // Úseky mezi středy rohů: čárky vystředěné na koncích i uvnitř, všechny stejně dlouhé.
+    const parts: number[] = [dash / 2];
+    for (const S of [W + q, H + q, W + q, H + q]) {
+      const n = Math.max(1, Math.round(S / (dash + gap)));
+      const p = S / n;
+      for (let i = 0; i < n; i++) parts.push(p - dash, dash);
+    }
+    parts[parts.length - 1] = dash / 2;
+    arr = parts.map((x) => x.toFixed(3)).join(' ');
   }
   return (
     <svg ref={ref} className="dash" aria-hidden="true" width={box?.w ?? 0} height={box?.h ?? 0}
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}>
-      <path d={d} fill="none" strokeWidth="1" />
+      <path d={d} fill="none" strokeWidth="1" strokeDasharray={arr || undefined} />
     </svg>
   );
 }
