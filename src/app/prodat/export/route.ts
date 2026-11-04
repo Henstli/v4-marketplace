@@ -3,6 +3,7 @@ import { loadStock, owned } from '../data';
 import { getGame } from '@/lib/games';
 import { csvLine, TEMPLATE_HEADER } from '@/lib/import/rows';
 import { createClient } from '@/lib/supabase/server';
+import { insuranceHtml } from './insurance';
 import { LANGUAGE_NAMES, type Language } from '@/lib/types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +32,8 @@ async function run(druh: string | null, idsRaw: string | null, obchod: string | 
   }
   const ids = idsRaw ? new Set(idsRaw.split(',').filter((x) => UUID.test(x)).slice(0, 10000)) : null;
   const pick: Pick = ids ? (id) => ids.has(id) : null;
-  if (druh === 'pojisteni') return insurance(supabase, owner, pick);
+  if (druh === 'pojisteni') return insuranceDoc(supabase, owner, pick, idsRaw ?? '', obchod ?? '');
+  if (druh === 'pojisteni_csv') return insurance(supabase, owner, pick);
   if (druh === 'ucetni') return accounting(supabase, owner);
   if (druh === 'deckbuilder') return deckbuilder(supabase, owner, pick);
   // Stejné sloupce jako šablona, takže jde upravit a nahrát zpátky. Počet = všechny kusy, které máte.
@@ -76,6 +78,17 @@ async function insurance(supabase: Awaited<ReturnType<typeof createClient>>, use
       'Cache-Control': 'no-store',
     },
   });
+}
+
+// Soupis k pojištění jako dokument k uložení do PDF (tisk z prohlížeče).
+async function insuranceDoc(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, pick: Pick, ids: string, obchod: string) {
+  const [rows, { data: prof }] = await Promise.all([loadStock(supabase, userId), supabase.from('profiles').select('display_name, kind').eq('id', userId).maybeSingle()]);
+  const p = prof as { display_name?: string; kind?: string } | null;
+  const html = insuranceHtml({
+    rows: rows.filter((r) => owned(r) > 0 && (!pick || pick(r.id))), owned, ownerId: userId, ownerName: p?.display_name ?? 'Vlastník',
+    shop: p?.kind === 'shop', partial: !!pick, ids, obchod,
+  });
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
 }
 
 function csvFile(lines: string[], name: string) {
@@ -136,14 +149,24 @@ async function accounting(supabase: Awaited<ReturnType<typeof createClient>>, us
 }
 
 // Pro deckbuildery: formát sbírky Moxfieldu (Count, Name, Edition, Condition, Language, Foil, Collector Number), jen Magic.
-const MOX_COND: Record<string, string> = { MT: 'Mint', NM: 'Near Mint', EX: 'Good (Lightly Played)', GD: 'Good (Lightly Played)', LP: 'Played', PL: 'Heavily Played' };
+const MOX_COND: Record<string, string> = { MT: 'Mint', NM: 'Near Mint', EX: 'Good (Lightly Played)', GD: 'Played', LP: 'Played', PL: 'Heavily Played' };
 const MOX_LANG: Record<string, string> = {
   en: 'English', de: 'German', ja: 'Japanese', fr: 'French', it: 'Italian', es: 'Spanish', pt: 'Portuguese', ko: 'Korean', zh: 'Chinese Simplified', ru: 'Russian', cs: 'English',
 };
 async function deckbuilder(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, pick: Pick) {
   const rows = (await loadStock(supabase, userId)).filter((r) => owned(r) > 0 && r.card?.game === 'magic' && (!pick || pick(r.id)));
-  const lines = [csvLine(['Count', 'Name', 'Edition', 'Condition', 'Language', 'Foil', 'Collector Number']),
-    ...rows.map((r) => csvLine([owned(r), r.card?.name, (r.card?.setCode ?? '').toLowerCase(), MOX_COND[r.condition] ?? 'Near Mint',
+  // Moxfield čte CSV oddělené čárkami (ne středníky jako český Excel) a bez značky BOM.
+  const lines = [csvComma(['Count', 'Name', 'Edition', 'Condition', 'Language', 'Foil', 'Collector Number']),
+    ...rows.map((r) => csvComma([owned(r), r.card?.name, (r.card?.setCode ?? '').toLowerCase(), MOX_COND[r.condition] ?? 'Near Mint',
       MOX_LANG[r.language] ?? 'English', '', r.card?.number]))];
-  return csvFile(lines, 'moxfield');
+  const day = new Date().toISOString().slice(0, 10);
+  return new Response(lines.join('\r\n') + '\r\n', {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="v4cards-moxfield-${day}.csv"`,
+      'Cache-Control': 'no-store',
+    },
+  });
 }
+const csvComma = (cells: Array<string | number | null | undefined>) =>
+  cells.map((c) => { const s = c == null ? '' : String(c); return /[,"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',');

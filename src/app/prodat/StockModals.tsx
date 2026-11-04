@@ -51,9 +51,9 @@ export function ExportModal({ shop, selected, filtered, total, obchod, onClose }
   const F: [string, string, string][] = shop
     ? [['csv', 'CSV', 'Všechny sloupce, otevřete v Excelu, jde upravit a nahrát zpátky'], ['deckbuilder', 'Pro deckbuildery', 'Formát sbírky pro Moxfield (karty Magic)'],
       ['ucetni', 'Přehled pro účetní', 'Hodnota skladu k dnešku podle her (nákupní, prodejní, tržní) a obrat za 12 měsíců'],
-      ['pojisteni', 'Přehled pro pojištění', 'Hodnota skladu k dnešku podle míst, nákupní i tržní hodnota']]
+      ['pojisteni', 'Soupis pro pojištění (PDF)', 'Dokument pro pojišťovnu: hodnota k dnešku, jak je určená, nejcennější karty, úplný soupis s místy a nákupní hodnotou, podpis']]
     : [['csv', 'CSV', 'Všechny sloupce, otevřete v Excelu, jde upravit a nahrát zpátky'], ['deckbuilder', 'Pro deckbuildery', 'Formát sbírky pro Moxfield (karty Magic)'],
-      ['pojisteni', 'Přehled pro pojištění', 'Hodnota sbírky k dnešku s tržní cenou každé karty']];
+      ['pojisteni', 'Soupis pro pojištění (PDF)', 'Dokument pro pojišťovnu: hodnota k dnešku, jak je určená, nejcennější karty, úplný soupis a podpis']];
   const [ef, setEf] = useState('csv');
   const ids = what === 'sel' ? selected : what === 'flt' ? filtered ?? [] : null;
   const form = useRef<HTMLFormElement>(null);
@@ -62,9 +62,9 @@ export function ExportModal({ shop, selected, filtered, total, obchod, onClose }
     <Modal title="Exportovat" onClose={onClose} foot={<>
       <span className="note">{ef === 'ucetni' ? 'Přehled pro účetní je vždy za celý sklad.' : shop ? 'Napojení e-shopů a dopravců najdete v Napojení.' : ''}</span>
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
-      <button type="button" className="btn p" onClick={() => { form.current?.submit(); onClose(); }}>Stáhnout</button>
+      <button type="button" className="btn p" onClick={() => { form.current?.submit(); onClose(); }}>{ef === 'pojisteni' ? 'Otevřít soupis' : 'Stáhnout'}</button>
     </>}>
-      <form ref={form} method="post" action="/prodat/export" style={{ display: 'none' }}>
+      <form ref={form} method="post" action="/prodat/export" target={ef === 'pojisteni' ? '_blank' : undefined} style={{ display: 'none' }}>
         <input name="druh" value={ef === 'csv' ? '' : ef} readOnly />
         <input name="ids" value={ids && ef !== 'ucetni' ? ids.join(',') : ''} readOnly />
         <input name="obchod" value={obchod ?? ''} readOnly />
