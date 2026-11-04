@@ -12,7 +12,7 @@ import type { AlbumCard, AlbumDetail } from '@/lib/collection';
 import { formatNumber } from '@/lib/format';
 import { getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
-import { addCards, cardOffers, deleteAlbum, removeCard, searchForAlbum, setAlbumOnProfile, stockInfo, updateAlbum, type AddOpts, type CheapOffer, type PickCard, type StockInfo } from '../actions';
+import { addCards, cardOffers, deleteAlbum, markAlbumSeen, setAlbumAutoFill, removeCard, searchForAlbum, setAlbumOnProfile, stockInfo, updateAlbum, type AddOpts, type CheapOffer, type PickCard, type StockInfo } from '../actions';
 import { HaveForm } from '../HaveForm';
 import { AlbumLook } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
@@ -24,7 +24,10 @@ const Kc = ({ n }: { n: number }) => <>{formatNumber(Math.round(n))}&nbsp;Kč</>
 export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding: boolean }) {
   const router = useRouter();
   const view = useRef<AlbumHandle>(null);
-  const [cards, setCards] = useState<AlbumCard[]>(album.cards);
+  // Karty doplněné ze skladu od posledního otevření: nejdřív prázdné kapsy, pak se vloží s animací.
+  const freshSet = useMemo(() => new Set(founding ? [] : album.fresh), [founding, album.fresh]);
+  const [cards, setCards] = useState<AlbumCard[]>(() => album.cards.map((c) => (freshSet.has(c.id) ? { ...c, owned: 0 } : c)));
+  const [autoFill, setAutoFill] = useState(album.autoFill);
   const [look, setLook] = useState({ name: album.name, design: album.design, sleeve: album.sleeve });
   const [sel, setSel] = useState<number | null>(null);
   const [offers, setOffers] = useState<{ id: string; list: CheapOffer[]; count: number } | null>(null);
@@ -38,6 +41,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
   cardsRef.current = cards;
 
   const have = cards.filter((c) => c.owned > 0).length;
+  const stockIds = album.fromStock.filter((id) => cards.some((c) => c.id === id && !c.owned));
   const value = cards.reduce((a, c) => a + (c.owned && c.minPrice ? c.minPrice * c.owned : 0), 0);
   const g = album.game ? getGame(album.game) : undefined;
   const selCard = sel !== null ? cards[sel] : null;
@@ -53,6 +57,25 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
     }, 250);
     return () => clearTimeout(t);
   }, [founding, album.id, album.cards]);
+
+  // Doplněné karty se při prvním otevření vloží jako při přidání více karet (2B).
+  useEffect(() => {
+    if (founding) return;
+    if (!freshSet.size) { markAlbumSeen(album.id); return; }
+    const t = setTimeout(() => {
+      const idx: number[] = [];
+      const next = cardsRef.current.map((c, i) => {
+        const orig = album.cards.find((x) => x.id === c.id);
+        if (!freshSet.has(c.id) || !orig) return c;
+        idx.push(i);
+        return { ...c, owned: orig.owned || 1 };
+      });
+      apply(next);
+      Promise.resolve(view.current?.play(idx)).finally(() => markAlbumSeen(album.id));
+    }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!selCard || selCard.owned) { setOffers(null); return; }
@@ -86,6 +109,7 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
       setSel(null);
       setDrawer(null);
       if (fresh.length) await view.current?.play(fresh);
+      await markAlbumSeen(album.id);
       router.refresh();
     });
 
@@ -140,7 +164,24 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
       </div>
 
       <div className={s.full}>
-        <div className={s.stage}>
+        <div className={s.stage} style={{ position: 'relative' }}>
+          {stockIds.length ? (
+            // Hromádka karet ze skladu na místě, odkud karty při vkládání létají (album se samo nedoplňuje).
+            <button type="button" className={s.stockPile} disabled={pending} onClick={() => insert(stockIds)}
+              title="Karty alba, které máte ve skladu mimo prodej">
+              <span className={s.spCards}>
+                {stockIds.slice(0, 3).reverse().map((id, i, a) => {
+                  const c = cards.find((x) => x.id === id);
+                  const k = a.length - 1 - i;
+                  // eslint-disable-next-line @next/next/no-img-element
+                  return c?.image ? <img key={id} src={thumbUrl(c.image) ?? c.image} alt="" style={{ transform: `translate(${k * -2}px, ${k * -4}px) rotate(${k * -2}deg)` }} /> : null;
+                })}
+              </span>
+              <b>{stockIds.length}</b>
+              <small>{stockIds.length === 1 ? 'karta' : stockIds.length < 5 ? 'karty' : 'karet'} ze skladu</small>
+              <em>Vložit do alba</em>
+            </button>
+          ) : null}
           <AlbumViewer
             key={`${look.design}-${look.sleeve}`}
             ref={view}
@@ -216,6 +257,15 @@ export function AlbumScreen({ album, founding }: { album: AlbumDetail; founding:
       ) : null}
       {drawer === 'look' ? (
         <Drawer title="Vzhled alba" onClose={() => setDrawer(null)}>
+          <label className={s.hint} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', margin: '0 0 14px' }}>
+            <input type="checkbox" checked={autoFill} onChange={async (e) => {
+              const on = e.target.checked;
+              setAutoFill(on);
+              const r = await setAlbumAutoFill(album.id, on);
+              if ('error' in r) setAutoFill(!on);
+            }} />
+            Doplňovat samo: kartu {album.kind === 'set' ? 'této sady' : 'z tohoto alba'}, kterou naskladníte, vložíme do alba
+          </label>
           <AlbumLook
             value={look}
             onSave={async (v) => {

@@ -172,6 +172,10 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
             <>
               <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Vyber karty do alba</h2>
               <p className={s.hint}>Hledej ve své sbírce. Album si z každé karty vezme 1 kus. Kartu, kterou ve sbírce nemáš, přidáš v albu tlačítkem Mám ji. Pořadí v albu je pořadí v zásobníku dole.</p>
+              <label className={s.hint} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} />
+                Doplňovat samo: kartu z alba, která chybí a znovu ji naskladníte, vložíme zpět
+              </label>
               <div style={{ marginTop: 'var(--space-3)' }}>
                 <SearchField label="Hledat kartu" placeholder="Název karty, sada nebo číslo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
               </div>

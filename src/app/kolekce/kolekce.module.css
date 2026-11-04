@@ -174,3 +174,13 @@
 .miss b{display:block;font:600 13px var(--font-sans)}
 .miss small{font:500 11.5px var(--font-mono);color:var(--ink-muted)}
 .saleNote{font-size:12.5px;color:var(--down);margin:var(--space-2) 0 0}
+/* Hromádka karet ze skladu vedle alba (album bez automatického doplňování) */
+.stockPile{position:absolute;left:calc(var(--space-4) + 8px);top:calc(var(--space-4) + 54px);z-index:5;width:108px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 8px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 6%,transparent);color:var(--ink);cursor:pointer;transition:border-color .2s,background .2s}
+.stockPile:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.stockPile:disabled{opacity:.5;cursor:default}
+.spCards{position:relative;width:84px;height:117px;margin-bottom:10px}
+.spCards img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:4.8%/3.45%;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55));transition:transform .25s}
+.stockPile:hover .spCards img:last-child{transform:translateY(-6px)!important}
+.stockPile b{font:600 15px var(--font-mono)}
+.stockPile small{font-size:11.5px;color:var(--ink-muted)}
+.stockPile em{font-style:normal;margin-top:6px;font:600 12px var(--font-sans,inherit);color:var(--accent)}

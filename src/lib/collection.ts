@@ -44,6 +44,11 @@ export interface AlbumSummary {
 
 export interface AlbumDetail extends AlbumSummary {
   cards: AlbumCard[];
+  /** Karty doplněné ze skladu od posledního otevření alba (vloží se s animací). */
+  fresh: string[];
+  /** Karty alba, které leží ve skladu mimo prodej, ale v kolekci nejsou (album se samo nedoplňuje). */
+  fromStock: string[];
+  autoFill: boolean;
 }
 
 interface AlbumRow {
@@ -55,6 +60,8 @@ interface AlbumRow {
   set_id: string | null;
   on_profile: boolean;
   updated_at: string;
+  auto_fill?: boolean;
+  seen_at?: string | null;
   card_sets: { name: string; code: string; game_id: GameId; released_on: string | null } | null;
 }
 
@@ -140,6 +147,27 @@ async function albumRows(supabase: SupabaseClient, a: AlbumRow): Promise<CardRow
   return rows;
 }
 
+/** Karty kolekce přidané po čase `since` (doplněné ze skladu, zatímco bylo album zavřené). */
+async function addedSince(supabase: SupabaseClient, ids: string[], since: string): Promise<string[]> {
+  const parts = await Promise.all(chunks(ids, 300).map((part) =>
+    supabase.from('collection_cards').select('card_id').gt('added_at', since).in('card_id', part).returns<Array<{ card_id: string }>>()));
+  return parts.flatMap((p) => (p.data ?? []).map((r) => r.card_id));
+}
+
+/** Karty, které má přihlášený uživatel ve skladu mimo prodej (aspoň 1 kus). */
+async function stockReady(supabase: SupabaseClient, ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return [];
+  const parts = await Promise.all(chunks(ids, 300).map((part) =>
+    supabase.from('listings').select('card_id, listing_stock(keep_qty)').eq('seller_id', uid).is('removed_at', null).in('card_id', part)
+      .returns<Array<{ card_id: string; listing_stock: { keep_qty: number } | null }>>()));
+  const out = new Set<string>();
+  for (const p of parts) for (const r of p.data ?? []) if ((r.listing_stock?.keep_qty ?? 0) >= 1) out.add(r.card_id);
+  return [...out];
+}
+
 /** Karty alba v pořadí, ve kterém leží v kapsách. */
 async function albumCards(supabase: SupabaseClient, a: AlbumRow): Promise<AlbumCard[]> {
   const rows = await albumRows(supabase, a);
@@ -152,10 +180,21 @@ export async function getAlbum(id: string): Promise<AlbumDetail | null> {
   const supabase = await createClient();
   const { data } = await supabase.from('collection_albums').select(ALBUM_COLS).eq('id', id).maybeSingle<AlbumRow>();
   if (!data) return null;
-  const cards = await albumCards(supabase, data);
+  const [cards, extra] = await Promise.all([
+    albumCards(supabase, data),
+    supabase.from('collection_albums').select('auto_fill, seen_at').eq('id', id).maybeSingle<{ auto_fill: boolean; seen_at: string | null }>(),
+  ]);
   const have = cards.filter((c) => c.owned > 0).length;
   const value = cards.reduce((s, c) => s + (c.owned && c.minPrice ? c.minPrice * c.owned : 0), 0);
-  return { ...summaryOf(data), cards, have, total: cards.length, value };
+  const autoFill = extra.data?.auto_fill !== false;
+  const seen = extra.data?.seen_at ?? null;
+  const ownedIds = cards.filter((c) => c.owned > 0).map((c) => c.id);
+  const missIds = cards.filter((c) => !c.owned).map((c) => c.id);
+  const [fresh, fromStock] = await Promise.all([
+    seen ? addedSince(supabase, ownedIds, seen) : Promise.resolve([] as string[]),
+    stockReady(supabase, missIds),
+  ]);
+  return { ...summaryOf(data), cards, have, total: cards.length, value, fresh, fromStock, autoFill };
 }
 
 export interface CollectionOverview {
