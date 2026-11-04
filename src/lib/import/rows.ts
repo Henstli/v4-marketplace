@@ -101,7 +101,8 @@ export function rowProblems(row: ImportRow): string[] {
   const out: string[] = [];
   if (!row.condition || !CONDITIONS.includes(row.condition)) out.push(row.rawCondition ? `Neznámý stav „${row.rawCondition}“` : 'Vyberte stav');
   if (!row.language || !(row.language in LANGUAGE_NAMES)) out.push(row.rawLanguage ? `Neznámý jazyk „${row.rawLanguage}“` : 'Vyberte jazyk');
-  if (row.price == null || !Number.isInteger(row.price) || row.price <= 0) out.push('Chybí cena');
+  // Bez ceny jde karta do skladu/sbírky mimo prodej (cenu doplní později).
+  if (row.price != null && (!Number.isInteger(row.price) || row.price <= 0)) out.push('Neplatná cena');
   if (row.quantity == null || !Number.isInteger(row.quantity) || row.quantity < 1) out.push('Chybí počet kusů');
   else if (row.quantity > QUANTITY_MAX) out.push(`Nejvýš ${QUANTITY_MAX} kusů`);
   return out;
