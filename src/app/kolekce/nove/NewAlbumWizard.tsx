@@ -164,7 +164,6 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
                   </div>
                 </div>
               ) : null}
-              <AutoFill kind="set" checked={autoFill} onChange={setAutoFill} />
               {cards === null ? null : (
                 <CardPicker readOnly cards={cards.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))}
                   value={new Map([...picked].filter(([id]) => unsell || !saleOnly.some((x) => x.id === id)))} onChange={() => undefined} />
@@ -176,7 +175,6 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
             <>
               <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Vyber karty do alba</h2>
               <p className={s.hint}>Hledej ve své sbírce. Album si z každé karty vezme 1 kus. Kartu, kterou ve sbírce nemáš, přidáš v albu tlačítkem Mám ji. Pořadí v albu je pořadí v zásobníku dole.</p>
-              <AutoFill kind="custom" checked={autoFill} onChange={setAutoFill} />
               <div style={{ marginTop: 'var(--space-3)' }}>
                 <SearchField label="Hledat kartu" placeholder="Název karty, sada nebo číslo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
               </div>
@@ -232,6 +230,9 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
           </div>
           <h3>{look.name || 'Moje album'}</h3>
           <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
+          <div style={{ marginTop: 'var(--space-4)', textAlign: 'left' }}>
+            <AutoFill kind={kind} checked={autoFill} onChange={setAutoFill} />
+          </div>
         </aside>
       </div>
     </main>
