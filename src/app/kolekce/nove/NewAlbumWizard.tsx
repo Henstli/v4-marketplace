@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import { AlbumBook, Sleeve } from '@/components/album/AlbumBook';
 import { cardsWord } from '@/components/album/engine';
 import { Button, ButtonLink, Chip, SearchField, Steps } from '@/components/trezor';
@@ -24,6 +24,16 @@ const LIVE = GAMES.filter((g) => g.live);
 export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: string; unsell?: boolean; autoFill?: boolean } }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  // Další krok průvodce vždy začíná nahoře (seznam sad bývá dlouhý).
+  const firstStep = useRef(true);
+  // Box náhledu alba začíná ve výšce prvního boxu v hlavním sloupci (pole názvu, volba obsahu nebo hledání).
+  const mainRef = useRef<HTMLDivElement>(null);
+  const stepsRef = useRef<HTMLDivElement>(null);
+  const [prevTop, setPrevTop] = useState(0);
+  useEffect(() => {
+    if (firstStep.current) { firstStep.current = false; return; }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
   const [look, setLook] = useState<Look>({ name: preset?.name?.slice(0, 60) ?? '', design: 1, sleeve: 1 });
   const [unsell, setUnsell] = useState(preset?.unsell ?? false);
   const [autoFill, setAutoFill] = useState(preset?.autoFill ?? true);
@@ -94,6 +104,13 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
       router.push(`/kolekce/${r.id}?zalozeno=1`);
     });
 
+  useLayoutEffect(() => {
+    const m = mainRef.current;
+    const f = m?.querySelector<HTMLElement>(`.tz-search, input.${s.input}, .${s.kinds}, .${s.pick}`);
+    // Kroky leží hned nad náhledem; celý sloupec se posune tak, aby box náhledu začínal s prvním boxem vlevo.
+    const above = (stepsRef.current?.offsetHeight ?? 0) + 12;
+    setPrevTop(Math.round((m && f ? f.getBoundingClientRect().top - m.getBoundingClientRect().top : 0) - above));
+  }, [step, kind]);
   const canNext = step === 0 ? true : step === 1 ? (kind === 'custom' || !!set) : !!look.name.trim();
 
   return (
@@ -101,11 +118,10 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
       <div className={s.crumb}><Link href="/kolekce">Moje kolekce</Link><span>›</span><span>Nové album</span></div>
       <div className={s.head} style={{ marginTop: 'var(--space-3)' }}>
         <div><h1>Nové album</h1><p>Vyber desky a obaly a sadu nebo vlastní karty. Do alba jdou karty ze tvé sbírky.</p></div>
-        <Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} />
       </div>
 
       <div className={s.wiz}>
-        <div className={s.wizMain}>
+        <div className={s.wizMain} ref={mainRef}>
           {step === 0 ? (
             <LookFields value={look} onChange={(v) => { if (v.name !== look.name) named.current = true; setLook(v); }} />
           ) : null}
@@ -158,7 +174,6 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
                   </div>
                 </div>
               ) : null}
-              <AutoFill kind="set" checked={autoFill} onChange={setAutoFill} />
               {cards === null ? null : (
                 <CardPicker readOnly cards={cards.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))}
                   value={new Map([...picked].filter(([id]) => unsell || !saleOnly.some((x) => x.id === id)))} onChange={() => undefined} />
@@ -170,7 +185,6 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
             <>
               <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Vyber karty do alba</h2>
               <p className={s.hint}>Hledej ve své sbírce. Album si z každé karty vezme 1 kus. Kartu, kterou ve sbírce nemáš, přidáš v albu tlačítkem Mám ji. Pořadí v albu je pořadí v zásobníku dole.</p>
-              <AutoFill kind="custom" checked={autoFill} onChange={setAutoFill} />
               <div style={{ marginTop: 'var(--space-3)' }}>
                 <SearchField label="Hledat kartu" placeholder="Název karty, sada nebo číslo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
               </div>
@@ -217,16 +231,20 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
           </div>
         </div>
 
-        <aside className={s.prev}>
-          {step !== 0 ? <SleeveSprite /> : null}
-          <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
-          <div className={s.prevSl}>
-            <Sleeve sleeve={look.sleeve} image={tray[0]?.image ?? cards?.find((c) => picked.has(c.id))?.image ?? null} scale={0.55} />
-            <Sleeve sleeve={look.sleeve} image={null} scale={0.55} back />
-          </div>
-          <h3>{look.name || 'Moje album'}</h3>
-          <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
-        </aside>
+        <div className={s.prevCol} style={{ marginTop: prevTop }}>
+          <div ref={stepsRef}><Steps steps={['Vzhled', 'Obsah', 'Karty']} current={step} className={s.wizSteps} /></div>
+          <aside className={s.prev}>
+            {step !== 0 ? <SleeveSprite /> : null}
+            <AlbumBook design={look.design} name={look.name || 'Moje album'} hover />
+            <div className={s.prevSl}>
+              <Sleeve sleeve={look.sleeve} image={tray[0]?.image ?? cards?.find((c) => picked.has(c.id))?.image ?? null} scale={0.55} />
+              <Sleeve sleeve={look.sleeve} image={null} scale={0.55} back />
+            </div>
+            <h3>{look.name || 'Moje album'}</h3>
+            <p>{kind === 'set' ? (set ? `${set.name} · ${set.cards} ${cardsWord(set.cards)}` : 'Vyber sadu') : 'Vlastní album'}{step === 2 ? ` · vložíš ${total}` : ''}</p>
+          </aside>
+          <AutoFill kind={kind} checked={autoFill} onChange={setAutoFill} />
+        </div>
       </div>
     </main>
   );
