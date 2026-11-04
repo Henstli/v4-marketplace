@@ -50,7 +50,7 @@ export function SetsView({ sets, preview }: { sets: SetCard[]; /** jen pro náhl
           <button key={k} type="button" className={`chip${f === k ? ' on' : ''}`} onClick={() => setF(k)}>{t} <span className="mono" style={{ opacity: 0.7 }}>{n[k]}</span></button>
         ))}
         <span style={{ marginLeft: 'auto' }} />
-        <Seg value={sort} onChange={setSort} style={{ width: 330 }} options={[['near', 'Nejblíž dokončení'], ['missing', 'Nejméně chybí'], ['name', 'Podle názvu']]} />
+        <Seg value={sort} onChange={setSort} className="fit" options={[['near', 'Nejblíž dokončení'], ['missing', 'Nejméně chybí'], ['name', 'Podle názvu']]} />
       </div>
       {list.length ? (
         <div className="ssg">
