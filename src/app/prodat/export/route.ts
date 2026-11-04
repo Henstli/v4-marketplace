@@ -136,14 +136,24 @@ async function accounting(supabase: Awaited<ReturnType<typeof createClient>>, us
 }
 
 // Pro deckbuildery: formát sbírky Moxfieldu (Count, Name, Edition, Condition, Language, Foil, Collector Number), jen Magic.
-const MOX_COND: Record<string, string> = { MT: 'Mint', NM: 'Near Mint', EX: 'Good (Lightly Played)', GD: 'Good (Lightly Played)', LP: 'Played', PL: 'Heavily Played' };
+const MOX_COND: Record<string, string> = { MT: 'Mint', NM: 'Near Mint', EX: 'Good (Lightly Played)', GD: 'Played', LP: 'Played', PL: 'Heavily Played' };
 const MOX_LANG: Record<string, string> = {
   en: 'English', de: 'German', ja: 'Japanese', fr: 'French', it: 'Italian', es: 'Spanish', pt: 'Portuguese', ko: 'Korean', zh: 'Chinese Simplified', ru: 'Russian', cs: 'English',
 };
 async function deckbuilder(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, pick: Pick) {
   const rows = (await loadStock(supabase, userId)).filter((r) => owned(r) > 0 && r.card?.game === 'magic' && (!pick || pick(r.id)));
-  const lines = [csvLine(['Count', 'Name', 'Edition', 'Condition', 'Language', 'Foil', 'Collector Number']),
-    ...rows.map((r) => csvLine([owned(r), r.card?.name, (r.card?.setCode ?? '').toLowerCase(), MOX_COND[r.condition] ?? 'Near Mint',
+  // Moxfield čte CSV oddělené čárkami (ne středníky jako český Excel) a bez značky BOM.
+  const lines = [csvComma(['Count', 'Name', 'Edition', 'Condition', 'Language', 'Foil', 'Collector Number']),
+    ...rows.map((r) => csvComma([owned(r), r.card?.name, (r.card?.setCode ?? '').toLowerCase(), MOX_COND[r.condition] ?? 'Near Mint',
       MOX_LANG[r.language] ?? 'English', '', r.card?.number]))];
-  return csvFile(lines, 'moxfield');
+  const day = new Date().toISOString().slice(0, 10);
+  return new Response(lines.join('\r\n') + '\r\n', {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="v4cards-moxfield-${day}.csv"`,
+      'Cache-Control': 'no-store',
+    },
+  });
 }
+const csvComma = (cells: Array<string | number | null | undefined>) =>
+  cells.map((c) => { const s = c == null ? '' : String(c); return /[,"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',');
