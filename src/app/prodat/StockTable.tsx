@@ -560,7 +560,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         </Modal>
       ) : null}
 
-      {current ? <Drawer key={current.id} i={current} shop={shop} canPrice={canPrice} canAdd={canAdd} onClose={() => setOpen(null)}
+      {current ? <Drawer key={current.id} i={current} places={[...LOCG.keys()].filter((k) => k !== '—').sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }))} shop={shop} canPrice={canPrice} canAdd={canAdd} onClose={() => setOpen(null)}
         onDone={(r, text) => { done(r, text); if (!r.error) setOpen(null); }} /> : null}
 
       {toast ? <div className={`toast${toast.err ? ' err' : ''}`} role="status">{toast.t}{toast.undo ? <> · Vrátit to jde v Historii</> : null}</div> : null}
@@ -748,8 +748,8 @@ function Spark({ v, down }: { v: number[]; down: boolean }) {
 }
 
 /** Detail karty (šuplík vpravo) podle prototypu. */
-function Drawer({ i, shop, canPrice, canAdd, onClose, onDone }: {
-  i: Item; shop: boolean; canPrice: boolean; canAdd: boolean; onClose: () => void; onDone: (r: { error?: string }, text: string) => void;
+function Drawer({ i, places, shop, canPrice, canAdd, onClose, onDone }: {
+  i: Item; places: string[]; shop: boolean; canPrice: boolean; canAdd: boolean; onClose: () => void; onDone: (r: { error?: string }, text: string) => void;
 }) {
   const [have, setHave] = useState(i.have);
   const [sale, setSale] = useState(i.sale);
@@ -757,7 +757,12 @@ function Drawer({ i, shop, canPrice, canAdd, onClose, onDone }: {
   const [price, setPrice] = useState(i.price != null ? String(i.price) : '');
   const [cond, setCond] = useState(i.cond);
   const [lang, setLang] = useState(i.lang);
-  const [loc, setLoc] = useState(i.loc);
+  // Umístění = místo (výběr z existujících, nebo nové) + nepovinná pozice v něm.
+  const [loc0, pos0] = (() => { const [a, ...b] = (i.loc ?? '').split(' · '); return [a ?? '', b.join(' · ')]; })();
+  const [place, setPlace] = useState(loc0);
+  const [newPlace, setNewPlace] = useState(!!loc0 && !places.includes(loc0));
+  const [pos, setPos] = useState(pos0);
+  const loc = place.trim() ? (pos.trim() ? `${place.trim()} · ${pos.trim()}` : place.trim()) : '';
   const [buy, setBuy] = useState(i.buy != null ? String(i.buy) : '');
   const [info, setInfo] = useState<CardInfo | null>(null);
   const [del, setDel] = useState(false);
@@ -829,7 +834,14 @@ function Drawer({ i, shop, canPrice, canAdd, onClose, onDone }: {
             <div className="f"><label>Jazyk</label><Seg value={lang} onChange={setLang} options={langOpts.map((l) => [l, langCode(l)] as [string, string])} /></div>
           </div>
           <div className="grid2">
-            <div className="f"><label>Umístění</label><div className="inp"><input value={loc} maxLength={60} placeholder="Např. A1 · 04" style={{ fontSize: 14 }} onChange={(e) => setLoc(e.target.value)} /></div></div>
+            <div className="f"><label>Umístění</label>
+              <div className="ipgc">
+                {places.map((l) => <button key={l} type="button" className={`chip${!newPlace && place === l ? ' on' : ''}`} onClick={() => { setNewPlace(false); setPlace(place === l && !newPlace ? '' : l); }}>{l}</button>)}
+                <button type="button" className={`chip${newPlace ? ' on' : ''}`} onClick={() => { setNewPlace(true); setPlace(''); }}>+ Nové místo</button>
+              </div>
+              {newPlace ? <div className="inp" style={{ marginTop: 8 }}><input value={place} maxLength={40} autoFocus placeholder="Název místa, např. Vitrína nebo A3" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPlace(e.target.value)} /></div> : null}
+              {place.trim() ? <div className="inp" style={{ marginTop: 8 }}><input value={pos} maxLength={40} placeholder="Pozice, nepovinné (např. 04)" style={{ font: '500 14px var(--fs)' }} onChange={(e) => setPos(e.target.value)} /></div> : null}
+            </div>
             <div className="f"><label>Nákupní cena</label><div className="inp"><input value={buy} placeholder="Za kolik jste ji koupili" style={{ fontSize: 14 }} onChange={(e) => setBuy(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div>
               {shop && i.buy && i.price != null ? (() => { const p = i.price - i.buy; return <div className={`pfd${p < 0 ? ' dn' : ''}`}>Zisk na kus <b>{p < 0 ? '−' : '+'}{kc(Math.abs(p))}</b> · {Math.round((p / i.buy) * 100)} %</div>; })() : null}
             </div>
