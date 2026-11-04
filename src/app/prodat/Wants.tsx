@@ -66,7 +66,6 @@ export function WantsView({ wants }: { wants: Want[] }) {
       {A.length ? <><div className="wng acc">Dostupné za vaši cenu <span>{A.length}</span></div><div className="olist">{A.map(row)}</div></> : null}
       <div className="wng">Hlídám <span>{B.length}</span></div>
       <div className="olist">{B.length ? B.map(row) : <div className="none">{wants.length ? 'Nic dalšího nehlídáte.' : 'Zatím nic nehledáte. Kartu přidáte tlačítkem + Přidat kartu.'}</div>}</div>
-      <small className="wsm" style={{ display: 'block', marginTop: 10 }}>Když kartu přidáte do sbírky, můžete ji ze seznamu odebrat.</small>
       {add ? <AddWant onClose={() => { setAdd(false); router.refresh(); }} /> : null}
     </>
   );
