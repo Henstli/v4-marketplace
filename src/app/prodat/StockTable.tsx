@@ -447,7 +447,7 @@ export function StockTable({ items: rows, mode, shop, ready, canPrice, canAdd, s
         </span>;
     const conds = [...new Set(g.map((x) => x.cond))];
     const L = [...new Set(g.map((x) => langCode(x.lang)))];
-    const langs_ = L.length > 2 ? `${L[0]} +${L.length - 1}` : L.join(' · ');
+    const langs_ = L.length > 2 ? `${L[0]} + ${L.length - 1}` : L.join(' · ');
     const locs = [...new Set(g.map((x) => x.loc || '—'))];
     const us = [...new Set(g.map((x) => x.src))];
     return [
