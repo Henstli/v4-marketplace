@@ -12,6 +12,7 @@ import { createAlbum, findSets, getSet, searchForAlbum, setCards, type PickCard,
 import { SleeveSprite } from '@/components/album/SleeveSprite';
 import { LookFields, type Look } from '../AlbumLook';
 import { CardPicker } from '../CardPicker';
+import { AutoFill } from '../AutoFill';
 import s from '../kolekce.module.css';
 
 const LIVE = GAMES.filter((g) => g.live);
@@ -157,10 +158,7 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
                   </div>
                 </div>
               ) : null}
-              <label className={s.hint} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
-                <input type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} />
-                Doplňovat samo: novou kartu této sady ve sbírce vložíme do alba
-              </label>
+              <AutoFill kind="set" checked={autoFill} onChange={setAutoFill} />
               {cards === null ? null : (
                 <CardPicker readOnly cards={cards.map((c) => ({ id: c.id, name: c.name, number: c.number, image: c.image, have: c.owned }))}
                   value={new Map([...picked].filter(([id]) => unsell || !saleOnly.some((x) => x.id === id)))} onChange={() => undefined} />
@@ -172,10 +170,7 @@ export function NewAlbumWizard({ preset }: { preset?: { setId: string; name?: st
             <>
               <h2 style={{ margin: 0, font: '700 20px var(--font-display)' }}>Vyber karty do alba</h2>
               <p className={s.hint}>Hledej ve své sbírce. Album si z každé karty vezme 1 kus. Kartu, kterou ve sbírce nemáš, přidáš v albu tlačítkem Mám ji. Pořadí v albu je pořadí v zásobníku dole.</p>
-              <label className={s.hint} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
-                <input type="checkbox" checked={autoFill} onChange={(e) => setAutoFill(e.target.checked)} />
-                Doplňovat samo: kartu z alba, která chybí a znovu ji naskladníte, vložíme zpět
-              </label>
+              <AutoFill kind="custom" checked={autoFill} onChange={setAutoFill} />
               <div style={{ marginTop: 'var(--space-3)' }}>
                 <SearchField label="Hledat kartu" placeholder="Název karty, sada nebo číslo" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
               </div>
