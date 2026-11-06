@@ -233,7 +233,6 @@ export class AlbumEngine {
   private cov!: HTMLElement;
   private spr: HTMLElement | null = null;
   private bgl: HTMLElement | null = null;
-  private bsd: HTMLElement | null = null;
   private lsh: HTMLElement | null = null;
   private bl!: HTMLElement;
   private br!: HTMLElement;
@@ -375,7 +374,7 @@ export class AlbumEngine {
     const arrow = (dir: string) => `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir}"></path></svg>`;
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
-      `<span class="spr"></span><span class="bsd"></span>` + (d.glow ? '<span class="bgl"></span>' : '') +
+      (d.glow ? '<span class="bgl"></span>' : '') + `<span class="spr"></span>` +
       `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="lsh"></span><span class="csh"></span></div>` +
       `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
@@ -388,7 +387,6 @@ export class AlbumEngine {
     this.cov = this.root.querySelector('.cov')!;
     this.spr = this.root.querySelector('.spr');
     this.bgl = this.root.querySelector('.bgl');
-    this.bsd = this.root.querySelector('.bsd');
     this.lsh = this.root.querySelector('.cf.in .lsh');
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
@@ -591,12 +589,9 @@ export class AlbumEngine {
     }
     // záře alba (vzhledy se září) je vlastní vrstva, nezávislá na ořezu vnitřku (.spr): zavřené a otevírané album ji má
     // kolem pravé poloviny (deska, zadní deska), otevřené v klidu kolem celé dvoustrany. Otáčená deska má záři sama (.cf.in).
-    // velký stín pod albem je také vlastní vrstva (.bsd): na ořezaném vnitřku by měl u hřbetu ostrou hranu
-    const gl = flat ? -374 : -2;
-    for (const el of [this.bsd, this.bgl]) if (el) { el.style.left = `${gl}px`; el.style.width = `${374 - gl}px`; }
     if (this.bgl) {
-      // při otáčení svítí vlevo od hřbetu otáčená deska sama; záře vrstvy by se s ní u hřbetu překrývala ve světlejší pruh
-      this.bgl.style.clipPath = flat || shut ? '' : 'inset(-90px -90px -130px 2px)';
+      const gl = flat ? -374 : -2;
+      this.bgl.style.left = `${gl.toFixed(2)}px`; this.bgl.style.width = `${(374 - gl).toFixed(2)}px`;
     }
     const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
     cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
