@@ -420,11 +420,15 @@ export function PeriodPop({ period, onCancel, onApply }: { period: Period; onCan
   return (
     <div className="pop" style={{ left: 0, top: 44, padding: 16, width: 334 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="seg" role="group" aria-label="Výběr" style={{ alignSelf: 'flex-start', height: 30 }}>
-          <button type="button" className={mode === 'one' ? 'on' : ''} onClick={() => { setMode('one'); setB(a); }}>Jeden den</button>
-          <button type="button" className={mode === 'range' ? 'on' : ''} onClick={() => setMode('range')}>Od – do</button>
+        {/* Jeden den: přepínač a kolonka s datem stejně široké (inline-grid je natáhne na šířku přepínače). */}
+        <div style={{ display: 'inline-grid', gap: 10, alignSelf: 'flex-start' }}>
+          <div className="seg" role="group" aria-label="Výběr" style={{ height: 30 }}>
+            <button type="button" className={mode === 'one' ? 'on' : ''} onClick={() => { setMode('one'); setB(a); }}>Jeden den</button>
+            <button type="button" className={mode === 'range' ? 'on' : ''} onClick={() => setMode('range')}>Od – do</button>
+          </div>
+          {mode === 'one' ? <div className="din on" style={{ width: 'auto' }}>{dmy(a)}</div> : null}
         </div>
-        {mode === 'one' ? <div className="din on">{dmy(a)}</div> : (
+        {mode === 'one' ? null : (
           <div className="hrw" style={{ flexWrap: 'nowrap' }}>
             <span className={`din${b ? '' : ' on'}`}>{dmy(a)}</span><span style={{ color: 'var(--ink-muted)' }}>–</span>
             <span className={`din${b ? ' on' : ''}`}>{b ? dmy(b) : 'vyberte konec'}</span>
