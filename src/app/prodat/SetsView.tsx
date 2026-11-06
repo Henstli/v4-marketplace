@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { thumbUrl } from '@/lib/images';
 import { CONDITIONS, CONDITION_NAMES } from '@/lib/types';
 import { setView, watchSet, type SetView } from './sk-actions';
 import { Ico, kc, Modal, nf, Seg } from './sk';
-import { AlbumViewer } from '@/components/album/AlbumViewer';
+import { AlbumViewer, type AlbumHandle } from '@/components/album/AlbumViewer';
 import type { EngineCard } from '@/components/album/engine';
 
 export interface SetCard {
@@ -133,6 +133,9 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
     id: c.id, slug: c.slug, name: c.name, number: c.number, image: c.image, setName: s.name,
     owned: c.keep > 0 || (unsell && c.have > 0) ? 1 : 0,
   })), [cards, unsell, s.name]);
+  // přepnutí „Nechat na prodeji / Dát do alba“ jen vymění karty, album zůstane na stejné stránce
+  const albRef = useRef<AlbumHandle>(null);
+  useEffect(() => { albRef.current?.setCards(albumCards); }, [albumCards]);
   const shown = (f === 'miss' ? miss : f === 'have' ? have : cards).filter((c) => !cheap || (!c.have && c.low != null && c.low <= 200));
 
   const saveWatch = (on: boolean) => start(async () => {
@@ -241,7 +244,7 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
       {v && tab === 'album' ? (
         <div className="ssw">
           <div className="ssab">
-            <AlbumViewer key={`${s.id}-${unsell ? 1 : 0}`} name={v.album?.name ?? (name.trim() || s.name)} design={1} sleeve={1} cards={albumCards} open counterTotal />
+            <AlbumViewer ref={albRef} key={s.id} name={v.album?.name ?? (name.trim() || s.name)} design={1} sleeve={1} cards={albumCards} open counterTotal />
           </div>
           {v.album ? (
             <div className="ssws">
