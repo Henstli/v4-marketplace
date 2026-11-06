@@ -66,7 +66,7 @@ export interface HFlag {
 
 export interface WatchRules {
   below_market: { on: boolean; pct: number };
-  big_drop: { on: boolean; pct: number };
+  mass_cut: { on: boolean; pct: number };
   loss: { on: boolean; qty: number; czk: number };
   inv_diff: { on: boolean; czk: number };
   off_hours: { on: boolean };

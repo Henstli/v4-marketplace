@@ -186,7 +186,7 @@ export async function watchSave(owner: string, rules: WatchRules): Promise<{ err
   if (!UUID.test(owner)) return { error: 'Obchod nenalezen.' };
   const clean: WatchRules = {
     below_market: { on: !!rules.below_market.on, pct: clamp(rules.below_market.pct, 5, 90) },
-    big_drop: { on: !!rules.big_drop.on, pct: clamp(rules.big_drop.pct, 5, 90) },
+    mass_cut: { on: !!rules.mass_cut.on, pct: clamp(rules.mass_cut.pct, 5, 90) },
     loss: { on: !!rules.loss.on, qty: clamp(rules.loss.qty, 0, 1000), czk: clamp(rules.loss.czk, 0, 1e6) },
     inv_diff: { on: !!rules.inv_diff.on, czk: clamp(rules.inv_diff.czk, 0, 1e6) },
     off_hours: { on: !!rules.off_hours.on },

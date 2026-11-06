@@ -7,7 +7,7 @@
 alter table public.stock_events
   add column if not exists items jsonb,
   add column if not exists impact_czk integer,
-  add column if not exists reverts_id bigint references public.stock_events(id) on delete set null,
+  add column if not exists reverts_id bigint references public.stock_events(id),
   add column if not exists undone_by uuid,
   add column if not exists flag_checked boolean not null default false;
 
@@ -139,7 +139,7 @@ $$;
 
 -- K prověření
 create table if not exists public.stock_watch (
-  owner_id uuid primary key references public.profiles(id) on delete cascade,
+  owner_id uuid primary key,
   rules jsonb not null default '{}'::jsonb,
   hours jsonb,
   updated_at timestamptz not null default now(),
@@ -154,8 +154,8 @@ end $$;
 
 create table if not exists public.stock_flags (
   id bigint generated always as identity primary key,
-  owner_id uuid not null references public.profiles(id) on delete cascade,
-  event_id bigint unique references public.stock_events(id) on delete cascade,
+  owner_id uuid not null,
+  event_id bigint unique,
   rule text not null,
   title text not null,
   tag text,
@@ -190,7 +190,7 @@ $$;
 create or replace function public.stock_watch_rules(p_owner uuid) returns jsonb
   language sql stable security definer set search_path to ''
 as $$
-  select '{"below_market":{"on":true,"pct":20},"big_drop":{"on":true,"pct":30},"loss":{"on":true,"qty":2,"czk":500},
+  select '{"below_market":{"on":true,"pct":20},"mass_cut":{"on":true,"pct":30},"loss":{"on":true,"qty":2,"czk":500},
            "inv_diff":{"on":false,"czk":1000},"off_hours":{"on":true},"sync_fail":{"on":true,"n":3},
            "notify_lead":true,"notify_actor":false}'::jsonb
          || coalesce((select w.rules from public.stock_watch w where w.owner_id = p_owner), '{}'::jsonb)
@@ -257,13 +257,13 @@ begin
       end if;
     end if;
 
-    if v_rule is null and ev.kind = 'price' and coalesce((r->'big_drop'->>'on')::boolean, false) then
+    if v_rule is null and ev.kind = 'price' and coalesce((r->'mass_cut'->>'on')::boolean, false) then
       select count(*) into m from jsonb_array_elements(ev.items) x
        where x->>'p0' is not null and x->>'p1' is not null
-         and (x->>'p1')::int < (x->>'p0')::int * (1 - (r->'big_drop'->>'pct')::numeric / 100);
+         and (x->>'p1')::int < (x->>'p0')::int * (1 - (r->'mass_cut'->>'pct')::numeric / 100);
       if m >= 5 then
-        v_rule := 'big_drop'; v_tag := 'Hromadně';
-        v_title := 'Zlevnění ' || m || ' karet naráz o víc než ' || (r->'big_drop'->>'pct') || ' %';
+        v_rule := 'mass_cut'; v_tag := 'Hromadně';
+        v_title := 'Zlevnění ' || m || ' karet naráz o víc než ' || (r->'mass_cut'->>'pct') || ' %';
         v_detail := ev.title;
       end if;
     end if;
@@ -405,4 +405,3 @@ begin
   return n;
 end;
 $$;
--- Bez revoke: funkce samy kontrolují práva (stock_perm / stock_lead, anonym nic nedostane).

@@ -256,7 +256,7 @@ export function EventModal({ id, canUndo, onClose, onUndo }: { id: number; canUn
         <div className="hfoot">
           <span className="fl mono">{rows.length ? `${(page - 1) * P + 1}–${to} z ${rows.length}` : '0'}</span>
           <Pager page={page + extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
-          <span className="fr">{to < rows.length ? <button type="button" className="more" onClick={() => setExtra(extra + 1)}>Zobrazit dalších {Math.min(P, rows.length - to)}{HI.down}</button> : null}</span>
+          <span className="fr">{to < rows.length ? <button type="button" className="hnext" onClick={() => setExtra(extra + 1)}>Zobrazit dalších {Math.min(P, rows.length - to)}{HI.down}</button> : null}</span>
         </div>
       </div>
     </HModal>
@@ -322,7 +322,7 @@ export function UndoModal({ id, onClose, onDone }: { id: number; onClose: () => 
               <span className="tag n">{r.stays === 'sold' ? 'Prodáno' : 'Upraveno ručně'}</span>
             </div>
           ))}
-          {!all && staysF.length > 3 ? <div className="set" style={{ justifyContent: 'center' }}><button type="button" className="more" onClick={() => setAll(true)}>Zobrazit všech {staysF.length}{HI.down}</button></div> : null}
+          {!all && staysF.length > 3 ? <div className="set" style={{ justifyContent: 'center' }}><button type="button" className="hnext" onClick={() => setAll(true)}>Zobrazit všech {staysF.length}{HI.down}</button></div> : null}
         </div>
       ) : null}
     </HModal>
@@ -336,7 +336,7 @@ function Sw({ on, set, dis }: { on: boolean; set: (v: boolean) => void; dis?: bo
 }
 function Num({ v, set, pre, suf, dis, w = 52 }: { v: number; set: (n: number) => void; pre?: string; suf?: string; dis?: boolean; w?: number }) {
   return (
-    <label className="dd">{pre}<input inputMode="numeric" disabled={dis} style={{ width: w }} value={String(v)} onChange={(e) => set(Number(e.target.value.replace(/\D/g, '')) || 0)} />{suf}</label>
+    <label className="hnum">{pre}<input inputMode="numeric" disabled={dis} style={{ width: w }} value={String(v)} onChange={(e) => set(Number(e.target.value.replace(/\D/g, '')) || 0)} />{suf}</label>
   );
 }
 
@@ -363,7 +363,7 @@ export function WatchModal({ rules, lead, owner, hoursText, onClose, onSaved }: 
         <div className="set"><span className="d"><b>Cena pod trhem</b><small>Ruční změna, která dá kartu hluboko pod trh</small></span>
           <span className="c"><Num v={r.below_market.pct} set={(n) => up('below_market', { pct: n })} pre="víc než" suf="%" dis={dis} w={32} /><Sw on={r.below_market.on} set={(v) => up('below_market', { on: v })} dis={dis} /></span></div>
         <div className="set"><span className="d"><b>Velké zlevnění naráz</b><small>Import nebo hromadná změna zlevní mnoho karet</small></span>
-          <span className="c"><Num v={r.big_drop.pct} set={(n) => up('big_drop', { pct: n })} pre="o víc než" suf="%" dis={dis} w={32} /><Sw on={r.big_drop.on} set={(v) => up('big_drop', { on: v })} dis={dis} /></span></div>
+          <span className="c"><Num v={r.mass_cut.pct} set={(n) => up('mass_cut', { pct: n })} pre="o víc než" suf="%" dis={dis} w={32} /><Sw on={r.mass_cut.on} set={(v) => up('mass_cut', { on: v })} dis={dis} /></span></div>
       </div>
       <div className="frame">
         <div className="fh">Kusy</div>

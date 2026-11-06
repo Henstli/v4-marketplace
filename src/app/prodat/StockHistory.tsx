@@ -175,9 +175,9 @@ export function StockHistory({ data, shop, canUndo, owner, obchod, initialKind =
         <span className={`imp ${impactCls(e)}`}>{impactTxt(e)}</span>
         {split ? null : shop ? <span className="who">{e.who ? <><span className="av">{e.who[0]?.toUpperCase()}</span>{e.who}</> : e.auto ? <span className="auto">{e.auto}</span> : null}</span> : null}
         {split ? null : (
-          <span className="acts">
+          <span className="hacts">
             {undoable ? <button type="button" className="btn sm ub" disabled={pending} onClick={(x) => { x.stopPropagation(); onUndo(e); }}>Vrátit</button> : null}
-            <span className="chev" aria-hidden="true">{HI.right}</span>
+            <span className="hchev" aria-hidden="true">{HI.right}</span>
           </span>
         )}
       </div>,
@@ -195,7 +195,7 @@ export function StockHistory({ data, shop, canUndo, owner, obchod, initialKind =
         <div className="hfoot">
           <span className="fl mono">{from}–{to} z {list.length.toLocaleString('cs-CZ')} · od nejnovějších</span>
           <Pager page={page + extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
-          <span className="fr">{to < list.length ? <button type="button" className="more" onClick={() => setExtra((x) => x + 1)}>Zobrazit dalších {Math.min(PAGE, list.length - to)}{HI.down}</button> : null}</span>
+          <span className="fr">{to < list.length ? <button type="button" className="hnext" onClick={() => setExtra((x) => x + 1)}>Zobrazit dalších {Math.min(PAGE, list.length - to)}{HI.down}</button> : null}</span>
         </div>
       ) : null}
     </div>
@@ -341,10 +341,10 @@ function FlagsView({ flags, view, setView, counts, lead, canUndo, pending, onWat
                     <span className={`tag ${f.resolution === 'ok' ? 'u' : f.resolution === 'auto' ? 'i' : 'n'}`}>{f.resolution === 'ok' ? 'V pořádku' : f.resolution === 'auto' ? 'Vyřešilo se samo' : 'Vráceno'}</span>
                     <small>{[f.resolvedBy, f.resolvedAt ? whenShort(f.resolvedAt) : null, f.note ? `„${f.note}“` : null].filter(Boolean).join(' · ')}</small>
                   </span>
-                  <span className="acts"><span className="chev" aria-hidden="true">{HI.right}</span></span>
+                  <span className="hacts"><span className="hchev" aria-hidden="true">{HI.right}</span></span>
                 </>
               ) : (
-                <span className="acts" onClick={(x) => x.stopPropagation()}>
+                <span className="hacts" onClick={(x) => x.stopPropagation()}>
                   {lead ? <button type="button" className="btn sm ub2" disabled={pending} onClick={() => onOk(f)}>V pořádku</button> : null}
                   {f.undoLabel && canUndo ? <button type="button" className="btn sm ub3" disabled={pending} onClick={() => onUndo(f)}>{f.undoLabel}</button> : null}
                 </span>
@@ -354,7 +354,7 @@ function FlagsView({ flags, view, setView, counts, lead, canUndo, pending, onWat
           <div className="hfoot">
             <span className="fl mono">{(page - 1) * PAGE + 1}–{to} z {flags.length}</span>
             <Pager page={page + extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
-            <span className="fr">{to < flags.length ? <button type="button" className="more" onClick={() => setExtra((x) => x + 1)}>Zobrazit dalších {Math.min(PAGE, flags.length - to)}{HI.down}</button> : null}</span>
+            <span className="fr">{to < flags.length ? <button type="button" className="hnext" onClick={() => setExtra((x) => x + 1)}>Zobrazit dalších {Math.min(PAGE, flags.length - to)}{HI.down}</button> : null}</span>
           </div>
         </div>
       )}
