@@ -232,6 +232,7 @@ export class AlbumEngine {
   private book!: HTMLElement;
   private cov!: HTMLElement;
   private spr: HTMLElement | null = null;
+  private bgl: HTMLElement | null = null;
   private lsh: HTMLElement | null = null;
   private bl!: HTMLElement;
   private br!: HTMLElement;
@@ -369,11 +370,11 @@ export class AlbumEngine {
     this.root.style.setProperty('--pocket', d.pocket);
     this.root.style.setProperty('--empty', d.empty);
     this.root.style.setProperty('--edge', 'rgba(0,0,0,.55)');
-    if (d.glow) { this.root.classList.add('gw'); this.root.style.setProperty('--glow', d.glow); }
+    if (d.glow) { this.root.classList.add('gw'); this.root.style.setProperty('--glow', d.glow); this.root.style.setProperty('--glws', `0 0 34px ${d.glow}55`); }
     const arrow = (dir: string) => `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir}"></path></svg>`;
     this.root.innerHTML =
       `<div class="alb-stage"><div class="book">` +
-      `<span class="spr"${d.glow ? ` style="--glw:0 0 34px ${d.glow}55,"` : ''}></span>` +
+      (d.glow ? '<span class="bgl"></span>' : '') + `<span class="spr"></span>` +
       `<div class="cov"><div class="cf out">${coverHTML(d, this.o.name)}<span class="csh"></span></div><div class="cf in"><span class="lsh"></span><span class="csh"></span></div>` +
       `<span class="ce er"></span><span class="ce et"></span><span class="ce eb"></span><span class="ce eh"></span>${coverCorners()}</div>` +
       `<div class="bl"></div><div class="br"></div><div class="leafbox"></div></div>` +
@@ -385,6 +386,7 @@ export class AlbumEngine {
     this.book = this.root.querySelector('.book')!;
     this.cov = this.root.querySelector('.cov')!;
     this.spr = this.root.querySelector('.spr');
+    this.bgl = this.root.querySelector('.bgl');
     this.lsh = this.root.querySelector('.cf.in .lsh');
     this.bl = this.root.querySelector('.bl')!;
     this.br = this.root.querySelector('.br')!;
@@ -584,6 +586,12 @@ export class AlbumEngine {
     if (this.spr) {
       const x = shut ? 7 : 7 - 5 * clamp(cq / 0.06, 0, 1) - 16 * clamp((cq - 0.5) * 4, 0, 1);
       this.spr.style.clipPath = flat ? '' : `inset(-60px -90px -130px ${(x + 374).toFixed(2)}px)`;
+    }
+    // záře alba (vzhledy se září) je vlastní vrstva, nezávislá na ořezu vnitřku (.spr): zavřené a otevírané album ji má
+    // kolem pravé poloviny (deska, zadní deska), otevřené v klidu kolem celé dvoustrany. Otáčená deska má záři sama (.cf.in).
+    if (this.bgl) {
+      const gl = flat ? -374 : -2;
+      this.bgl.style.left = `${gl.toFixed(2)}px`; this.bgl.style.width = `${(374 - gl).toFixed(2)}px`;
     }
     const c = Math.cos(ca * Math.PI / 180), cs = this.cov.querySelectorAll<HTMLElement>('.csh');
     cs[0].style.opacity = (0.5 * (1 - c) / 2).toFixed(3);
