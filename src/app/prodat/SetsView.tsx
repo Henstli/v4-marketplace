@@ -7,6 +7,8 @@ import { thumbUrl } from '@/lib/images';
 import { CONDITIONS, CONDITION_NAMES } from '@/lib/types';
 import { setView, watchSet, type SetView } from './sk-actions';
 import { Ico, kc, Modal, nf, Seg } from './sk';
+import { AlbumViewer } from '@/components/album/AlbumViewer';
+import type { EngineCard } from '@/components/album/engine';
 
 export interface SetCard {
   id: string; name: string; code: string; game: string; owned: number; total: number; images: string[];
@@ -18,6 +20,9 @@ type Tab = 'cards' | 'watch' | 'album';
 
 const AlbIco = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h11" /></svg>;
 const EyeIco = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
+const BellIco = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10 21h4" /></svg>;
+const CheckIco = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>;
+const FillIco = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /><path d="M12 8v8M8 12h8" /></svg>;
 const karet = (n: number) => (n === 1 ? 'karta' : n >= 2 && n <= 4 ? 'karty' : 'karet');
 const isWatched = (s: SetCard) => s.missing > 0 && s.watched >= s.missing;
 
@@ -82,7 +87,7 @@ export function SetsView({ sets, preview }: { sets: SetCard[]; /** jen pro náhl
   );
 }
 
-/** Okno sady: Karty sady (mřížka se sbírkou a cenami), Hlídání chybějících karet, Album (založit nebo otevřít). */
+/** Okno sady: Karty sady (mřížka se sbírkou a cenami), Hlídání chybějících karet, Album (náhled skutečného alba, založit nebo otevřít). Akce jsou jen v záložkách nahoře. */
 function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onClose: () => void }) {
   const router = useRouter();
   const [v, setV] = useState<SetView | null>(null);
@@ -114,6 +119,12 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
   const have = cards.filter((c) => c.have);
   const saleOnly = have.filter((c) => !c.keep && c.sale);
   const low = miss.reduce((a, c) => a + (c.low ?? 0), 0);
+  const offered = miss.filter((c) => c.low != null).length;
+  // album sady: kus, který si necháváte (a s „Dát do alba“ i kus jen na prodeji)
+  const albumCards: EngineCard[] = useMemo(() => cards.map((c) => ({
+    id: c.id, slug: c.slug, name: c.name, number: c.number, image: c.image, setName: s.name,
+    owned: c.keep > 0 || (unsell && c.have > 0) ? 1 : 0,
+  })), [cards, unsell, s.name]);
   const shown = (f === 'miss' ? miss : f === 'have' ? have : cards).filter((c) => !cheap || (!c.have && c.low != null && c.low <= 200));
 
   const saveWatch = (on: boolean) => start(async () => {
@@ -131,20 +142,19 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
   };
 
   const foot = tab === 'watch' ? <>
-    {isWatched(s) ? <button type="button" className="btn" style={{ marginRight: 'auto' }} disabled={pending} onClick={() => saveWatch(false)}>Zrušit hlídání</button> : null}
+    <span className="ssum">Každou kartu upravíte zvlášť v <Link href="/ucet/hlidane" style={{ color: 'var(--ink)', fontWeight: 600 }}>Hlídání a příkazech</Link></span>
     <button type="button" className="btn" onClick={onClose}>Zavřít</button>
-    <button type="button" className="btn p" disabled={pending || !miss.length} onClick={() => saveWatch(won)}>Uložit</button>
+    <button type="button" className="btn p" disabled={pending || !miss.length || (!won && !isWatched(s))} onClick={() => saveWatch(won)}>Uložit hlídání</button>
   </> : tab === 'album' ? (v?.album ? <>
     <button type="button" className="btn" onClick={onClose}>Zavřít</button>
     <Link className="btn p" href={`/kolekce/${v.album.id}`}>{AlbIco}Otevřít album</Link>
   </> : <>
-    <button type="button" className="btn" onClick={() => setTab('cards')}>Zpět</button>
-    <button type="button" className="btn p" disabled={!v || !name.trim()} onClick={toAlbum}>Vybrat vzhled alba</button>
+    <span className="ssum">Vzhled desek a obalů vyberete v dalším kroku</span>
+    <button type="button" className="btn" onClick={onClose}>Zavřít</button>
+    <button type="button" className="btn p" disabled={!v || !name.trim()} onClick={toAlbum}>{AlbIco}Vybrat vzhled alba</button>
   </>) : <>
     {miss.length ? <span className="ssum">Chybí <b>{nf(miss.length)}</b> {karet(miss.length)}{low ? <>, doplníte od <b>{kc(low)}</b></> : null}</span> : <span className="ssum"><b>Sada je kompletní</b></span>}
-    {miss.length ? <button type="button" className="btn" onClick={() => setTab('watch')}>{EyeIco}{isWatched(s) ? 'Hlídáte chybějící' : 'Hlídat chybějící'}</button> : null}
-    {v?.album ? <Link className="btn p" href={`/kolekce/${v.album.id}`}>{AlbIco}Otevřít album</Link>
-      : <button type="button" className="btn p" disabled={!v} onClick={() => setTab('album')}>{AlbIco}Založit kolekci</button>}
+    <button type="button" className="btn" onClick={onClose}>Zavřít</button>
   </>;
 
   return (
@@ -183,65 +193,76 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
         ) : <div className="none">{f === 'miss' && !cheap ? 'Máte celou sadu.' : 'Nic tomu neodpovídá.'}</div>}
       </> : null}
 
-      {v && tab === 'watch' ? <>
-        {miss.length ? <>
-          <div className="sgrp">
-            <div className="sgh">Chybějící karty</div>
-            <div className="srow"><div style={{ flex: 1 }}><b>Hlídat všech {nf(miss.length)} chybějících {miss.length === 1 ? 'kartu' : karet(miss.length)}</b><small>Upozorníme e-mailem, nejvýš jednou denně.</small></div>
-              <button type="button" className={`tg${won ? ' on' : ''}`} aria-label="Hlídat chybějící karty" onClick={() => setWon(!won)} /></div>
-            <div className="srow"><div style={{ flex: 1 }}><b>Nejhorší stav</b><small>{CONDITION_NAMES[cond as keyof typeof CONDITION_NAMES]} a lepší. Horší kusy neukážeme.</small></div>
-              <Seg value={cond} onChange={setCond} style={{ width: 300 }} options={CONDITIONS.map((c) => [c, c] as [string, string])} /></div>
-            <div className="srow"><div style={{ flex: 1 }}><b>Nejvyšší cena za kus</b><small>Dražší nabídky neukážeme.</small></div>
-              <Seg value={lim} onChange={setLim} style={{ width: 200 }} options={[['none', 'Bez limitu'], ['max', 'Do ceny']]} />
-              {lim === 'max' ? <div className="inp" style={{ width: 120 }}><input value={max} inputMode="numeric" placeholder="500" onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div> : null}</div>
-          </div>
-          <div className="sgrp">
-            <div className="sgh">Když kartu získáte</div>
-            <div className="srow"><div style={{ flex: 1 }}><b>Přestat ji hlídat</b><small>Po přidání do sbírky nebo převzetí objednávky.</small></div>
-              <button type="button" className={`tg${stop ? ' on' : ''}`} aria-label="Přestat hlídat získané karty" onClick={() => setStop(!stop)} /></div>
-          </div>
-          <p className="ixlead" style={{ margin: 0 }}>Karty uvidíte i v <Link href="/ucet/hlidane" style={{ color: 'var(--ink)', fontWeight: 600 }}>Hlídání a příkazech</Link>, kde jde každou upravit zvlášť.</p>
-        </> : <div className="none">Sada je kompletní, není co hlídat.</div>}
-      </> : null}
-
-      {v && tab === 'album' ? (v.album ? (
-        <div className="sgrp">
-          <div className="srow"><div style={{ flex: 1 }}><b>Album {v.album.name}</b><small>Karty sady ze sbírky jsou v albu, z každé 1 kus. Ten kus nejde prodat, dokud ho z alba nevyjmete.</small></div></div>
-        </div>
-      ) : (
-        <div className="ssnew">
-          <div className="ssspread">
-            {[0, 1].map((pg) => (
-              <div key={pg} className="sspage">
-                {cards.slice(pg * 9, pg * 9 + 9).map((c) => (
-                  <span key={c.id} className={`slot${c.have ? ' f' : ''}`}>
-                    {c.have && c.image ? <img src={c.image} alt="" /> : <em>{c.number}</em>}
-                    {c.have && !c.keep && !unsell ? <span className="wl">na prodeji</span> : null}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div>
-            <div className="f" style={{ marginTop: 0 }}><label>Název alba</label><div className="inp"><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} style={{ font: '500 14px var(--fs)' }} /></div></div>
-            <div className="sgrp">
-              <div className="srow"><div style={{ flex: 1 }}><b>Karty ze sbírky</b><small>Z každé karty si album vezme 1 kus.</small></div><span className="mono">{nf(have.length - (unsell ? 0 : saleOnly.length))}</span></div>
-              <div className="srow"><div style={{ flex: 1 }}><b>Prázdná místa</b><small>Karty, které chybí.</small></div><span className="mono">{nf(miss.length + (unsell ? 0 : saleOnly.length))}</span></div>
-              <div className="srow"><div style={{ flex: 1 }}><b>Doplňovat samo</b><small>Novou kartu sady ve sbírce vložíme do alba.</small></div>
-                <button type="button" className={`tg${auto ? ' on' : ''}`} aria-label="Doplňovat samo" onClick={() => setAuto(!auto)} /></div>
+      {v && tab === 'watch' ? (miss.length ? (
+        <div className="ssw">
+          <div className="sswc">
+            <div className="sswt"><b>{nf(miss.length)}</b><span>{miss.length === 1 ? 'chybějící kartu budeme hlídat' : `chybějících ${karet(miss.length)} budeme hlídat`}</span>
+              <span className="sswl"><span><i className="on" />{nf(offered)} teď v nabídce</span><span><i />{nf(miss.length - offered)} nikdo neprodává</span></span></div>
+            <div className="sswg">
+              {miss.map((c) => (
+                <Link key={c.id} href={`/karty/${c.slug}`} target="_blank" className={`sswi${c.low != null ? ' of' : ''}`} title={c.name}>
+                  {c.image ? <img src={c.image} alt="" loading="lazy" /> : <i />}
+                  {won ? <span className="e">{EyeIco}</span> : null}
+                  <span className={`p${c.low != null ? '' : ' na'}`}>{c.low != null ? kc(c.low) : 'nikdo'}</span>
+                </Link>
+              ))}
             </div>
-            {saleOnly.length ? (
-              <div className="sgrp">
-                <div className="sgh">{nf(saleOnly.length)} {karet(saleOnly.length)} máte jen na prodeji</div>
-                <div className="opt" style={{ padding: '4px 10px 10px' }}>
-                  <label className={unsell ? '' : 'on'} onClick={() => setUnsell(false)}><span className="rd" /><span>Nechat na prodeji<small>V albu zůstane prázdné místo.</small></span></label>
-                  <label className={unsell ? 'on' : ''} onClick={() => setUnsell(true)}><span className="rd" /><span>Stáhnout z prodeje a dát do alba</span></label>
-                </div>
-              </div>
-            ) : null}
+          </div>
+          <div className="ssws">
+            <label className={`setr${won ? ' on' : ''}`}>
+              <span className="ico">{BellIco}</span>
+              <span className="tx"><b>Hlídat chybějící karty</b><small>Až se některá objeví v nabídce, pošleme e-mail, nejvýš jednou denně.</small></span>
+              <button type="button" role="switch" aria-checked={won} className={`tg big${won ? ' on' : ''}`} aria-label="Hlídat chybějící karty" onClick={() => setWon(!won)} />
+            </label>
+            <div className="ssfr"><div className="ssfh"><b>Nejhorší stav</b><small>{CONDITION_NAMES[cond as keyof typeof CONDITION_NAMES]} a lepší</small></div>
+              <div className="sscd">{CONDITIONS.map((c, i) => (
+                <button key={c} type="button" className={c === cond ? 'cut' : i < CONDITIONS.indexOf(cond as (typeof CONDITIONS)[number]) ? 'in' : ''} onClick={() => setCond(c)}>{c}</button>
+              ))}</div></div>
+            <div className="ssfr"><div className="ssfh"><b>Nejvyšší cena za kus</b><small>dražší neukážeme</small></div>
+              <div className="sspr"><Seg value={lim} onChange={setLim} options={[['none', 'Bez limitu'], ['max', 'Do ceny']]} />
+                {lim === 'max' ? <div className="inp"><input value={max} inputMode="numeric" placeholder="500" onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))} /><em>Kč</em></div> : null}</div></div>
+            <label className={`setr${stop ? ' on' : ''}`}>
+              <span className="ico">{CheckIco}</span>
+              <span className="tx"><b>Přestat po získání</b><small>Kartu, kterou koupíte nebo naskladníte, přestaneme hlídat.</small></span>
+              <button type="button" role="switch" aria-checked={stop} className={`tg big${stop ? ' on' : ''}`} aria-label="Přestat hlídat získané karty" onClick={() => setStop(!stop)} />
+            </label>
           </div>
         </div>
-      )) : null}
+      ) : <div className="none">Sada je kompletní, není co hlídat.</div>) : null}
+
+      {v && tab === 'album' ? (
+        <div className="ssw">
+          <div className="ssab">
+            <AlbumViewer key={`${s.id}-${unsell ? 1 : 0}`} name={v.album?.name ?? (name.trim() || s.name)} design={1} sleeve={1} cards={albumCards} open counterTotal />
+          </div>
+          {v.album ? (
+            <div className="ssws">
+              <div className="ssfr"><div className="ssfh"><b>{v.album.name}</b></div><small className="ssn">Karty sady ze sbírky jsou v albu, z každé 1 kus. Ten kus nejde prodat, dokud ho z alba nevyjmete.</small></div>
+            </div>
+          ) : (
+            <div className="ssws">
+              <div className="f" style={{ margin: 0 }}><label>Název alba</label><div className="inp"><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} style={{ font: '500 14px var(--fs)' }} /></div></div>
+              <div className="sscn">
+                <div className="k1"><b>{nf(have.length - (unsell ? 0 : saleOnly.length))}</b><small>vložíme</small></div>
+                {saleOnly.length ? <div className="k2"><b>{nf(unsell ? 0 : saleOnly.length)}</b><small>na prodeji</small></div> : null}
+                <div><b>{nf(miss.length)}</b><small>prázdných</small></div>
+              </div>
+              {saleOnly.length ? (
+                <div className="ssfr"><div className="ssfh"><b>Karty, které máte jen na prodeji</b></div>
+                  <div className="ssop">
+                    <button type="button" className={unsell ? '' : 'on'} onClick={() => setUnsell(false)}><span className="rd" /><span>Nechat na prodeji<small>V albu bude místo</small></span></button>
+                    <button type="button" className={unsell ? 'on' : ''} onClick={() => setUnsell(true)}><span className="rd" /><span>Dát do alba<small>Stáhneme 1 kus</small></span></button>
+                  </div></div>
+              ) : null}
+              <label className={`setr${auto ? ' on' : ''}`}>
+                <span className="ico">{FillIco}</span>
+                <span className="tx"><b>Doplňovat samo</b><small>Novou kartu sady ze skladu vložíme do alba sami.</small></span>
+                <button type="button" role="switch" aria-checked={auto} className={`tg big${auto ? ' on' : ''}`} aria-label="Doplňovat samo" onClick={() => setAuto(!auto)} />
+              </label>
+            </div>
+          )}
+        </div>
+      ) : null}
       {err ? <small style={{ color: 'var(--down)' }}>{err}</small> : null}
     </Modal>
   );

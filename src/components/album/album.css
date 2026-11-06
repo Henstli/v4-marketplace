@@ -59,6 +59,7 @@
 .alb .bl>.pg{left:-360px}
 .alb .pg.none{visibility:hidden}
 .alb .pk{position:relative;display:grid;place-items:center;border-radius:5px;background:linear-gradient(160deg,rgba(255,255,255,.07),transparent 40%);box-shadow:inset 0 0 0 1px var(--pocket)}
+.alb .pk.pk{display:grid;width:auto;padding:0;border:0;text-align:inherit;font-size:inherit;line-height:inherit;color:inherit;border-radius:5px;background:linear-gradient(160deg,rgba(255,255,255,.07),transparent 40%)}
 .alb.sq .pk{border-radius:0}
 .alb.gw .pk{box-shadow:inset 0 0 0 1px var(--pocket),0 0 16px -5px var(--glow)}
 .alb .pk.glow{box-shadow:inset 0 0 0 1px var(--pocket),0 0 0 2px rgba(124,242,200,.75),0 0 18px rgba(124,242,200,.45);transition:box-shadow 1.2s ease}
