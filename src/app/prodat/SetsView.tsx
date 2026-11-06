@@ -136,6 +136,16 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
   // přepnutí „Nechat na prodeji / Dát do alba“ jen vymění karty, album zůstane na stejné stránce
   const albRef = useRef<AlbumHandle>(null);
   useEffect(() => { albRef.current?.setCards(albumCards); }, [albumCards]);
+  // mřížka v Hlídání: posuvník leží v pravém odsazení. Klasický posuvník si místo bere sám, překryvný (Firefox, macOS)
+  // ne, proto se odsazení dopočítá z jeho skutečné šířky a karty jsou vždy stejně daleko od okraje boxu.
+  const sbRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const g = sbRef.current;
+    if (!g || typeof ResizeObserver === 'undefined') return;
+    const fit = () => g.style.setProperty('--sbw', `${Math.min(16, g.offsetWidth - g.clientWidth)}px`);
+    const ro = new ResizeObserver(fit); ro.observe(g); fit();
+    return () => ro.disconnect();
+  }, [tab, v]);
   const shown = (f === 'miss' ? miss : f === 'have' ? have : cards).filter((c) => !cheap || (!c.have && c.low != null && c.low <= 200));
 
   const saveWatch = (on: boolean) => start(async () => {
@@ -209,7 +219,7 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
           <div className="sswc">
             <div className="sswt"><b>{nf(miss.length)}</b><span>{miss.length === 1 ? 'chybějící kartu budeme hlídat' : `chybějících ${karet(miss.length)} budeme hlídat`}</span>
               <span className="sswl"><span><i className="on" />{nf(offered)} teď v nabídce</span><span><i />{nf(miss.length - offered)} nikdo neprodává</span></span></div>
-            <div className="sswg">
+            <div className="sswg" ref={sbRef}>
               {miss.map((c) => (
                 <Link key={c.id} href={`/karty/${c.slug}`} target="_blank" className={`sswi${c.low != null ? ' of' : ''}`} title={c.name}>
                   {c.image ? <img src={c.image} alt="" loading="lazy" /> : <i />}
