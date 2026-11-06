@@ -194,7 +194,7 @@ export function StockHistory({ data, shop, canUndo, owner, obchod, initialKind =
       {list.length ? (
         <div className="hfoot">
           <span className="fl mono">{from}–{to} z {list.length.toLocaleString('cs-CZ')} · od nejnovějších</span>
-          <Pager page={page + extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
+          <Pager page={page} more={extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
           <span className="fr">{to < list.length ? <button type="button" className="hnext" onClick={() => setExtra((x) => x + 1)}>Zobrazit dalších {Math.min(PAGE, list.length - to)}{HI.down}</button> : null}</span>
         </div>
       ) : null}
@@ -353,7 +353,7 @@ function FlagsView({ flags, view, setView, counts, lead, canUndo, pending, onWat
           ))}
           <div className="hfoot">
             <span className="fl mono">{(page - 1) * PAGE + 1}–{to} z {flags.length}</span>
-            <Pager page={page + extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
+            <Pager page={page} more={extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
             <span className="fr">{to < flags.length ? <button type="button" className="hnext" onClick={() => setExtra((x) => x + 1)}>Zobrazit dalších {Math.min(PAGE, flags.length - to)}{HI.down}</button> : null}</span>
           </div>
         </div>
