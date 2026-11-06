@@ -1165,9 +1165,6 @@
 .tz-sk .hz .lk-b{border-top-color:transparent}
 .tz-sk .hz .hfoot{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-muted)}
 .tz-sk .hz .hfoot>.fl,.tz-sk .hz .hfoot>.fr{flex:1;display:flex}.tz-sk .hz .hfoot>.fr{justify-content:flex-end}
-.tz-sk .hz .pager button{min-width:32px;height:32px;border-radius:8px;font:500 13px var(--fm);color:var(--ink-muted);display:grid;place-items:center;padding:0 6px}
-.tz-sk .hz .pager button.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
-.tz-sk .hz .pager button[disabled]{opacity:.35;pointer-events:none}
 .tz-sk .hnext{font:600 13px var(--fs);color:var(--accent);display:inline-flex;align-items:center;gap:6px;background:none;border:0;cursor:pointer;padding:0}
 .tz-sk .hnext svg{width:14px;height:14px}
 .tz-sk .hz .hnote{color:var(--ink-muted);font-size:12.5px}
@@ -1225,10 +1222,6 @@
 .tz-sk .hmod .imp.ink{color:var(--ink)}.tz-sk .hmod .up{color:var(--up)}.tz-sk .hmod .dn{color:var(--down)}
 .tz-sk .hmod .hfoot{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-muted)}
 .tz-sk .hmod .hfoot>.fl,.tz-sk .hmod .hfoot>.fr{flex:1;display:flex}.tz-sk .hmod .hfoot>.fr{justify-content:flex-end}
-.tz-sk .hmod .pager{display:flex;gap:4px}
-.tz-sk .hmod .pager button{min-width:32px;height:32px;border-radius:8px;font:500 13px var(--fm);color:var(--ink-muted);display:grid;place-items:center;padding:0 6px}
-.tz-sk .hmod .pager button.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
-.tz-sk .hmod .pager button[disabled]{opacity:.35;pointer-events:none}
 .tz-sk .hmod .hchips{display:flex;gap:8px;flex-wrap:wrap}
 .tz-sk .hmod .hchips .chip{height:32px;border-color:var(--line-strong);background:transparent}
 .tz-sk .hmod .hchips .chip.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:var(--accent);color:var(--accent)}

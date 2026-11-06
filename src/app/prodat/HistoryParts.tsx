@@ -49,20 +49,25 @@ const shortDate = (iso: string) => new Date(iso).toLocaleDateString('cs-CZ', { t
 const pl = (n: number, f: [string, string, string]) => `${n.toLocaleString('cs-CZ')} ${n === 1 ? f[0] : n >= 2 && n <= 4 ? f[1] : f[2]}`;
 
 /** Stránkování ‹ 1 2 3 … 38 › jako ve Všech kartách. */
-export function Pager({ page, pages, onPage }: { page: number; pages: number; onPage: (p: number) => void }) {
-  if (pages <= 1) return <nav className="pager" aria-label="Stránky" />;
-  const set = new Set([1, pages, page - 1, page, page + 1].filter((p) => p >= 1 && p <= pages));
-  if (page <= 3) [2, 3].forEach((p) => p <= pages && set.add(p));
-  const nums = [...set].sort((a, b) => a - b);
-  const out: (number | '…')[] = [];
-  nums.forEach((n, i) => { if (i && n - nums[i - 1] > 1) out.push('…'); out.push(n); });
+/** Stránkování stejné jako ve Všech kartách: po „Zobrazit dalších“ jsou zvýrazněné všechny zobrazené stránky. */
+export function Pager({ page, more = 0, pages, onPage }: { page: number; more?: number; pages: number; onPage: (p: number) => void }) {
+  if (pages <= 1) return <span />;
+  const last = Math.min(pages, page + more);
+  const set = new Set([1, pages]); for (let x = page; x <= last; x++) set.add(x);
+  let a = [...set].sort((x, y) => x - y);
+  a = a.flatMap((x, k) => (k && x - a[k - 1] === 2 ? [x - 1, x] : [x]));
+  const out: React.ReactNode[] = []; let prev = 0;
+  a.forEach((x) => {
+    if (x - prev > 1) out.push(<span key={`d${x}`} className="pgd">…</span>);
+    out.push(<button key={x} type="button" className={`pgn${x >= page && x <= last ? ' on' : ''}`} aria-current={x === page ? 'page' : undefined} onClick={() => onPage(x)}>{x}</button>);
+    prev = x;
+  });
   return (
-    <nav className="pager" aria-label="Stránky">
-      <button type="button" aria-label="Předchozí stránka" disabled={page <= 1} onClick={() => onPage(page - 1)}>{HI.left}</button>
-      {out.map((n, i) => n === '…' ? <button key={`e${i}`} type="button" disabled>…</button>
-        : <button key={n} type="button" className={n === page ? 'on' : ''} aria-current={n === page ? 'page' : undefined} onClick={() => onPage(n)}>{n}</button>)}
-      <button type="button" aria-label="Další stránka" disabled={page >= pages} onClick={() => onPage(page + 1)}>{HI.right}</button>
-    </nav>
+    <div className="pager">
+      <button type="button" className="pgn ar" disabled={page <= 1} onClick={() => onPage(page - 1)} title="Předchozí">‹</button>
+      <span className="pnums">{out}</span>
+      <button type="button" className="pgn ar" disabled={last >= pages} onClick={() => onPage(last + 1)} title="Další stránka">›</button>
+    </div>
   );
 }
 
@@ -255,7 +260,7 @@ export function EventModal({ id, canUndo, onClose, onUndo }: { id: number; canUn
         {!shown.length ? <div className="tr"><span className="hnote">Nic neodpovídá filtru.</span></div> : null}
         <div className="hfoot">
           <span className="fl mono">{rows.length ? `${(page - 1) * P + 1}–${to} z ${rows.length}` : '0'}</span>
-          <Pager page={page + extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
+          <Pager page={page} more={extra} pages={pages} onPage={(p) => { setPage(p); setExtra(0); }} />
           <span className="fr">{to < rows.length ? <button type="button" className="hnext" onClick={() => setExtra(extra + 1)}>Zobrazit dalších {Math.min(P, rows.length - to)}{HI.down}</button> : null}</span>
         </div>
       </div>
