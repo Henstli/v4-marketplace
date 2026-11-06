@@ -107,6 +107,14 @@ function SetModal({ s, preview, onClose }: { s: SetCard; preview?: SetView; onCl
   const [err, setErr] = useState('');
   const [pending, start] = useTransition();
 
+  // stránka pod oknem se neposouvá (ani když kolečko dojede na konec seznamu v okně)
+  useEffect(() => {
+    const el = document.documentElement, sw = window.innerWidth - el.clientWidth;
+    const prev = [el.style.overflow, el.style.paddingRight];
+    el.style.overflow = 'hidden'; if (sw > 0) el.style.paddingRight = `${sw}px`;
+    return () => { el.style.overflow = prev[0]; el.style.paddingRight = prev[1]; };
+  }, []);
+
   useEffect(() => {
     (preview ? Promise.resolve(preview) : setView(s.id)).then((r) => {
       setV(r ?? { cards: [], watch: null, album: null });
