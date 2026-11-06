@@ -182,7 +182,7 @@ export function CardPanel({ listing, shop, onClose, stockHref }: { listing: stri
       </div>
       <div>
         {tl.length ? tl.slice(0, n).map((t, i) => (
-          <div key={i} className="tl">
+          <div key={i} className="htl">
             <span className="ic" style={{ '--c': `var(--c-${t.kind})` } as React.CSSProperties}>{HI[t.kind === 'stock' ? 'stock' : t.kind]}</span>
             <span><b>{t.title}</b><small>{shortDate(t.at)}{t.detail ? ` · ${t.detail}` : ''}</small></span>
             <span className={`imp r ${t.impact == null || !t.arrow ? '' : t.impact < 0 ? 'dn' : 'up'}`}>{t.impact == null ? '' : t.arrow ? arrow(t.impact) : fmtKc(t.impact)}</span>

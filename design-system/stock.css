@@ -1183,9 +1183,9 @@
 .tz-sk .hz .leg{display:flex;gap:16px;font-size:12.5px;color:var(--ink-muted)}
 .tz-sk .hz .leg i{display:inline-block;width:14px;height:0;border-top:2.5px solid var(--c);margin-right:6px;vertical-align:middle}
 .tz-sk .hz .leg i.d{border-top-style:dashed}.tz-sk .hz .leg i.p{width:9px;height:9px;border:0;border-radius:50%;background:var(--accent)}
-.tz-sk .hz .tl{margin:0;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
-.tz-sk .hz .tl:first-child{border-top:0}
-.tz-sk .hz .tl b{font-size:13.5px;font-weight:600;display:block}.tz-sk .hz .tl small{font-size:12.5px;color:var(--ink-muted)}
+.tz-sk .hz .htl{margin:0;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.tz-sk .hz .htl:first-child{border-top:0}
+.tz-sk .hz .htl b{font-size:13.5px;font-weight:600;display:block}.tz-sk .hz .htl small{font-size:12.5px;color:var(--ink-muted)}
 .tz-sk .hz .chip.xs{height:26px;font-size:12px;padding:0 10px}
 .tz-sk .hz .pop{position:absolute;z-index:40;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface);padding:6px;box-shadow:0 20px 50px rgba(0,0,0,.45)}
 .tz-sk .hz .mi{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:10px;width:100%;text-align:left;color:var(--ink)}
