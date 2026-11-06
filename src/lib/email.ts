@@ -158,3 +158,18 @@ export async function sendSupportEmail(
     return false;
   }
 }
+
+/** K prověření ve skladu obchodu: jednou denně souhrn nových neobvyklých změn (vedoucímu, případně tomu, kdo je udělal). */
+export async function sendStockFlagsEmail(to: string, shopName: string, flags: Array<{ title: string; detail: string | null; who: string | null }>, href: string): Promise<void> {
+  const list = flags
+    .slice(0, 15)
+    .map((f) => `<li style="margin:0 0 8px"><b>${escapeHtml(f.title)}</b>${f.detail ? `<br><span style="color:#8B949E">${escapeHtml(f.detail)}</span>` : ''}${f.who ? `<br><span style="color:#8B949E">${escapeHtml(f.who)}</span>` : ''}</li>`)
+    .join('');
+  const n = flags.length;
+  await send(to, `${shopName}: ${n === 1 ? '1 změna' : n < 5 ? `${n} změny` : `${n} změn`} k prověření`, layoutHtml(new URL(href).origin, `
+    <h1 style="font-size:20px;margin:0 0 12px">Ve skladu je ${n === 1 ? 'změna' : 'pár změn'} k prověření</h1>
+    <p style="font-size:15px;line-height:1.5;color:#C9D1D9;margin:0 0 12px">Podle pravidel Co hlídat se včera stalo něco neobvyklého. Projděte to v Historii skladu, můžete to označit jako v pořádku nebo vrátit.</p>
+    <ul style="font-size:15px;line-height:1.45;color:#C9D1D9;margin:0 0 20px;padding-left:20px">${list}</ul>
+    ${n > 15 ? `<p style="font-size:14px;color:#8B949E;margin:0 0 16px">a další (${n - 15})</p>` : ''}
+    <a href="${href}" style="display:inline-block;background:#7CF2C8;color:#0E1116;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px">K prověření</a>`));
+}

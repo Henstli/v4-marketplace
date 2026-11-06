@@ -9,12 +9,13 @@ import { GAMES, getGame } from '@/lib/games';
 import { thumbUrl } from '@/lib/images';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
-import { formatDate, formatPrice, plural } from '@/lib/format';
+import { formatDate } from '@/lib/format';
 import { loadReadiness, SellGate } from '@/components/delivery/SellGate';
 import { ListingForm } from './ListingForm';
 import { StockTable } from './StockTable';
 import { StockActions } from './StockModals';
-import { StockHistory, type HistoryEntry } from './StockHistory';
+import { StockHistory } from './StockHistory';
+import { loadHistory, parsePeriod } from './history';
 import { SetsView } from './SetsView';
 import { EMPTY_SUMMARY, countsId, toPage, type StockPageRaw, type StockSummary } from './stock-view';
 import { LiveCount } from './LiveCount';
@@ -34,12 +35,11 @@ import styles from './sell.module.css';
 export const metadata: Metadata = { title: 'Sklad' };
 
 type Props = { searchParams: Promise<{
-  zalozka?: string; druh?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string;
+  zalozka?: string; druh?: string; karta?: string; hledat?: string; sada?: string; obchod?: string; pohled?: string; inventura?: string; tyden?: string; dni?: string; obdobi?: string; od?: string; do?: string;
 }> };
 
 type Tab = 'vse' | 'prodej' | 'odeslat' | 'trh' | 'nesparovane' | 'inventura' | 'historie' | 'hledam' | 'sady' | 'napojeni';
 const TABS: Tab[] = ['vse', 'prodej', 'odeslat', 'trh', 'nesparovane', 'inventura', 'historie', 'hledam', 'sady', 'napojeni'];
-const SOLD = ['confirmed', 'pending_payment', 'paid', 'shipped', 'delivered'];
 const VIEWS: InvView[] = ['mista', 'pocitani', 'kontrola', 'historie', 'plan', 'smeny'];
 
 export default async function StockPage({ searchParams }: Props) {
@@ -202,7 +202,7 @@ export default async function StockPage({ searchParams }: Props) {
         </>
       ) : null}
       {tab === 'odeslat' && ship ? <ShipManager orders={ship.orders} toConfirm={ctx.isOwner ? ship.toConfirm : 0} q={ctx.q} /> : null}
-      {tab === 'historie' ? <History userId={ctx.owner} shop={shop} sales={sp.druh === 'prodeje'} /> : null}
+      {tab === 'historie' ? <History owner={ctx.owner} shop={shop} kind={sp.druh === 'prodeje' ? 'sale' : sp.druh === 'proverit' && shop ? 'flag' : 'all'} canUndo={has('price')} obchod={ctx.isOwner ? null : ctx.owner} sp={sp} /> : null}
       {tab === 'inventura' ? (
         <InventoryViews data={await loadInventory(supabase, ctx.owner, user.id, ctx.ownerName, Math.max(-52, Math.min(52, Number(sp.tyden) || 0)))}
           view={view} invId={sp.inventura ? Number(sp.inventura) : undefined} owner={ctx.owner} me={user.id} perms={[...ctx.perms]} q={ctx.q}
@@ -272,45 +272,13 @@ async function AddCard({ karta, ready, shop, gate, owner }: { karta: string; rea
   );
 }
 
-async function History({ userId, shop, sales }: { userId: string; shop: boolean; sales: boolean }) {
+async function History({ owner, shop, kind, canUndo, obchod, sp }: {
+  owner: string; shop: boolean; kind: 'sale' | 'flag' | 'all'; canUndo: boolean; obchod: string | null; sp: { obdobi?: string; od?: string; do?: string };
+}) {
   const supabase = await createClient();
-  const since = new Date(Date.now() - 365 * 86400000).toISOString();
-  const [{ data: events }, { data: orders }, { data: invs }] = await Promise.all([
-    supabase.from('stock_events').select('id, kind, title, detail, created_at, undo, sample, undone_at, actor_id')
-      .eq('owner_id', userId).gte('created_at', since).order('created_at', { ascending: false }).limit(500),
-    supabase.from('orders').select('id, number, total_czk, status, created_at, decided_at, order_items(quantity)')
-      .eq('seller_id', userId).in('status', SOLD).gte('created_at', since).order('created_at', { ascending: false }).limit(300),
-    shop ? supabase.from('inventories').select('id, place, user_id, status, finished_at, lines')
-      .eq('owner_id', userId).in('status', ['review', 'done']).gte('started_at', since).order('started_at', { ascending: false }).limit(200)
-      : Promise.resolve({ data: [] as never[] }),
-  ]);
-  const actors = [...new Set([...(events ?? []).map((e) => e.actor_id), ...(invs ?? []).map((i: { user_id: string | null }) => i.user_id)].filter(Boolean) as string[])];
-  const { data: profs } = actors.length ? await supabase.from('profiles').select('id, display_name').in('id', actors) : { data: [] };
-  const name = new Map(((profs ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
-  type Inv = { id: number; place: string; user_id: string | null; status: string; finished_at: string | null; lines: { expected: number; counted: number | null }[] };
-  const entries: HistoryEntry[] = [
-    ...(events ?? []).map((e) => ({
-      key: `e${e.id}`, kind: e.kind as HistoryEntry['kind'], title: e.title, detail: e.detail, at: e.created_at,
-      who: e.actor_id ? name.get(e.actor_id) ?? null : null,
-      eventId: e.id, canUndo: e.undo != null, undone: !!e.undone_at, sample: e.sample as HistoryEntry['sample'],
-    })),
-    ...(orders ?? []).map((o) => {
-      const pcs = ((o.order_items ?? []) as { quantity: number }[]).reduce((s, i) => s + i.quantity, 0);
-      return {
-        key: `o${o.id}`, kind: 'sale' as const, at: o.decided_at ?? o.created_at, href: `/objednavky/${o.number}`, who: null,
-        title: `Prodej · objednávka č. ${o.number}`, detail: `${plural(pcs, ['kus', 'kusy', 'kusů'])} · ${formatPrice(o.total_czk)}`,
-      };
-    }),
-    ...((invs ?? []) as Inv[]).filter((i) => i.finished_at).map((i) => {
-      const diff = (i.lines ?? []).filter((l) => l.counted != null && l.counted !== l.expected).length;
-      return {
-        key: `i${i.id}`, kind: 'inv' as const, at: i.finished_at!, who: i.user_id ? name.get(i.user_id) ?? null : null,
-        href: `/prodat?zalozka=inventura&pohled=historie`,
-        title: `Inventura ${i.place}`, detail: i.status === 'review' ? 'Čeká na schválení rozdílu' : diff ? `${plural(diff, ['rozdíl', 'rozdíly', 'rozdílů'])}` : 'Vše sedí',
-      };
-    }),
-  ].sort((a, b) => b.at.localeCompare(a.at));
-  return <StockHistory entries={entries} shop={shop} initialKind={sales ? 'sale' : 'all'} />;
+  const period = parsePeriod(sp.obdobi, sp.od, sp.do);
+  const data = await loadHistory(supabase, owner, shop, period);
+  return <StockHistory data={data} shop={shop} canUndo={canUndo} owner={owner} obchod={obchod} initialKind={kind} />;
 }
 
 type SetRow = { set_id: string; code: string; name: string; game_id: string; owned: number; total: number };
