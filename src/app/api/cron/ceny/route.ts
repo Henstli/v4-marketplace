@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { refreshCatalog } from '@/lib/catalog-refresh';
+import { flushStockFlags } from '@/lib/stock-flags';
 
 // Denní tržní ceny + automatické ceny: jednou za noc (3:00 v Praze v zimě, 4:00 v létě) přepočítá ceny obchodů,
 // které je mají zapnuté. Každý přepočet je v Historii skladu a jde vrátit.
@@ -17,5 +18,7 @@ export async function GET(request: Request) {
   const { data, error } = await admin.rpc('stock_autoprice_run');
   if (error) return Response.json({ error: error.message }, { status: 500 });
   if (Number(data) > 0) refreshCatalog();
-  return Response.json({ changed: Number(data ?? 0) });
+  // K prověření: nové neobvyklé změny ve skladech obchodů a denní e-mail vedoucím (Historie › Co hlídat).
+  const flagged = await flushStockFlags('https://www.v4cards.com').catch((e) => { console.error('flushStockFlags', e); return 0; });
+  return Response.json({ changed: Number(data ?? 0), flagged });
 }

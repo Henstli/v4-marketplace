@@ -320,7 +320,6 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       <div className="stc" onClick={det(2)} title="Podrobnosti"><small>Na prodej<em>{pct(t.onSale, t.pcs)} % sbírky</em></small><b>{nf(t.onSale)} ks</b></div>
       <div className="stc" onClick={valOpen} title="Vývoj hodnoty"><small>Hodnota nabídky</small><b>{kc(t.offer)}</b></div>
       <div className="stc" onClick={() => setStripModal('sold')} title="Prodeje"><small>Tržby<em style={{ color: 'var(--ink-muted)' }}>za 30 dní</em></small><b>{kc(stats.sold30.sum)}</b></div>
-      <div className="stc" onClick={() => setStripModal('ord')} title="Objednávky"><small>Objednávky{stats.ordersWaiting ? <em>{stats.ordersWaiting} čeká na vás</em> : null}</small><b>{nf(stats.orders)}</b></div>
     </div>
   );
   else if (shop && sale) strip = (

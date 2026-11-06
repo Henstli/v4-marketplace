@@ -1,4 +1,5 @@
-import { getSignedInUser } from '@/lib/auth';
+import { getCurrentUser, getSignedInUser } from '@/lib/auth';
+import { historyDoc } from './history-pdf';
 import { loadStock, owned } from '../data';
 import { getGame } from '@/lib/games';
 import { csvLine, TEMPLATE_HEADER } from '@/lib/import/rows';
@@ -12,14 +13,14 @@ type Pick = ((id: string) => boolean) | null;
 // Export skladu: druh (csv, pojisteni, ucetni, deckbuilder), volitelně jen vybrané řádky (ids) a sklad obchodu (obchod, právo Napojení).
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
-  return run(sp.get('druh'), sp.get('ids'), sp.get('obchod'));
+  return run(sp.get('druh'), sp.get('ids'), sp.get('obchod'), sp);
 }
 export async function POST(req: Request) {
   const f = await req.formData();
   return run(String(f.get('druh') ?? '') || null, String(f.get('ids') ?? '') || null, String(f.get('obchod') ?? '') || null);
 }
 
-async function run(druh: string | null, idsRaw: string | null, obchod: string | null) {
+async function run(druh: string | null, idsRaw: string | null, obchod: string | null, sp?: URLSearchParams) {
   const user = await getSignedInUser();
   if (!user) return new Response('Nejdřív se přihlaste.', { status: 401 });
   const supabase = await createClient();
@@ -32,6 +33,10 @@ async function run(druh: string | null, idsRaw: string | null, obchod: string | 
   }
   const ids = idsRaw ? new Set(idsRaw.split(',').filter((x) => UUID.test(x)).slice(0, 10000)) : null;
   const pick: Pick = ids ? (id) => ids.has(id) : null;
+  if (druh === 'historie') {
+    const me = await getCurrentUser();
+    return historyDoc(supabase, owner, sp?.get('od') ?? null, sp?.get('do') ?? null, me?.displayName ?? '');
+  }
   if (druh === 'pojisteni') return insuranceDoc(supabase, owner, pick, idsRaw ?? '', obchod ?? '');
   if (druh === 'pojisteni_csv') return insurance(supabase, owner, pick);
   if (druh === 'ucetni') return accounting(supabase, owner);
