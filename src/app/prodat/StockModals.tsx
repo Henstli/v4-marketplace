@@ -55,7 +55,7 @@ const XI = {
 export function ExportModal({ shop, selected, filtered, total, value, obchod, onClose }: {
   shop: boolean; selected: string[]; filtered: string[] | null; total: number; value?: number | null; obchod?: string | null; onClose: () => void;
 }) {
-  const [what, setWhat] = useState<'sel' | 'flt' | 'all'>(selected.length ? 'sel' : 'all');
+  const [what, setWhat] = useState<'sel' | 'flt' | 'all'>(selected.length ? 'sel' : filtered ? 'flt' : 'all');
   const [ef, setEf] = useState<'table' | 'deckbuilder' | 'ucetni' | 'pojisteni'>('table');
   const [tf, setTf] = useState<'csv' | 'xlsx'>('csv');
   const F: { k: typeof ef; ic: React.ReactNode; n: string; d: string; t: React.ReactNode }[] = [
