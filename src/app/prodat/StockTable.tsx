@@ -707,7 +707,7 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
       {stripModal === 'sold' || stripModal === 'ord' ? <OrdersModal owner={owner} sold={stripModal === 'sold'} onClose={() => setStripModal(null)}
         allHref={stripModal === 'sold' ? salesHref : ordersHref} allLabel={stripModal === 'sold' ? 'Celá historie prodejů' : shop ? 'Otevřít K odeslání' : 'Všechny objednávky'} /> : null}
       {stripModal === 0 || stripModal === 1 || stripModal === 2 ? <StockDetailModal owner={owner} k={stripModal} shop={shop} onClose={() => setStripModal(null)} /> : null}
-      {modal === 'export' ? <ExportModal shop={shop} selected={selItems.map((x) => x.id)} filtered={exportIds} total={sum.total} onClose={() => setModal(null)} /> : null}
+      {modal === 'export' ? <ExportModal shop={shop} selected={selItems.map((x) => x.id)} filtered={fAny ? exportIds : null} total={sum.total} value={sum.val} obchod={owner} onClose={() => setModal(null)} /> : null}
       {modal === 'bmore' ? (
         <Modal title="Další akce" onClose={() => setModal(null)} foot={<button type="button" className="btn" onClick={() => setModal(null)}>Zavřít</button>}>
           <div className="opt">

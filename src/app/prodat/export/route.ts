@@ -6,11 +6,12 @@ import { csvLine, TEMPLATE_HEADER } from '@/lib/import/rows';
 import { createClient } from '@/lib/supabase/server';
 import { insuranceHtml } from './insurance';
 import { LANGUAGE_NAMES, type Language } from '@/lib/types';
+import { xlsx } from '@/lib/xlsx';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Pick = ((id: string) => boolean) | null;
 
-// Export skladu: druh (csv, pojisteni, ucetni, deckbuilder), volitelně jen vybrané řádky (ids) a sklad obchodu (obchod, právo Napojení).
+// Export skladu: druh (csv, xlsx, pojisteni, ucetni, deckbuilder), volitelně jen vybrané řádky (ids) a sklad obchodu (obchod, právo Napojení).
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   return run(sp.get('druh'), sp.get('ids'), sp.get('obchod'), sp);
@@ -43,15 +44,23 @@ async function run(druh: string | null, idsRaw: string | null, obchod: string | 
   if (druh === 'deckbuilder') return deckbuilder(supabase, owner, pick);
   // Stejné sloupce jako šablona, takže jde upravit a nahrát zpátky. Počet = všechny kusy, které máte.
   const rows = (await loadStock(supabase, owner)).filter((r) => owned(r) > 0 && (!pick || pick(r.id)));
-  const lines = [
-    csvLine(TEMPLATE_HEADER),
-    ...rows.map((r) => csvLine([
-      r.card?.game ? getGame(r.card.game)?.name ?? r.card.game : '',
-      r.card?.name, r.card?.setCode, r.card?.setName, r.card?.number,
-      r.condition, LANGUAGE_NAMES[r.language as Language] ?? r.language, r.price ?? (r.quantity > 0 ? 'dohodou' : ''), owned(r), '', '',
-    ])),
-  ];
-  return csvFile(lines, 'sklad');
+  const table = rows.map((r) => [
+    r.card?.game ? getGame(r.card.game)?.name ?? r.card.game : '',
+    r.card?.name ?? '', r.card?.setCode ?? '', r.card?.setName ?? '', r.card?.number ?? '',
+    r.condition, LANGUAGE_NAMES[r.language as Language] ?? r.language, r.price ?? (r.quantity > 0 ? 'dohodou' : ''), owned(r), '', '',
+  ]);
+  if (druh === 'xlsx') {
+    const day = new Date().toISOString().slice(0, 10);
+    const file = xlsx([TEMPLATE_HEADER, ...table], 'Sklad', [14, 34, 10, 30, 10, 8, 12, 12, 11, 10, 20]);
+    return new Response(file as BodyInit, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="v4cards-sklad-${day}.xlsx"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+  return csvFile([csvLine(TEMPLATE_HEADER), ...table.map((r) => csvLine(r))], 'sklad');
 }
 
 // Přehled pro pojištění: všechny kusy (na prodej i mimo prodej) s tržní hodnotou; obchod navíc podle míst a s nákupní cenou.

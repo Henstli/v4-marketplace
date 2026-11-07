@@ -43,42 +43,83 @@ export function StockActions({ shop, owner, ownerName, me, meName, isOwner, role
   );
 }
 
-/** Exportovat: co (vybrané, podle filtrů, všechno) a v jakém formátu. */
-export function ExportModal({ shop, selected, filtered, total, obchod, onClose }: {
-  shop: boolean; selected: string[]; filtered: string[] | null; total: number; obchod?: string | null; onClose: () => void;
+const XI = {
+  table: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></svg>,
+  deck: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="6" y="3" width="12" height="17" rx="2" /><path d="M3 7v12a2 2 0 0 0 2 2h9" /></svg>,
+  acc: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>,
+  ins: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" /></svg>,
+  dl: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>,
+  open: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>,
+};
+
+/** Exportovat: co (vybrané jen při výběru, podle filtrů jen při filtru, všechno) a formát jako řádky v jednom rámečku. */
+export function ExportModal({ shop, selected, filtered, total, value, obchod, onClose }: {
+  shop: boolean; selected: string[]; filtered: string[] | null; total: number; value?: number | null; obchod?: string | null; onClose: () => void;
 }) {
   const [what, setWhat] = useState<'sel' | 'flt' | 'all'>(selected.length ? 'sel' : 'all');
-  const F: [string, string, string][] = shop
-    ? [['csv', 'CSV', 'Všechny sloupce, otevřete v Excelu, jde upravit a nahrát zpátky'], ['deckbuilder', 'Pro deckbuildery', 'Formát sbírky pro Moxfield (karty Magic)'],
-      ['ucetni', 'Přehled pro účetní', 'Hodnota skladu k dnešku podle her (nákupní, prodejní, tržní) a obrat za 12 měsíců'],
-      ['pojisteni', 'Soupis pro pojištění (PDF)', 'Dokument pro pojišťovnu: hodnota k dnešku, jak je určená, nejcennější karty, úplný soupis s místy a nákupní hodnotou, podpis']]
-    : [['csv', 'CSV', 'Všechny sloupce, otevřete v Excelu, jde upravit a nahrát zpátky'], ['deckbuilder', 'Pro deckbuildery', 'Formát sbírky pro Moxfield (karty Magic)'],
-      ['pojisteni', 'Soupis pro pojištění (PDF)', 'Dokument pro pojišťovnu: hodnota k dnešku, jak je určená, nejcennější karty, úplný soupis a podpis']];
-  const [ef, setEf] = useState('csv');
+  const [ef, setEf] = useState<'table' | 'deckbuilder' | 'ucetni' | 'pojisteni'>('table');
+  const [tf, setTf] = useState<'csv' | 'xlsx'>('csv');
+  const F: { k: typeof ef; ic: React.ReactNode; n: string; d: string; t: React.ReactNode }[] = [
+    { k: 'table', ic: XI.table, n: 'Tabulka', d: 'Jde upravit v Excelu a nahrát zpátky', t: null },
+    { k: 'deckbuilder', ic: XI.deck, n: 'Pro deckbuildery', d: 'Moxfield, jen karty Magic', t: 'CSV' },
+    ...(shop ? [{ k: 'ucetni' as const, ic: XI.acc, n: 'Přehled pro účetní', d: 'Hodnota skladu a obrat za 12 měsíců, vždy celý sklad', t: 'CSV' }] : []),
+    { k: 'pojisteni', ic: XI.ins, n: 'Soupis pro pojištění', d: 'Hodnota k dnešku, soupis a podpis', t: 'PDF' },
+  ];
   const ids = what === 'sel' ? selected : what === 'flt' ? filtered ?? [] : null;
+  const n = ef === 'ucetni' ? total : ids ? ids.length : total;
   const form = useRef<HTMLFormElement>(null);
-  const cap = (n: number) => (n > 9999 ? '9999+' : nf(n));
+  const place = shop ? 'Sklad' : 'Sbírka';
+  const kar = (x: number) => `${nf(x)} ${x === 1 ? 'karta' : x > 1 && x < 5 ? 'karty' : 'karet'}`;
+  const sub = what === 'sel' ? `${place} · ${nf(selected.length)} ${selected.length === 1 ? 'vybraná karta' : selected.length < 5 ? 'vybrané karty' : 'vybraných karet'}`
+    : what === 'flt' ? `${place} · ${kar(filtered?.length ?? 0)} podle filtrů` : `${place} · ${kar(total)}`;
+  const druh = ef === 'table' ? (tf === 'xlsx' ? 'xlsx' : '') : ef;
+  const pdf = ef === 'pojisteni';
+  const label = pdf ? 'Otevřít soupis' : ef === 'table' ? `Stáhnout ${tf === 'xlsx' ? 'Excel' : 'CSV'}` : 'Stáhnout';
   return (
-    <Modal title="Exportovat" onClose={onClose} foot={<>
-      <span className="note">{ef === 'ucetni' ? 'Přehled pro účetní je vždy za celý sklad.' : shop ? 'Napojení e-shopů a dopravců najdete v Napojení.' : ''}</span>
+    <Modal cls="xpm" title={<span className="xph">Exportovat<small>{sub}</small></span>} onClose={onClose} foot={<>
+      <span className="xpinfo">{pdf ? `PDF · ${kar(n)}` : `${nf(n)} ${n === 1 ? 'řádek' : n > 1 && n < 5 ? 'řádky' : 'řádků'}`}</span>
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
-      <button type="button" className="btn p" onClick={() => { form.current?.submit(); onClose(); }}>{ef === 'pojisteni' ? 'Otevřít soupis' : 'Stáhnout'}</button>
+      <button type="button" className="btn p" disabled={!n} onClick={() => { form.current?.submit(); onClose(); }}>{pdf ? XI.open : XI.dl}{label}</button>
     </>}>
-      <form ref={form} method="post" action="/prodat/export" target={ef === 'pojisteni' ? '_blank' : undefined} style={{ display: 'none' }}>
-        <input name="druh" value={ef === 'csv' ? '' : ef} readOnly />
+      <form ref={form} method="post" action="/prodat/export" target={pdf ? '_blank' : undefined} style={{ display: 'none' }}>
+        <input name="druh" value={druh} readOnly />
         <input name="ids" value={ids && ef !== 'ucetni' ? ids.join(',') : ''} readOnly />
         <input name="obchod" value={obchod ?? ''} readOnly />
       </form>
-      <div className="f"><label>Co</label>
-        <div className="seg">
-          <button type="button" className={what === 'sel' ? 'on' : ''} disabled={!selected.length} onClick={() => setWhat('sel')}>Vybrané ({nf(selected.length)})</button>
-          {filtered ? <button type="button" className={what === 'flt' ? 'on' : ''} onClick={() => setWhat('flt')}>Podle filtrů ({cap(filtered.length)})</button> : null}
-          <button type="button" className={what === 'all' ? 'on' : ''} onClick={() => setWhat('all')}>Všechno ({cap(total)})</button>
+      <div><div className="xplbl">Co</div>
+        <div className="seg fit xpseg" role="group" aria-label="Co exportovat">
+          {selected.length ? <button type="button" className={what === 'sel' ? 'on' : ''} onClick={() => setWhat('sel')}>Vybrané <i>{nf(selected.length)}</i></button> : null}
+          {filtered ? <button type="button" className={what === 'flt' ? 'on' : ''} onClick={() => setWhat('flt')}>Podle filtrů <i>{nf(filtered.length)}</i></button> : null}
+          <button type="button" className={what === 'all' ? 'on' : ''} onClick={() => setWhat('all')}>{shop ? 'Celý sklad' : 'Celá sbírka'} <i>{nf(total)}</i></button>
         </div>
       </div>
-      <div className="opt">
-        {F.map(([k, n, d]) => <label key={k} className={ef === k ? 'on' : ''} onClick={() => setEf(k)}><span className="rd" /><span>{n}<small>{d}</small></span></label>)}
+      <div><div className="xplbl">Formát</div>
+        <div className="xplist" role="radiogroup" aria-label="Formát">
+          {F.map((f) => (
+            <div key={f.k} role="radio" aria-checked={ef === f.k} tabIndex={0} className={`xpit${ef === f.k ? ' on' : ''}`}
+              onClick={() => setEf(f.k)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEf(f.k); } }}>
+              <span className="xpic">{f.ic}</span>
+              <span className="xptx"><b>{f.n}</b><small>{f.d}</small></span>
+              {f.k === 'table' ? (
+                <span className="seg fit xpsm" role="group" aria-label="Typ souboru" onClick={(e) => { e.stopPropagation(); setEf('table'); }}>
+                  <button type="button" className={tf === 'csv' ? 'on' : ''} onClick={() => setTf('csv')}>CSV</button>
+                  <button type="button" className={tf === 'xlsx' ? 'on' : ''} onClick={() => setTf('xlsx')}>Excel</button>
+                </span>
+              ) : <span className="xptg">{f.t}</span>}
+            </div>
+          ))}
+        </div>
       </div>
+      {pdf ? (
+        <div className="xpdoc">
+          <span className="xppg" aria-hidden="true"><i className="h" /><i /><i className="s" /><i /><i /><i className="s" /><i /></span>
+          <ul>
+            {what === 'all' && value != null ? <li>Hodnota k dnešku <b className="mono">{kc(value)}</b>, podle tržních cen</li> : <li>Hodnota k dnešku podle tržních cen</li>}
+            <li>12 nejcennějších karet s obrázky</li>
+            <li>Úplný soupis {kar(n)}, místo pro podpis</li>
+          </ul>
+        </div>
+      ) : null}
     </Modal>
   );
 }
