@@ -300,9 +300,17 @@ export function StockTable({ owner, initial, summary, mode, shop, ready, canPric
     fetchCard(owner, cardId).then((list) => { remember(list); if (list[0]) setOpen(list[0].id); }).catch(() => undefined);
   };
   const openExport = () => start(async () => {
-    try { setExportIds(await fetchIds(owner, params())); setModal('export'); }
+    try { setExportIds(fAny ? await fetchIds(owner, params()) : []); setModal('export'); }
     catch { setToast({ t: 'Karty se nepodařilo načíst. Zkuste to prosím znovu.', err: true }); }
   });
+  // Tlačítko Exportovat v hlavičce stránky otevře export tabulky, aby znal výběr a filtry.
+  const exportRef = useRef(openExport);
+  useEffect(() => { exportRef.current = openExport; });
+  useEffect(() => {
+    const h = (e: Event) => { e.preventDefault(); exportRef.current(); };
+    window.addEventListener('sk-export', h);
+    return () => window.removeEventListener('sk-export', h);
+  }, []);
 
   // ---- pruh (součty celého skladu počítá databáze)
   const t = sum;

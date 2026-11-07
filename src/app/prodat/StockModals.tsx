@@ -31,7 +31,7 @@ export function StockActions({ shop, owner, ownerName, me, meName, isOwner, role
         {shop && canConn && auto ? (
           <button type="button" className={`btn autob${auto.rules.enabled ? ' on' : ''}`} onClick={() => setM('rules')}>{auto.rules.enabled ? <i className="pulse" /> : null}Automatické ceny</button>
         ) : null}
-        {canConn ? <><button type="button" className="btn" onClick={() => setM('export')}>Exportovat</button><Link className="btn" href={napojeni}>Napojení</Link></> : null}
+        {canConn ? <><button type="button" className="btn" onClick={() => { if (window.dispatchEvent(new Event('sk-export', { cancelable: true }))) setM('export'); }}>Exportovat</button><Link className="btn" href={napojeni}>Napojení</Link></> : null}
         {canAdd ? <button type="button" className="btn p" onClick={() => setM('add')}>+ Přidat karty</button> : null}
       </div>
       {m === 'staff' && team ? <StaffModal owner={owner} ownerName={ownerName} me={me} isOwner={isOwner} team={team} onClose={close} toast={toastFn} /> : null}
