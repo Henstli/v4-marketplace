@@ -1244,3 +1244,26 @@
 .tz-sk .hmod .sw[disabled]{opacity:.5;cursor:default}
 .tz-sk .modal.hmod{width:780px}.tz-sk .modal.hmod.w820{width:820px}.tz-sk .modal.hmod.w720{width:720px}
 .tz-sk .modal.hmod.w760{width:760px}
+/* Exportovat (7. 11.): malý přepínač Co, formáty jako řádky v jednom rámečku, u PDF náhled obsahu */
+.tz-sk .modal.xpm{width:560px}
+.tz-sk .xph{display:flex;flex-direction:column}.tz-sk .xph small{font:400 13px var(--fs);color:var(--ink-muted);margin-top:2px}
+.tz-sk .xplbl{font:600 11.5px var(--fs);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px}
+.tz-sk .xpseg{display:inline-flex;height:34px}.tz-sk .xpseg button{display:inline-flex;align-items:center;gap:7px;font-size:13px}
+.tz-sk .xpseg i,.tz-sk .xpseg button i{font:500 12px var(--fm);font-style:normal;opacity:.8}
+.tz-sk .xplist{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tz-sk .xpit{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 14px;border-top:1px solid var(--line);cursor:pointer}
+.tz-sk .xpit:first-child{border-top:0}
+.tz-sk .xpit:hover{background:var(--surface-sunken)}
+.tz-sk .xpit:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tz-sk .xpic{width:34px;height:34px;border-radius:9px;background:var(--surface-sunken);display:grid;place-items:center;color:var(--ink-muted)}
+.tz-sk .xptx b{display:block;font:600 14px var(--fs)}.tz-sk .xptx small{display:block;color:var(--ink-muted);font-size:12.5px}
+.tz-sk .xptg{font:500 11.5px var(--fm);color:var(--ink-muted)}
+.tz-sk .xpit.on{background:color-mix(in srgb,var(--accent) 6%,transparent);box-shadow:inset 2px 0 0 var(--accent)}
+.tz-sk .xpit.on .xpic{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.tz-sk .xpsm{height:28px}.tz-sk .xpsm button{padding:0 10px;font-size:12px}
+.tz-sk .xpdoc{display:flex;gap:14px;align-items:center;border:1px dashed var(--line-strong);border-radius:12px;padding:12px 14px}
+.tz-sk .xppg{width:46px;height:60px;border-radius:4px;background:#e9edf2;flex:none;padding:6px 5px;display:flex;flex-direction:column;gap:3px}
+.tz-sk .xppg i{display:block;height:3px;border-radius:2px;background:#b9c1cc}.tz-sk .xppg i.h{height:5px;width:60%;background:#5c6672}.tz-sk .xppg i.s{width:70%}
+.tz-sk .xpdoc ul{margin:0;padding:0;list-style:none;font-size:12.5px;color:var(--ink-muted);display:grid;gap:2px}
+.tz-sk .xpdoc ul b{color:var(--ink);font-weight:600}
+.tz-sk .xpinfo{flex:1;font:500 12.5px var(--fm);color:var(--ink-muted)}

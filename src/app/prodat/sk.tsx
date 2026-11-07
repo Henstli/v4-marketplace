@@ -44,13 +44,13 @@ export const Ico = {
 };
 
 /** Okno prototypu: ztmavení, hlavička s křížkem, tělo a patička. */
-export function Modal({ title, wide, onClose, children, foot }: {
-  title: React.ReactNode; wide?: boolean; onClose: () => void; children: React.ReactNode; foot: React.ReactNode;
+export function Modal({ title, wide, cls, onClose, children, foot }: {
+  title: React.ReactNode; wide?: boolean; cls?: string; onClose: () => void; children: React.ReactNode; foot: React.ReactNode;
 }) {
   return (
     <>
       <div className="dim" onClick={onClose} />
-      <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+      <div className={`modal${wide ? ' wide' : ''}${cls ? ` ${cls}` : ''}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
         <div className="mh"><h3>{title}</h3><button type="button" className="cls" onClick={onClose} aria-label="Zavřít">{Ico.x}</button></div>
         <div className="mb">{children}</div>
         <div className="mf">{foot}</div>
