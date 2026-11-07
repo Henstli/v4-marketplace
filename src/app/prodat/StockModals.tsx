@@ -49,7 +49,6 @@ const XI = {
   acc: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>,
   ins: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" /></svg>,
   dl: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>,
-  open: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>,
 };
 
 /** Exportovat: co (vybrané jen při výběru, podle filtrů jen při filtru, všechno) a formát jako řádky v jednom rámečku. */
@@ -74,12 +73,11 @@ export function ExportModal({ shop, selected, filtered, total, value, obchod, on
     : what === 'flt' ? `${place} · ${kar(filtered?.length ?? 0)} podle filtrů` : `${place} · ${kar(total)}`;
   const druh = ef === 'table' ? (tf === 'xlsx' ? 'xlsx' : '') : ef;
   const pdf = ef === 'pojisteni';
-  const label = pdf ? 'Otevřít soupis' : ef === 'table' ? `Stáhnout ${tf === 'xlsx' ? 'Excel' : 'CSV'}` : 'Stáhnout';
   return (
     <Modal cls="xpm" title={<span className="xph">Exportovat<small>{sub}</small></span>} onClose={onClose} foot={<>
       <span className="xpinfo">{pdf ? `PDF · ${kar(n)}` : `${nf(n)} ${n === 1 ? 'řádek' : n > 1 && n < 5 ? 'řádky' : 'řádků'}`}</span>
       <button type="button" className="btn" onClick={onClose}>Zrušit</button>
-      <button type="button" className="btn p" disabled={!n} onClick={() => { form.current?.submit(); onClose(); }}>{pdf ? XI.open : XI.dl}{label}</button>
+      <button type="button" className="btn p" disabled={!n} onClick={() => { form.current?.submit(); onClose(); }}>{XI.dl}Stáhnout</button>
     </>}>
       <form ref={form} method="post" action="/prodat/export" target={pdf ? '_blank' : undefined} style={{ display: 'none' }}>
         <input name="druh" value={druh} readOnly />
